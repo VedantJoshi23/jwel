@@ -1,0 +1,700 @@
+// Jwel — PostgreSQL schema (Prisma)
+// Milestone 4 — Database Engineering · Role: Database Architect
+// Source design: ../../../DATABASE.md (Milestone 2) and ../../../DESIGN.md (Milestone 3)
+//
+// Conventions:
+// - All PKs are UUID (avoids sequential-ID enumeration on public product/order URLs).
+// - Money stored as integer minor units (paise) — never Float/Decimal for currency.
+// - snake_case at the SQL level via @map/@@map; camelCase in the Prisma client.
+// - Soft delete (`deletedAt`) on User, Product, Category, Coupon — preserves
+//   referential integrity for historical Orders after a product is delisted.
+// - Cart/CartItem and ProductVariant are NOT in the milestone's literal entity list
+//   but are load-bearing dependencies already specified in PRODUCT.md (FR-7) and
+//   ARCHITECTURE.md (PDP variant selector) — included so Orders/Inventory have a
+//   real upstream path. Flagged here rather than silently expanded.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "fullTextSearch"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm]
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum MetalType {
+  GOLD
+  GOLD_PLATED
+  SILVER
+  PLATINUM
+  STAINLESS_STEEL
+
+  @@map("metal_type")
+}
+
+enum CertificationType {
+  BIS_HALLMARK
+  IGI
+  GIA
+  SGL
+  HKD
+
+  @@map("certification_type")
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("product_status")
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+
+  @@map("media_type")
+}
+
+enum CollectionType {
+  GOLD
+  DIAMOND
+  SEASONAL
+  EDITORIAL
+
+  @@map("collection_type")
+}
+
+enum CartStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+
+  @@map("cart_status")
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+  FIRST_ORDER
+
+  @@map("discount_type")
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+
+  @@map("order_status")
+}
+
+enum PaymentProvider {
+  STRIPE
+  RAZORPAY
+
+  @@map("payment_provider")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum ReturnReason {
+  SIZE_ISSUE
+  DAMAGED
+  NOT_AS_DESCRIBED
+  CHANGED_MIND
+  OTHER
+
+  @@map("return_reason")
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  REFUND_PROCESSING
+  REFUNDED
+
+  @@map("return_status")
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("moderation_status")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// IDENTITY
+// ──────────────────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique
+  passwordHash    String?   @map("password_hash")
+  name            String?
+  phone           String?
+  role            Role      @default(CUSTOMER)
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  addresses    Address[]
+  cart         Cart?
+  orders       Order[]
+  wishlist     Wishlist?
+  reviews      Review[]
+  productViews ProductView[]
+
+  // Reporting: fast "active customers" / cohort queries exclude soft-deleted.
+  @@index([role])
+  @@index([createdAt], type: Brin)
+  @@map("users")
+}
+
+model Address {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  label     String? // "Home", "Work", etc.
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("IN")
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// CATALOG
+// ──────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String    @unique
+  parentId  String?   @map("parent_id") @db.Uuid
+  sortOrder Int       @default(0) @map("sort_order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+// FR-2/FR-14: curated groupings (Diamond Collections, Gold Collections, seasonal
+// drops, editorial lookbooks) that cut across Category — a Product can belong to
+// many Collections (e.g. a gold necklace can be in both "Gold Collections" and a
+// "Wedding 2026" seasonal collection). Not in the original Milestone-2 ERD;
+// added here because Collections is an explicit required entity this milestone.
+model Collection {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  slug          String         @unique
+  type          CollectionType
+  description   String?
+  heroImageRef  String?        @map("hero_image_ref")
+  isFeatured    Boolean        @default(false) @map("is_featured")
+  startsAt      DateTime?      @map("starts_at")
+  endsAt        DateTime?      @map("ends_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  products CollectionProduct[]
+
+  @@index([type, isFeatured])
+  @@map("collections")
+}
+
+model CollectionProduct {
+  collectionId String   @map("collection_id") @db.Uuid
+  productId    String   @map("product_id") @db.Uuid
+  sortOrder    Int      @default(0) @map("sort_order")
+  addedAt      DateTime @default(now()) @map("added_at")
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+  @@index([productId])
+  @@map("collection_products")
+}
+
+model Product {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  slug                 String            @unique
+  categoryId           String            @map("category_id") @db.Uuid
+  description          String
+  status               ProductStatus     @default(DRAFT)
+  certificationType    CertificationType? @map("certification_type")
+  certificationDocRef  String?           @map("certification_doc_ref")
+  // Denormalized rating aggregates — avoids a COUNT/AVG over `reviews` on every
+  // PLP/PDP read (High Read Load optimization). Recomputed via trigger or
+  // application-layer write-through on Review insert/moderation-approve.
+  avgRating            Decimal           @default(0) @map("avg_rating") @db.Decimal(3, 2)
+  ratingCount          Int               @default(0) @map("rating_count")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+  deletedAt            DateTime?         @map("deleted_at")
+
+  // Full-text search fallback for admin/internal search and as a degraded-mode
+  // path if Elasticsearch is unavailable. Populated by a generated-column
+  // migration (see MIGRATIONS section in DATABASE.md) — not writable from Prisma.
+  searchVector Unsupported("tsvector")? @map("search_vector")
+
+  category              Category             @relation(fields: [categoryId], references: [id])
+  variants              ProductVariant[]
+  media                 ProductMedia[]
+  reviews               Review[]
+  collections           CollectionProduct[]
+  views                 ProductView[]
+  coOccurrencesAsA      ProductCoOccurrence[] @relation("CoOccurrenceA")
+  coOccurrencesAsB      ProductCoOccurrence[] @relation("CoOccurrenceB")
+
+  // Search/read optimizations:
+  @@index([categoryId, status])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  // NOTE: no @@index on `searchVector` here — it's an Unsupported("tsvector")
+  // column populated by a hand-authored raw-SQL migration (see DATABASE.md §8.3),
+  // and its GIN index is created in that same raw migration, not via Prisma.
+  @@map("products")
+}
+
+model ProductVariant {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId           String   @map("product_id") @db.Uuid
+  sku                 String   @unique
+  metal                MetalType
+  purity              String? // e.g. "18K", "925"
+  size                String?
+  weightGrams         Decimal  @map("weight_grams") @db.Decimal(6, 2)
+  basePriceMinorUnits Int      @map("base_price_minor_units")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory Inventory?
+  cartItems CartItem[]
+  orderItems OrderItem[]
+  wishlistItems WishlistItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model ProductMedia {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId  String    @map("product_id") @db.Uuid
+  storageRef String    @map("storage_ref") // opaque StorageProvider key, never a raw URL
+  type       MediaType @default(IMAGE)
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@map("product_media")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// INVENTORY
+// ──────────────────────────────────────────────────────────────────────────
+
+model Inventory {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  variantId         String   @unique @map("variant_id") @db.Uuid
+  quantityOnHand    Int      @default(0) @map("quantity_on_hand")
+  quantityReserved  Int      @default(0) @map("quantity_reserved")
+  lowStockThreshold Int      @default(5) @map("low_stock_threshold")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  // Admin low-stock dashboard reads this constantly — partial index keeps it cheap
+  // even at catalog scale, since most SKUs are not low-stock at any given time.
+  @@index([quantityOnHand, quantityReserved])
+  @@map("inventory_items")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// CART (supporting entity — see header note)
+// ──────────────────────────────────────────────────────────────────────────
+
+model Cart {
+  id         String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?    @unique @map("user_id") @db.Uuid
+  guestToken String?    @unique @map("guest_token")
+  status     CartStatus @default(ACTIVE)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cartId                  String   @map("cart_id") @db.Uuid
+  variantId               String   @map("variant_id") @db.Uuid
+  quantity                Int      @default(1)
+  priceSnapshotMinorUnits Int      @map("price_snapshot_minor_units")
+  giftWrap                Boolean  @default(false) @map("gift_wrap")
+  giftNote                String?  @map("gift_note")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([cartId, variantId])
+  @@index([variantId])
+  @@map("cart_items")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// COUPONS
+// ──────────────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id                      String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String       @unique
+  discountType            DiscountType @map("discount_type")
+  // For PERCENTAGE: 0-100. For FLAT/FIRST_ORDER: minor units. Validated in the
+  // application layer, not the DB, since meaning is type-dependent.
+  value                   Int
+  minOrderAmountMinorUnits Int?        @map("min_order_amount_minor_units")
+  maxRedemptions          Int?         @map("max_redemptions")
+  maxRedemptionsPerUser    Int          @default(1) @map("max_redemptions_per_user")
+  validFrom               DateTime     @map("valid_from")
+  validTo                 DateTime     @map("valid_to")
+  isActive                Boolean      @default(true) @map("is_active")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+  deletedAt                DateTime?   @map("deleted_at")
+
+  redemptions CouponRedemption[]
+  orders      Order[]
+
+  @@index([isActive, validFrom, validTo])
+  @@map("coupons")
+}
+
+// Append-only ledger (never UPDATEd) — lets maxRedemptions/per-user limits be
+// enforced via COUNT() rather than a mutable counter, avoiding race conditions
+// under concurrent checkouts (see ARCHITECTURE.md §7).
+model CouponRedemption {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  couponId   String   @map("coupon_id") @db.Uuid
+  orderId    String   @unique @map("order_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  redeemedAt DateTime @default(now()) @map("redeemed_at")
+
+  coupon Coupon @relation(fields: [couponId], references: [id])
+  order  Order  @relation(fields: [orderId], references: [id])
+
+  @@index([couponId, userId])
+  @@map("coupon_redemptions")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ORDERS
+// ──────────────────────────────────────────────────────────────────────────
+
+model Order {
+  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String      @map("user_id") @db.Uuid
+  status                OrderStatus @default(PLACED)
+  subtotalMinorUnits    Int         @map("subtotal_minor_units")
+  discountMinorUnits    Int         @default(0) @map("discount_minor_units")
+  shippingMinorUnits    Int         @default(0) @map("shipping_minor_units")
+  totalMinorUnits       Int         @map("total_minor_units")
+  couponId              String?     @map("coupon_id") @db.Uuid
+  // RESOLVED (was open in DATABASE.md Milestone 2): shipping address is stored as
+  // an immutable JSON snapshot taken at checkout time, NOT a live FK to Address.
+  // This guarantees historical order accuracy even if the user edits/deletes the
+  // saved address later, with no separate snapshot table needed.
+  shippingAddress       Json        @map("shipping_address")
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+
+  user          User                @relation(fields: [userId], references: [id])
+  coupon        Coupon?             @relation(fields: [couponId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  payment       Payment?
+  couponRedemption CouponRedemption?
+
+  // Reporting/analytics (Analytics module, read-replica target): date-range sales
+  // queries and per-customer order history are the two dominant access patterns.
+  @@index([userId, status])
+  // BRIN ignores sort direction (block-range, not ordered) — intentional, no Desc here.
+  @@index([createdAt], type: Brin)
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId              String   @map("order_id") @db.Uuid
+  variantId            String   @map("variant_id") @db.Uuid
+  // Immutable snapshots — an order must reflect exactly what was sold, regardless
+  // of later catalog edits.
+  productNameSnapshot String   @map("product_name_snapshot")
+  variantSnapshot     Json     @map("variant_snapshot")
+  quantity            Int
+  unitPriceMinorUnits Int      @map("unit_price_minor_units")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant  @relation(fields: [variantId], references: [id])
+  returnRequest ReturnRequest?
+
+  // Reporting: best-selling SKU / "frequently bought together" queries scan this
+  // by variantId across orders.
+  @@index([orderId])
+  @@index([variantId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId    String      @map("order_id") @db.Uuid
+  status     OrderStatus
+  note       String?
+  occurredAt DateTime    @default(now()) @map("occurred_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, occurredAt])
+  @@map("order_status_history")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PAYMENTS
+// ──────────────────────────────────────────────────────────────────────────
+
+model Payment {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId          String          @unique @map("order_id") @db.Uuid
+  provider         PaymentProvider
+  status           PaymentStatus   @default(PENDING)
+  amountMinorUnits Int             @map("amount_minor_units")
+  // Opaque reference to the provider-side transaction. No card/bank data is ever
+  // stored here — PCI scope is delegated entirely to Stripe/Razorpay (SECURITY.md §4).
+  providerRef      String?         @unique @map("provider_ref")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, status])
+  @@map("payments")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RETURNS
+// ──────────────────────────────────────────────────────────────────────────
+
+model ReturnRequest {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderItemId           String       @unique @map("order_item_id") @db.Uuid
+  reason                ReturnReason
+  notes                 String?
+  status                ReturnStatus @default(REQUESTED)
+  refundAmountMinorUnits Int?        @map("refund_amount_minor_units")
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  orderItem     OrderItem            @relation(fields: [orderItemId], references: [id])
+  statusHistory ReturnStatusHistory[]
+
+  @@index([status])
+  @@map("return_requests")
+}
+
+model ReturnStatusHistory {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  returnId   String       @map("return_id") @db.Uuid
+  status     ReturnStatus
+  occurredAt DateTime     @default(now()) @map("occurred_at")
+
+  returnRequest ReturnRequest @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([returnId, occurredAt])
+  @@map("return_status_history")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// REVIEWS
+// ──────────────────────────────────────────────────────────────────────────
+
+model Review {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId        String           @map("product_id") @db.Uuid
+  userId           String           @map("user_id") @db.Uuid
+  rating           Int // application + DB CHECK constraint: 1-5 (see migration notes)
+  title            String?
+  body             String
+  verifiedPurchase Boolean          @default(false) @map("verified_purchase")
+  moderationStatus ModerationStatus @default(PENDING) @map("moderation_status")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // One review per user per product.
+  @@unique([productId, userId])
+  // PDP read path: fetch approved reviews for a product, newest first.
+  @@index([productId, moderationStatus, createdAt(sort: Desc)])
+  @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// WISHLIST
+// ──────────────────────────────────────────────────────────────────────────
+
+model Wishlist {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  shareToken  String   @unique @map("share_token")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items WishlistItem[]
+
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  wishlistId String   @map("wishlist_id") @db.Uuid
+  variantId  String   @map("variant_id") @db.Uuid
+  addedAt    DateTime @default(now()) @map("added_at")
+
+  wishlist Wishlist       @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  variant  ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@unique([wishlistId, variantId])
+  @@index([variantId])
+  @@map("wishlist_items")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RECOMMENDATIONS (FR-14/FR-15) — Milestone 8
+// ──────────────────────────────────────────────────────────────────────────
+
+// Raw view signal, kept as an append-only event log rather than a dedup'd
+// "last viewed" row — recency ranking (most-recently-viewed-first, de-duped
+// in the application layer) needs the full timestamp history, not just one
+// row per product. userId is set for logged-in views; anonymousId (a
+// client-generated id persisted in localStorage, never a real identity) is
+// set for guest views — exactly one of the two is expected to be non-null,
+// enforced in RecommendationsService, not at the DB level, since Prisma
+// doesn't support a portable partial-unique/XOR constraint here.
+model ProductView {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  anonymousId String?  @map("anonymous_id")
+  productId   String   @map("product_id") @db.Uuid
+  viewedAt    DateTime @default(now()) @map("viewed_at")
+
+  user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, viewedAt(sort: Desc)])
+  @@index([anonymousId, viewedAt(sort: Desc)])
+  @@map("product_views")
+}
+
+// Materialized "frequently bought together" signal — incrementally
+// maintained on every `order.confirmed` event (see RecommendationsService)
+// rather than computed live, since the live query (self-join order_items
+// across the whole order history) gets expensive as order volume grows;
+// this is the one piece of the recommendation engine that's precomputed,
+// the others (trending, personalized) are computed on read. productAId is
+// always the lexicographically smaller of the pair so each unordered pair
+// has exactly one row regardless of purchase order.
+model ProductCoOccurrence {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productAId        String   @map("product_a_id") @db.Uuid
+  productBId        String   @map("product_b_id") @db.Uuid
+  coOccurrenceCount Int      @default(1) @map("co_occurrence_count")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  productA Product @relation("CoOccurrenceA", fields: [productAId], references: [id], onDelete: Cascade)
+  productB Product @relation("CoOccurrenceB", fields: [productBId], references: [id], onDelete: Cascade)
+
+  @@unique([productAId, productBId])
+  @@index([productBId])
+  @@map("product_co_occurrences")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// CMS (FR-23) — Milestone 10
+// ──────────────────────────────────────────────────────────────────────────
+
+// PRODUCT.md §11 deferred FR-23 CMS entirely out of MVP scope ("admin can
+// ship banner/content changes via deploys until then") — Milestone 10's
+// Admin Portal brief explicitly asks for a CMS module, so this implements
+// the minimal real slice (homepage banners) rather than the full scope
+// (category landing content, lookbook/editorial pages), which remains
+// deferred. See BACKEND.md §10 for what's in vs. out.
+model Banner {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title     String
+  imageRef  String    @map("image_ref")
+  linkUrl   String?   @map("link_url")
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  startsAt  DateTime? @map("starts_at")
+  endsAt    DateTime? @map("ends_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}

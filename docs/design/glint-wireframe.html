@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  html,body{margin:0;padding:0;}
+  *{box-sizing:border-box;}
+</style>
+</helmet>
+
+<div style="min-width:100%; min-height:100vh; width:max-content; box-sizing:border-box; padding:56px; background:#F0E8D8; font-family:Helvetica,Arial,sans-serif; color:#1C0A2E;">
+
+  <div style="margin-bottom:44px; max-width:760px;">
+    <div style="font:600 12px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.22em; color:#8A7240; margin-bottom:14px;">WIREFRAME · v1</div>
+    <div style="font:700 40px/1.05 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">GLINT — fashion jewelry storefront</div>
+    <div style="font:400 16px/1.6 Helvetica,Arial,sans-serif; color:#6B5030; margin-top:14px;">Low-fi flow reimagined from the e-commerce reference. Seven desktop frames: homepage (+ alt hero), shop grid, category, product detail, bag, and checkout. Grayscale placeholders mark imagery; annotations are monospace.</div>
+  </div>
+
+  <div style="display:flex; gap:64px; align-items:flex-start;">
+
+    <!-- ============ FRAME 01 · HOMEPAGE ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">01 · HOMEPAGE</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span>Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+
+        <!-- hero -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; background:#F4EDDD;">
+          <div style="min-height:380px; background:repeating-linear-gradient(45deg,#E4D9C0 0 11px,#D4C8A4 11px 22px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 12px/1.4 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.05em; text-align:center;">[ hero campaign image ]</div>
+          <div style="padding:56px 48px; display:flex; flex-direction:column; justify-content:center;">
+            <div style="font:700 44px/1.05 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">Everyday shine,<br>zero rules.</div>
+            <div style="font:400 15px/1.65 Helvetica,Arial,sans-serif; color:#5E4820; margin-top:18px; max-width:380px;">Hoops, chains, stacking rings and statement studs — trend-led pieces designed to layer, mix and wear on repeat.</div>
+            <div style="background:#1F0A3D; color:#fff; padding:15px 30px; align-self:flex-start; margin-top:26px; font:600 14px/1 Helvetica,Arial,sans-serif;">Shop now</div>
+          </div>
+        </div>
+
+        <!-- category trio -->
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px; padding:44px 32px;">
+          <div>
+            <div style="height:200px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9D0B8 11px 22px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 11px/1 ui-monospace,monospace;">[ category ]</div>
+            <div style="text-align:center; margin-top:14px; font:500 17px/1 Helvetica,Arial,sans-serif;">Earrings</div>
+          </div>
+          <div>
+            <div style="height:200px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9D0B8 11px 22px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 11px/1 ui-monospace,monospace;">[ category ]</div>
+            <div style="text-align:center; margin-top:14px; font:500 17px/1 Helvetica,Arial,sans-serif;">Necklaces</div>
+          </div>
+          <div>
+            <div style="height:200px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9D0B8 11px 22px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 11px/1 ui-monospace,monospace;">[ category ]</div>
+            <div style="text-align:center; margin-top:14px; font:500 17px/1 Helvetica,Arial,sans-serif;">Rings</div>
+          </div>
+        </div>
+
+        <!-- just in -->
+        <div style="background:#EDE5CE; padding:48px 32px;">
+          <div style="text-align:center; font:700 36px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.01em;">Just in!</div>
+          <div style="text-align:center; font:400 15px/1 Helvetica,Arial,sans-serif; color:#5E4820; margin-top:10px;">Browse our newest drops</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:32px;">
+            <div style="background:#fff; padding:24px; position:relative;">
+              <div style="position:absolute; top:14px; left:14px; width:62px; height:62px; border-radius:50%; border:1px solid #1F0A3D; display:flex; align-items:center; justify-content:center; text-align:center; font:600 8px/1.2 ui-monospace,monospace; background:#fff;">NEW<br>DROP</div>
+              <div style="height:150px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div>
+              <div style="text-align:center; font:700 19px/1 Helvetica,Arial,sans-serif; margin-top:18px;">Twist Hoops</div>
+              <div style="text-align:center; font:400 13px/1.6 Helvetica,Arial,sans-serif; color:#6B5030; margin-top:10px;">Chunky 18k-gold-plated hoops with a sculptural twist. The go-anywhere pair you'll never take off.</div>
+              <div style="background:#1F0A3D; color:#fff; text-align:center; padding:12px; margin-top:16px; font:600 13px/1 Helvetica,Arial,sans-serif;">Buy now</div>
+            </div>
+            <div style="background:#fff; padding:24px;">
+              <div style="height:150px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div>
+              <div style="text-align:center; font:700 19px/1 Helvetica,Arial,sans-serif; margin-top:18px;">Rope Chain</div>
+              <div style="text-align:center; font:400 13px/1.6 Helvetica,Arial,sans-serif; color:#6B5030; margin-top:10px;">A medium-weight rope chain that layers effortlessly or stands strong on its own. Tarnish-resistant finish.</div>
+              <div style="background:#1F0A3D; color:#fff; text-align:center; padding:12px; margin-top:16px; font:600 13px/1 Helvetica,Arial,sans-serif;">Buy now</div>
+            </div>
+            <div style="background:#fff; padding:24px; position:relative;">
+              <div style="position:absolute; top:14px; left:14px; width:62px; height:62px; border-radius:50%; border:1px solid #1F0A3D; display:flex; align-items:center; justify-content:center; text-align:center; font:600 8px/1.2 ui-monospace,monospace; background:#fff;">NEW<br>DROP</div>
+              <div style="height:150px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div>
+              <div style="text-align:center; font:700 19px/1 Helvetica,Arial,sans-serif; margin-top:18px;">Stack Set</div>
+              <div style="text-align:center; font:400 13px/1.6 Helvetica,Arial,sans-serif; color:#6B5030; margin-top:10px;">Five mix-and-match rings in one set. Stack them up or spread them across both hands.</div>
+              <div style="background:#1F0A3D; color:#fff; text-align:center; padding:12px; margin-top:16px; font:600 13px/1 Helvetica,Arial,sans-serif;">Buy now</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- subscription -->
+        <div style="padding:52px 32px; text-align:center;">
+          <div style="font:700 36px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.01em;">Love our pieces?</div>
+          <div style="font:400 15px/1.6 Helvetica,Arial,sans-serif; color:#5E4820; margin:14px auto 0; max-width:480px;">Join the monthly drop box and save 30%. A fresh trend-led piece every month — skip or cancel anytime, one click.</div>
+          <div style="display:flex; justify-content:center; gap:80px; margin-top:36px;">
+            <div style="text-align:center;"><div style="width:78px; height:78px; border-radius:14px; background:#EDE5C0; margin:0 auto; display:flex; align-items:center; justify-content:center; font:400 11px/1.2 ui-monospace,monospace; color:#A09060;">[ icon ]</div><div style="font:500 13px/1 Helvetica,Arial,sans-serif; margin-top:12px;">Pick your style</div></div>
+            <div style="text-align:center;"><div style="width:78px; height:78px; border-radius:14px; background:#EDE5C0; margin:0 auto; display:flex; align-items:center; justify-content:center; font:400 11px/1.2 ui-monospace,monospace; color:#A09060;">[ icon ]</div><div style="font:500 13px/1 Helvetica,Arial,sans-serif; margin-top:12px;">Choose frequency</div></div>
+            <div style="text-align:center;"><div style="width:78px; height:78px; border-radius:14px; background:#EDE5C0; margin:0 auto; display:flex; align-items:center; justify-content:center; font:400 11px/1.2 ui-monospace,monospace; color:#A09060;">[ icon ]</div><div style="font:500 13px/1 Helvetica,Arial,sans-serif; margin-top:12px;">Cancel anytime</div></div>
+          </div>
+          <div style="background:#1F0A3D; color:#fff; padding:14px 30px; display:inline-block; margin-top:30px; font:600 14px/1 Helvetica,Arial,sans-serif;">Subscribe now</div>
+          <div style="font:400 12px/1 Helvetica,Arial,sans-serif; color:#A09060; margin-top:18px; text-decoration:underline;">Existing subscriber? Change your preferences here.</div>
+        </div>
+
+        <!-- bestsellers -->
+        <div style="background:#F4EDDD; padding:48px 32px; display:grid; grid-template-columns:1fr 1.4fr; gap:40px; align-items:center;">
+          <div>
+            <div style="font:700 36px/1.05 Helvetica,Arial,sans-serif; letter-spacing:-0.01em;">Try our bestsellers</div>
+            <div style="font:400 14px/1.7 Helvetica,Arial,sans-serif; color:#5E4820; margin-top:14px; max-width:320px;">The pieces customers keep coming back for — tried, tested and tarnish-proof. Quietly doing the most since day one.</div>
+          </div>
+          <div style="display:flex; gap:20px; align-items:center;">
+            <div style="background:#fff; padding:16px; width:200px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="text-align:center; background:#EDE5C0; display:inline-block; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:14px auto 0; display:block; width:max-content;">₹2,399</div><div style="text-align:center; font:600 16px/1 Helvetica,Arial; margin-top:10px;">Pearl Drops</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Bestselling earring</div></div>
+            <div style="background:#fff; padding:16px; width:200px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="text-align:center; background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:14px auto 0; display:block; width:max-content;">₹1,999</div><div style="text-align:center; font:600 16px/1 Helvetica,Arial; margin-top:10px;">Curb Bracelet</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Everyday staple</div></div>
+            <div style="font:300 32px/1 Helvetica,Arial; color:#A09060;">›</div>
+          </div>
+        </div>
+
+        <!-- footer -->
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div>
+            <div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div>
+            <div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div>
+            <div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div>
+            <div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div>
+          </div>
+          <div>
+            <div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div>
+            <div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div>
+            <div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div>
+          </div>
+          <div style="display:flex; gap:48px;">
+            <div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div>
+            <div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============ FRAME 01b · HOMEPAGE ALT HERO ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">01b · HOMEPAGE — ALT FULL-BLEED HERO</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid rgba(255,255,255,0);">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span>Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+        <!-- full bleed hero with overlay text -->
+        <div style="position:relative; min-height:460px; background:repeating-linear-gradient(45deg,#DDD4BC 0 13px,#D0C4A4 13px 26px); display:flex; align-items:center; justify-content:center;">
+          <div style="position:absolute; top:18px; left:50%; transform:translateX(-50%); font:500 11px/1 ui-monospace,monospace; color:#8f8f8f;">[ full-bleed lifestyle image ]</div>
+          <div style="background:#fff; padding:48px 56px; text-align:center; max-width:520px; box-shadow:0 2px 20px rgba(0,0,0,.08);">
+            <div style="font:600 11px/1 ui-monospace,monospace; letter-spacing:.24em; color:#A09060;">SUMMER DROP 2026</div>
+            <div style="font:700 46px/1.04 Helvetica,Arial,sans-serif; letter-spacing:-0.02em; margin-top:16px;">Everyday shine,<br>zero rules.</div>
+            <div style="font:400 15px/1.6 Helvetica,Arial,sans-serif; color:#5E4820; margin-top:16px;">Trend-led pieces designed to layer, mix and wear on repeat.</div>
+            <div style="display:flex; gap:14px; justify-content:center; margin-top:28px;">
+              <div style="background:#1F0A3D; color:#fff; padding:15px 30px; font:600 14px/1 Helvetica,Arial;">Shop new in</div>
+              <div style="border:1.5px solid #1F0A3D; padding:15px 30px; font:600 14px/1 Helvetica,Arial;">Bestsellers</div>
+            </div>
+          </div>
+        </div>
+        <!-- quick category strip -->
+        <div style="display:flex; justify-content:center; gap:14px; padding:26px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1px solid #C8BA8A; padding:10px 22px; border-radius:30px; font:500 14px/1 Helvetica,Arial;">Earrings</div>
+          <div style="border:1px solid #C8BA8A; padding:10px 22px; border-radius:30px; font:500 14px/1 Helvetica,Arial;">Necklaces</div>
+          <div style="border:1px solid #C8BA8A; padding:10px 22px; border-radius:30px; font:500 14px/1 Helvetica,Arial;">Rings</div>
+          <div style="border:1px solid #C8BA8A; padding:10px 22px; border-radius:30px; font:500 14px/1 Helvetica,Arial;">Bracelets</div>
+          <div style="border:1px solid #C8BA8A; padding:10px 22px; border-radius:30px; font:500 14px/1 Helvetica,Arial;">Sets</div>
+        </div>
+        <div style="padding:44px 32px; text-align:center; color:#A09060; font:400 13px/1.6 ui-monospace,monospace;">[ rest of page identical to 01 — Just in / Subscription / Bestsellers / Footer ]</div>
+      </div>
+    </div>
+
+    <!-- ============ FRAME 02 · SHOP ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">02 · SHOP — GRID + FILTERS</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span style="border-bottom:2px solid #B8960C; padding-bottom:3px;">Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+        <div style="height:230px; background:repeating-linear-gradient(45deg,#E4D9C0 0 12px,#D4C8A4 12px 24px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 12px/1 ui-monospace,monospace;">[ shop banner image ]</div>
+
+        <div style="padding:32px;">
+          <div style="display:flex; align-items:center; gap:24px; margin-bottom:24px;">
+            <div style="font:700 26px/1 Helvetica,Arial,sans-serif;">Filter</div>
+            <div style="display:flex; gap:14px;">
+              <div style="border:1.5px solid #1F0A3D; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Earrings</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Necklaces</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Rings</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Bracelets</div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:210px 1fr; gap:32px;">
+            <!-- sidebar -->
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Targeted customer <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Price <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Composition ratio <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:14px;">
+                <div style="font:600 14px/1 Helvetica,Arial; margin-bottom:12px;">Metal used</div>
+                <div style="display:flex; flex-direction:column; gap:10px; font:400 13px/1 Helvetica,Arial; color:#4A3020;">
+                  <div style="display:flex; gap:9px; align-items:center;"><span style="width:14px; height:14px; border:1.5px solid #1F0A3D; border-radius:3px; display:inline-block; background:#1F0A3D;"></span>Gold-plated</div>
+                  <div style="display:flex; gap:9px; align-items:center;"><span style="width:14px; height:14px; border:1.5px solid #C4B48A; border-radius:3px; display:inline-block;"></span>Sterling silver</div>
+                  <div style="display:flex; gap:9px; align-items:center;"><span style="width:14px; height:14px; border:1.5px solid #C4B48A; border-radius:3px; display:inline-block;"></span>Stainless steel</div>
+                </div>
+              </div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Type <span style="color:#A09060;">▾</span></div>
+            </div>
+
+            <!-- product grid -->
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#D9CEB0; border:1px solid #D9CEB0;">
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Twist Hoops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹1,249</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Pearl Drops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹2,599</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Huggie Set</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Star Studs</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Rope Chain</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹849</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Curb Bracelet</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹849</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Signet Ring</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Stack Set</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹1,399</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- bestsellers band -->
+        <div style="background:#F4EDDD; padding:44px 32px; display:grid; grid-template-columns:1fr 1.4fr; gap:40px; align-items:center;">
+          <div>
+            <div style="font:700 34px/1.05 Helvetica,Arial,sans-serif; letter-spacing:-0.01em;">Try our bestsellers</div>
+            <div style="font:400 14px/1.7 Helvetica,Arial,sans-serif; color:#5E4820; margin-top:14px; max-width:320px;">The pieces customers keep coming back for — tried, tested and tarnish-proof.</div>
+          </div>
+          <div style="display:flex; gap:20px; align-items:center;">
+            <div style="background:#fff; padding:16px; width:200px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:14px auto 0; display:block; width:max-content;">₹2,399</div><div style="text-align:center; font:600 16px/1 Helvetica,Arial; margin-top:10px;">Pearl Drops</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Bestselling earring</div></div>
+            <div style="background:#fff; padding:16px; width:200px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:14px auto 0; display:block; width:max-content;">₹1,999</div><div style="text-align:center; font:600 16px/1 Helvetica,Arial; margin-top:10px;">Curb Bracelet</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Everyday staple</div></div>
+            <div style="font:300 32px/1 Helvetica,Arial; color:#A09060;">›</div>
+          </div>
+        </div>
+
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div><div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div><div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div><div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div></div>
+          <div><div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div><div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div><div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div></div>
+          <div style="display:flex; gap:48px;"><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FRAME 03 · CATEGORY ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">03 · CATEGORY — EARRINGS SELECTION</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span style="border-bottom:2px solid #B8960C; padding-bottom:3px;">Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+
+        <!-- split hero -->
+        <div style="display:grid; grid-template-columns:1fr 1fr;">
+          <div style="background:#D9CEB0; padding:56px 48px; display:flex; align-items:center;"><div style="font:700 44px/1.05 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">Earrings<br>Selection</div></div>
+          <div style="min-height:260px; background:repeating-linear-gradient(45deg,#E0D6BC 0 13px,#D4C8A4 13px 26px); display:flex; align-items:center; justify-content:center; color:#8f8f8f; font:500 12px/1 ui-monospace,monospace;">[ category lifestyle image ]</div>
+        </div>
+
+        <div style="padding:32px;">
+          <div style="display:flex; align-items:center; gap:24px; margin-bottom:24px;">
+            <div style="font:700 26px/1 Helvetica,Arial,sans-serif;">Filter</div>
+            <div style="display:flex; gap:14px;">
+              <div style="border:1.5px solid #1F0A3D; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Hoops</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Studs</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Drops</div>
+              <div style="border:1px solid #C8BA8A; padding:11px 22px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Huggies</div>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns:210px 1fr; gap:32px;">
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Targeted customer <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Price <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:14px;">
+                <div style="font:600 14px/1 Helvetica,Arial; margin-bottom:12px; display:flex; justify-content:space-between;">Composition ratio <span style="color:#A09060;">▴</span></div>
+                <div style="display:flex; flex-direction:column; gap:10px; font:400 13px/1 Helvetica,Arial; color:#4A3020;">
+                  <div style="display:flex; gap:9px; align-items:center;"><span style="width:14px; height:14px; border:1.5px solid #1F0A3D; border-radius:3px; background:#1F0A3D;"></span>18k gold over brass</div>
+                  <div style="display:flex; gap:9px; align-items:center;"><span style="width:14px; height:14px; border:1.5px solid #C4B48A; border-radius:3px;"></span>925 sterling</div>
+                </div>
+              </div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Metal used <span style="color:#A09060;">▾</span></div>
+              <div style="border:1px solid #C8BA8A; border-radius:5px; padding:12px 14px; display:flex; justify-content:space-between; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;">Type <span style="color:#A09060;">▾</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:#D9CEB0; border:1px solid #D9CEB0;">
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Twist Hoops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹1,249</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Pearl Drops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹2,599</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Star Studs</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Huggie Set</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Drop Hoops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹849</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Mini Studs</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹849</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Charm Hoops</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹999</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Ear Cuff</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹1,399</div></div>
+              <div style="background:#fff; padding:14px;"><div style="height:120px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="font:500 15px/1 Helvetica,Arial; margin-top:14px;">Crystal Studs</div><div style="background:#EDE5C0; width:max-content; padding:4px 11px; font:500 12px/1 Helvetica,Arial; margin-top:10px;">₹1,149</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div><div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div><div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div><div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div></div>
+          <div><div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div><div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div><div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div></div>
+          <div style="display:flex; gap:48px;"><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FRAME 04 · PRODUCT DETAIL ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">04 · PRODUCT DETAIL</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span style="border-bottom:2px solid #B8960C; padding-bottom:3px;">Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center; padding:18px 32px; font:400 13px/1 Helvetica,Arial; color:#7A6030;">Home <span>›</span> Earrings <span>›</span> <span style="color:#1C0A2E; text-decoration:underline;">Twist Hoops</span></div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:40px; padding:0 32px 8px;">
+          <div style="aspect-ratio:1/1; background:repeating-linear-gradient(45deg,#E4D9C0 0 13px,#D4C8A4 13px 26px); display:flex; align-items:center; justify-content:center; color:#A09060; font:500 12px/1 ui-monospace,monospace;">[ product shot ]</div>
+          <div style="padding:8px 0;">
+            <div style="font:700 42px/1.02 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">Twist Hoops</div>
+            <div style="font:700 18px/1 Helvetica,Arial,sans-serif; margin-top:8px;">18k gold-plated</div>
+            <div style="display:flex; align-items:center; gap:14px; margin-top:18px;">
+              <div style="font:400 22px/1 Helvetica,Arial; color:#1F0A3D; letter-spacing:2px;">★★★★☆</div>
+              <div style="font:400 13px/1 Helvetica,Arial; color:#7A6030;">128 reviews</div>
+            </div>
+            <div style="font:400 14px/1.7 Helvetica,Arial,sans-serif; color:#4A3020; margin-top:20px; max-width:420px;">Chunky sculptural hoops with a smooth twist detail. Hypoallergenic, tarnish-resistant and lightweight enough for all-day wear. The pair you'll reach for on repeat.</div>
+            <div style="display:flex; gap:14px; margin-top:24px;">
+              <div style="border:1.5px solid #1F0A3D; padding:13px 26px; border-radius:6px; font:500 14px/1 Helvetica,Arial;">Gold</div>
+              <div style="border:1px solid #C8BA8A; background:#F2EADC; padding:13px 26px; border-radius:6px; font:500 14px/1 Helvetica,Arial; color:#6A5030;">Silver</div>
+            </div>
+            <div style="font:700 18px/1 Helvetica,Arial; margin-top:28px;">Quantity</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px;">
+              <div style="display:flex; align-items:center; gap:20px; font:400 26px/1 Helvetica,Arial;"><span style="color:#A09060;">−</span><span style="font-weight:500;">1</span><span style="color:#A09060;">+</span></div>
+              <div style="font:700 40px/1 Helvetica,Arial,sans-serif;">₹2,599</div>
+            </div>
+            <div style="background:#1F0A3D; color:#fff; text-align:center; padding:15px; margin-top:22px; font:600 14px/1 Helvetica,Arial;">Add to bag</div>
+          </div>
+        </div>
+
+        <div style="background:#F4EDDD; padding:48px 32px; margin-top:24px;">
+          <div style="text-align:center; font:700 36px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.01em; margin-bottom:32px;">Shop similar</div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:20px;">
+            <div style="background:#fff; padding:18px;"><div style="height:130px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:16px auto 0; display:block; width:max-content;">₹3,749</div><div style="text-align:center; font:600 17px/1 Helvetica,Arial; margin-top:12px;">Pearl Drops</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Limited edition</div></div>
+            <div style="background:#fff; padding:18px;"><div style="height:130px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:16px auto 0; display:block; width:max-content;">₹1,599</div><div style="text-align:center; font:600 17px/1 Helvetica,Arial; margin-top:12px;">Huggie Set</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">New in</div></div>
+            <div style="background:#fff; padding:18px;"><div style="height:130px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:16px auto 0; display:block; width:max-content;">₹4,899</div><div style="text-align:center; font:600 17px/1 Helvetica,Arial; margin-top:12px;">Hoop Bundle</div><div style="text-align:center; font:400 12px/1 Helvetica,Arial; color:#7A6030; margin-top:6px;">Save 20%</div></div>
+            <div style="background:#fff; padding:18px;"><div style="height:130px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px);"></div><div style="background:#EDE5C0; padding:4px 12px; font:500 13px/1 Helvetica,Arial; margin:16px auto 0; display:block; width:max-content;">₹1,899</div><div style="text-align:center; font:600 17px/1 Helvetica,Arial; margin-top:12px;">Star Studs</div></div>
+          </div>
+        </div>
+
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div><div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div><div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div><div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div></div>
+          <div><div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div><div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div><div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div></div>
+          <div style="display:flex; gap:48px;"><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FRAME 05 · SHOPPING BAG ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">05 · SHOPPING BAG</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span>Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; padding:22px 32px 0; font:500 14px/1 Helvetica,Arial; color:#2A1A0A;"><span>‹</span> Back</div>
+        <div style="padding:18px 32px 8px; font:700 40px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">My shopping bag</div>
+
+        <div style="padding:20px 32px;">
+          <div style="display:grid; grid-template-columns:1fr 320px; border:1px solid #D4C8A0;">
+            <div style="display:flex; gap:24px; align-items:center; padding:24px; border-right:1px solid #e4e4e4;">
+              <div style="width:130px; height:100px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px); flex:none;"></div>
+              <div><div style="font:500 22px/1 Helvetica,Arial;">Twist Hoops</div><div style="background:#EDE5C0; width:max-content; padding:5px 13px; font:500 13px/1 Helvetica,Arial; margin-top:12px;">₹2,599</div></div>
+            </div>
+            <div style="display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:20px 24px; border-bottom:1px solid #e4e4e4;"><span style="font:600 18px/1 Helvetica,Arial;">Quantity:</span><span style="font:400 24px/1 Helvetica,Arial; letter-spacing:14px; color:#6A5030;">−&nbsp;&nbsp;1&nbsp;&nbsp;+</span></div>
+              <div style="padding:18px 24px; text-align:right; font:400 14px/1 Helvetica,Arial; color:#6A5030;">Remove</div>
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:14px; margin-top:26px;">
+            <div style="display:flex; align-items:center; gap:11px; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;"><span style="width:16px; height:16px; border:1.5px solid #1F0A3D; border-radius:3px; background:#1F0A3D;"></span>Buying as a gift? Tick here to include gift wrapping.</div>
+            <div style="display:flex; align-items:center; gap:11px; font:400 14px/1 Helvetica,Arial; color:#2A1A0A;"><span style="width:16px; height:16px; border:1.5px solid #C4B48A; border-radius:3px;"></span>Subscribe to our newsletter for limited offers and promotions.</div>
+          </div>
+
+          <div style="display:flex; gap:16px; margin-top:30px;">
+            <div style="background:#1F0A3D; color:#fff; padding:14px 28px; font:600 14px/1 Helvetica,Arial;">Go to checkout</div>
+            <div style="border:1.5px solid #1F0A3D; padding:14px 28px; font:600 14px/1 Helvetica,Arial;">Back to store</div>
+          </div>
+        </div>
+
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; margin-top:30px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div><div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div><div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div><div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div></div>
+          <div><div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div><div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div><div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div></div>
+          <div style="display:flex; gap:48px;"><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ FRAME 06 · CHECKOUT ============ -->
+    <div style="flex:none; width:1080px;">
+      <div style="font:600 13px/1 ui-monospace,'SF Mono',Menlo,monospace; letter-spacing:.14em; color:#7A6030; margin-bottom:14px;">06 · CHECKOUT</div>
+      <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.10); overflow:hidden;">
+        <div style="background:#1F0A3D; color:#fff; text-align:center; padding:11px; font:600 13px/1 Helvetica,Arial,sans-serif; letter-spacing:.03em;">Free shipping on orders over ₹6,249 — use code SHINE75</div>
+        <div style="display:flex; align-items:center; gap:40px; padding:18px 32px; border-bottom:1px solid #E4D9BC;">
+          <div style="border:1.5px solid #B8960C; padding:13px 17px; font:700 16px/1 Helvetica,Arial,sans-serif; letter-spacing:.2em;">GLINT</div>
+          <div style="display:flex; gap:30px; font:500 16px/1 Helvetica,Arial,sans-serif;"><span>Shop</span><span>Subscribe</span><span>About</span></div>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:9px; border:1px solid #1F0A3D; border-radius:5px; padding:11px 14px; width:300px; color:#A09060; font:400 13px/1 Helvetica,Arial,sans-serif;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#A09060" stroke-width="1.5"><circle cx="6" cy="6" r="4.5"></circle><line x1="9.4" y1="9.4" x2="13" y2="13"></line></svg>Search products</div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; padding:22px 32px 4px; font:500 14px/1 Helvetica,Arial; color:#2A1A0A;"><span>‹</span> Back</div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; padding:20px 32px 32px;">
+          <!-- items overview -->
+          <div>
+            <div style="font:700 38px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">Items overview</div>
+            <div style="font:400 13px/1.6 Helvetica,Arial; color:#6B5030; margin-top:12px; max-width:300px;">Your order summary — edit or remove items and pick your preferred delivery type.</div>
+            <div style="border:1px solid #D4C8A0; display:flex; align-items:center; gap:20px; padding:20px; margin-top:22px;">
+              <div style="width:120px; height:90px; background:repeating-linear-gradient(45deg,#EAE0C4 0 11px,#D9CEB0 11px 22px); flex:none;"></div>
+              <div style="flex:1;"><div style="font:500 20px/1 Helvetica,Arial;">Twist Hoops</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#6B5030; margin-top:8px;">Gold-plated<br>Quantity: 1</div></div>
+              <div style="font:700 22px/1 Helvetica,Arial;">₹2,599</div>
+            </div>
+            <div style="font:700 15px/1 Helvetica,Arial; margin-top:26px;">Available Shipping Methods</div>
+            <div style="border:1px solid #1F0A3D; border-radius:7px; padding:14px 16px; margin-top:12px; display:flex; justify-content:space-between; align-items:center; font:400 14px/1 Helvetica,Arial;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:11px; height:11px; border-radius:50%; background:#1F0A3D;"></span>Standard delivery</span><span>Free</span></div>
+            <div style="font:700 15px/1 Helvetica,Arial; margin-top:22px;">Payment Options</div>
+            <div style="border:1px solid #1F0A3D; border-radius:7px; padding:14px 16px; margin-top:12px; display:flex; align-items:center; gap:10px; font:400 14px/1 Helvetica,Arial;"><span style="width:11px; height:11px; border-radius:50%; background:#1F0A3D;"></span>Apple Pay</div>
+          </div>
+
+          <!-- payment details -->
+          <div>
+            <div style="font:700 38px/1 Helvetica,Arial,sans-serif; letter-spacing:-0.02em;">Payment details</div>
+            <div style="font:400 13px/1.6 Helvetica,Arial; color:#6B5030; margin-top:12px;">Fill in your payment details and complete the order.</div>
+            <div style="margin-top:22px; display:flex; flex-direction:column; gap:4px;">
+              <div style="font:400 14px/1 Helvetica,Arial; color:#2A1A0A; padding-top:14px;">Email Address</div><div style="border-bottom:1px solid #C8BA8A; height:14px;"></div>
+              <div style="font:400 14px/1 Helvetica,Arial; color:#2A1A0A; padding-top:14px;">Full Name</div><div style="border-bottom:1px solid #C8BA8A; height:14px;"></div>
+              <div style="font:400 14px/1 Helvetica,Arial; color:#2A1A0A; padding-top:14px;">Address</div><div style="border-bottom:1px solid #C8BA8A; height:14px;"></div>
+              <div style="font:400 14px/1 Helvetica,Arial; color:#2A1A0A; padding-top:14px;">City</div><div style="border-bottom:1px solid #C8BA8A; height:14px;"></div>
+              <div style="font:400 14px/1 Helvetica,Arial; color:#2A1A0A; padding-top:14px;">Zip Code</div><div style="border-bottom:1px solid #C8BA8A; height:14px;"></div>
+            </div>
+            <div style="background:#1F0A3D; color:#fff; text-align:center; padding:15px; margin-top:30px; font:600 14px/1 Helvetica,Arial;">Finish purchase</div>
+          </div>
+        </div>
+
+        <div style="background:#140728; color:#F2EAD4; padding:44px 32px; display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:40px;">
+          <div><div style="font:700 14px/1 Helvetica,Arial; margin-bottom:10px;">Let's stay in touch!</div><div style="font:400 13px/1.6 Helvetica,Arial; color:#C4AA6A; max-width:220px; margin-bottom:22px;">Sign up to our newsletter and get the best deals.</div><div style="border:1.5px solid #7A6030; padding:12px 16px; width:max-content; font:700 14px/1 Helvetica,Arial; letter-spacing:.2em;">GLINT</div><div style="display:flex; gap:12px; margin-top:18px;"><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div><div style="width:22px; height:22px; border-radius:50%; background:#7A6030;"></div></div></div>
+          <div><div style="font:400 13px/1 Helvetica,Arial; color:#C4AA6A; margin-bottom:12px;">Insert your email address here</div><div style="border-bottom:1px solid #7A6030; margin-bottom:22px; height:14px;"></div><div style="border:1.5px solid #E0D4A0; padding:11px 18px; width:max-content; font:600 13px/1 Helvetica,Arial;">Subscribe now</div></div>
+          <div style="display:flex; gap:48px;"><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Help</div>FAQ<br>Customer service<br>Shipping &amp; returns<br>Contact us</div><div style="font:400 13px/2 Helvetica,Arial; color:#BFAA6A;"><div style="font-weight:700; color:#fff; margin-bottom:6px;">Other</div>Privacy Policy<br>Sitemap<br>Subscriptions</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
