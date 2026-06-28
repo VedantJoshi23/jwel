@@ -1,13 +1,14 @@
 # Jwel — Frontend Implementation
 
-**Milestone 6 — Frontend Development · Admin Portal added Milestone 10**
-**Role:** Frontend Lead Engineer (Milestone 6) / Enterprise Admin Platform Engineer (Milestone 10)
+**Milestone 6 — Frontend Development · Admin Portal added Milestone 10 · Test suite added Milestone 11**
+**Role:** Frontend Lead Engineer (Milestone 6) / Enterprise Admin Platform Engineer (Milestone 10) / QA Lead (Milestone 11)
 **Input:** [`DESIGN.md`](DESIGN.md), consuming [`apps/api`](apps/api) (Milestone 5)
 **Location:** [`apps/web`](apps/web) (Next.js 15, App Router)
 **Status:** Implemented and run against a real live backend/database starting
 Milestone 7 (this line was stale until Milestone 10 — see BACKEND.md for the
 pattern of documentation drifting from what's actually been validated). See
-§7 for the Admin Portal added in Milestone 10.
+§7 for the Admin Portal added in Milestone 10, §8 for the test suite added in
+Milestone 11.
 
 ---
 
@@ -159,6 +160,11 @@ cp .env.example .env.local   # NEXT_PUBLIC_API_URL should point at a running app
 npm install                  # root package.json declares pnpm, but every install this
                               # project has actually run has used npm — see BACKEND.md
 npm run dev                   # http://localhost:3000 — Admin Portal at /admin
+
+# Tests (see §8):
+npm run test:cov              # Vitest unit/component tests with the 90% coverage gate
+npx playwright install chromium  # once
+npm run test:e2e              # Playwright — needs apps/api + Postgres already running
 ```
 
 ---
@@ -242,3 +248,84 @@ React form works," and this section says so rather than implying otherwise.
 - Inventory table shows variant ids, not product/variant names — the
   `low-stock` endpoint doesn't join to product data; cross-referencing with
   the Products page is the workaround for now.
+
+---
+
+## 8. Milestone 11 — Test Suite
+
+### 8.1 §7.5's gap, actually closed this time
+Milestone 10 (§7.5) explicitly flagged that no interactive browser testing
+had been done — the Chrome automation tool wasn't available that session,
+so RBAC and the admin pages were verified at the backend/SSR-HTML level
+only, not by actually clicking through a real browser. This milestone closes
+that gap for real: Playwright drives an actual Chromium browser against the
+actual `next dev` server against the actual NestJS API against the actual
+Postgres database for every E2E spec below. Component-level interaction
+(forms, the cart, the variant selector) is covered by Vitest + React Testing
+Library instead, which is real DOM rendering and real event dispatch, just
+not a full browser process.
+
+### 8.2 Two tiers, two different jobs
+- **Unit/component tests** (Vitest + `@testing-library/react`, `*.test.ts(x)`
+  next to the file they test) — pure functions (`formatMinorUnits`, `cn`,
+  cart math), Zustand stores exercised directly (no mocking — `useCartStore`
+  is the real store, reset between tests), every API client wrapper function
+  (asserting the right URL/method/body/headers against a stubbed `fetch`,
+  the same pattern for all 16 `lib/api/*.ts` files), and every component that
+  isn't a thin Server Component passthrough — including Radix-based
+  primitives (`Tabs`, `Checkbox`) and the admin RBAC guard (mocking
+  `next/navigation`'s `useRouter`, asserting the actual redirect target).
+- **E2E tests** (Playwright, `e2e/*.spec.ts`) — three spec files:
+  storefront browsing (homepage, search, PDP, a real nonexistent-slug 404,
+  add-to-cart updating the header badge and cart page), authentication
+  (register, duplicate-email rejection, wrong-password rejection, a full
+  register-then-logout-then-login-again round trip proving the account is
+  real in Postgres, not just in page memory), and admin RBAC (unauthenticated
+  and CUSTOMER-role redirects away from `/admin` and a sub-route).
+
+### 8.3 Coverage: 90% target, met on real numbers
+```
+162 tests, 39 files — 99.95% stmts / 99.08% branches / 98.83% funcs / 99.95% lines
+```
+Enforced via `vitest.config.mts`'s `coverage.thresholds` — `npm run test:cov`
+fails below 90% on any metric, same enforcement mechanism as the backend.
+
+### 8.4 Real bugs/gaps found by writing these tests, not assumed away
+- **Vitest's default test-file glob picked up Playwright's `e2e/*.spec.ts`
+  files** and failed to parse them (`test.describe()` from the wrong test
+  runner's globals) — caught immediately the first time `vitest run
+  --coverage` was run after the E2E specs existed. Fixed with an explicit
+  `exclude: ['**/e2e/**']` in `vitest.config.mts`, not a per-file workaround.
+- **Radix UI's `Tabs` trigger activates on `pointerdown`, not `click`** — a
+  plain `fireEvent.click` in the first attempt at the tabs test never
+  switched the active tab (the DOM dump in the failure showed `data-state`
+  never changed). Fixed by introducing `@testing-library/user-event`, which
+  simulates the full real pointer-event sequence a browser actually
+  dispatches — the *right* fix (matching real interaction semantics), not
+  papering over a real-feeling but synthetic interaction gap with
+  `fireEvent.pointerDown` + `fireEvent.click` (tried first, still didn't
+  work, because Radix's internal sequencing expects more than just those
+  two events in the right order).
+- **`vitest.config.ts` failed outright** (`ESM file cannot be loaded by
+  require`) the first time it tried to load `vite-tsconfig-paths` — `apps/
+  web`'s `package.json` has no `"type": "module"`, so Node's CommonJS
+  resolution couldn't load an ESM-only dependency. Fixed by renaming the
+  config to `vitest.config.mts`, the documented standard fix, rather than
+  adding `"type": "module"` to the whole package (which would have had
+  wider, unreviewed blast radius on Next.js's own build).
+
+### 8.5 What's NOT done
+- **No E2E coverage of the admin CRUD flows themselves** — only RBAC
+  (who can/can't reach `/admin`) is E2E-tested; actually creating a coupon,
+  publishing a product, or importing a CSV through the real admin UI in a
+  real browser has not been exercised end-to-end. Named explicitly, not
+  silently implied by the RBAC tests passing.
+- **No checkout E2E test** — Stripe's placeholder key (a standing gap since
+  Milestone 7) makes a real checkout-to-payment-intent round trip
+  unexercisable without live credentials; add-to-cart and the cart page are
+  E2E-tested, the payment step is not.
+- **No visual regression testing** — component tests assert DOM structure/
+  text/attributes, not pixel output.
+- **CI hasn't run Playwright against a from-scratch CI database** — see
+  BACKEND.md §11.4's matching note; today's E2E suite has only been proven
+  against local dev data.

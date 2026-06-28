@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CouponsService } from './coupons.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
@@ -14,6 +14,7 @@ export class CouponsController {
   constructor(private readonly couponsService: CouponsService) {}
 
   @Post('coupons/validate')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validate a coupon code against the current cart subtotal (FR-8)' })
   validate(@CurrentUser() user: AuthenticatedUser, @Body() dto: ValidateCouponDto) {
     return this.couponsService.validate(dto.code, dto.subtotalMinorUnits, user.userId);

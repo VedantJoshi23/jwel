@@ -1,14 +1,15 @@
 # Jwel — Backend Implementation
 
-**Originally Milestone 5 — Backend Development · Validated and extended in Milestone 7 · Search added in Milestone 8 · Recommendation Engine added in Milestone 9 · Admin Portal backend added in Milestone 10**
-**Role:** Backend Lead Engineer (Milestones 5/7) / Search Engineer (Milestone 8) / ML Engineer (Milestone 9) / Enterprise Admin Platform Engineer (Milestone 10)
+**Originally Milestone 5 — Backend Development · Validated and extended in Milestone 7 · Search added in Milestone 8 · Recommendation Engine added in Milestone 9 · Admin Portal backend added in Milestone 10 · Test suite + CI added in Milestone 11**
+**Role:** Backend Lead Engineer (Milestones 5/7) / Search Engineer (Milestone 8) / ML Engineer (Milestone 9) / Enterprise Admin Platform Engineer (Milestone 10) / QA Lead (Milestone 11)
 **Inputs:** [`PRODUCT.md`](PRODUCT.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), [`DATABASE.md`](DATABASE.md)
 **Location:** [`apps/api`](apps/api) (NestJS)
 **Status:** Implemented **and run end-to-end against a real local PostgreSQL +
 Elasticsearch stack, including real checkout/order data driving live
-recommendations and a real admin-facing dashboard** — see §6 (Milestone 7), §8
-(Milestone 8), §9 (Milestone 9), §10 (Milestone 10) for what was actually
-verified, not just written.
+recommendations and a real admin-facing dashboard, now backed by an automated
+test suite (334 unit + 30 integration tests) enforced in CI** — see §6
+(Milestone 7), §8 (Milestone 8), §9 (Milestone 9), §10 (Milestone 10), §12
+(Milestone 11) for what was actually verified, not just written.
 
 ---
 
@@ -632,7 +633,107 @@ Validated directly against the real running stack:
 
 ---
 
-## 11. How to Run
+## 11. Milestone 11 — Test Suite + CI
+
+### 11.1 Three tiers, deliberately different scopes
+- **Unit tests** (`src/**/*.spec.ts`, Jest) — every service constructed
+  directly with a hand-mocked `PrismaService`/dependencies, no Nest DI
+  container, no database. Fast (the full 334-test suite runs in ~10s),
+  exercises business logic in isolation: coupon discount math, inventory's
+  conditional-UPDATE race-safety contract, the recommendation engine's
+  scoring/fallback branches, the bulk-import CSV parser, the checkout
+  orchestration's compensation path, every controller's delegation to its
+  service. Thin pass-through controllers got unit tests too — not because
+  they have logic worth unit-testing, but because excluding them would have
+  meant either inflating the global coverage target's denominator with
+  untested code or maintaining a growing module-by-module exclusion list;
+  testing them directly was less ongoing maintenance than either.
+- **Integration tests** (`test/*.integration-spec.ts`, separate Jest config)
+  — a real Nest application (`Test.createTestingModule({ imports:
+  [AppModule] })`, the same module graph `main.ts` boots) against a real
+  `jwel_test` Postgres database, exercised through `supertest` HTTP calls.
+  No Prisma mocking anywhere in this tier — these tests exist specifically
+  to catch what unit tests structurally cannot: wrong HTTP status codes,
+  guards not actually wired into the request pipeline, a DTO validation
+  rule that doesn't match what the controller advertises.
+- **E2E tests** (`apps/web/e2e/*.spec.ts`, Playwright) — a real browser
+  against the real Next.js dev server against the real API against the real
+  database. See FRONTEND.md §8 for what these cover; backend involvement is
+  just "be running."
+
+### 11.2 Coverage: 90% target, met on real numbers
+```
+Unit:        334 tests, 42 suites — 98.32% stmts / 90.63% branches / 96.57% funcs / 98.70% lines
+Integration:  30 tests,  4 suites
+```
+All four statement/branch/function/line thresholds are enforced in
+`package.json`'s `jest.coverageThreshold` — a `npm run test:cov` that drops
+below 90% on any of them fails the command (and therefore CI), not just a
+number quoted in a doc that can quietly go stale.
+
+### 11.3 Two real bugs found *by writing the tests*, not by reading the code
+- **`POST /auth/login` and `POST /coupons/validate` both returned HTTP 201**,
+  Nest's default for any `@Post` handler with no explicit `@HttpCode`.
+  Neither creates a resource — login authenticates, validate is a read —
+  so 200 is correct REST semantics, and `auth.controller.ts` had even
+  already *documented* 200 in its `@ApiResponse` Swagger decorator while
+  actually returning 201. The integration test asserting the documented
+  status caught the mismatch immediately; fixed both with an explicit
+  `@HttpCode(HttpStatus.OK)`.
+- **`tsconfig.json`'s `"types": ["jest"]`** was scoped so narrowly that
+  `@types/multer`'s global `Express.Multer.File` augmentation never loaded
+  — a real compile error (`Namespace 'global.Express' has no exported
+  member 'Multer'`) that `nest start`'s transpile-only dev mode had been
+  silently skipping past since the bulk-import endpoint was built in
+  Milestone 10. Only surfaced once `ts-jest` ran full type-checking for the
+  integration suite. Fixed by adding `"multer"` to the `types` array — the
+  real underlying gap, not a per-file suppression.
+- (For completeness: the recurring Prisma migration-generator bug against
+  `products.search_vector`, the same one hit in Milestones 8–10, did **not**
+  recur this milestone — no new migration was needed for the test
+  infrastructure itself.)
+
+### 11.4 What's NOT done
+- **No mutation testing** — coverage percentage proves lines executed, not
+  that the assertions would actually catch a regression. Stryker or
+  equivalent is a reasonable next step, not attempted here.
+- **E2E covers the storefront's critical path and admin RBAC, not the admin
+  CRUD flows themselves** (creating a coupon, publishing a product, etc.)
+  — FRONTEND.md §8.5 names this gap explicitly; it's the natural next
+  E2E milestone, not silently considered "done" by this one.
+- **No load/performance testing** — nothing in this milestone exercises
+  concurrent checkout (the actual race condition `InventoryService`'s
+  conditional UPDATE is designed to prevent) under real concurrent load;
+  the unit tests confirm the SQL shape, not throughput under contention.
+- **CI's E2E job builds and boots the API from a fresh `dist/main.js` and a
+  freshly-migrated empty database** — there's no seed-data step, so any
+  future E2E test that depends on pre-existing catalog data (the way the
+  storefront specs here rely on products already seeded in local dev) would
+  need either a CI seed script or to create its own fixtures inline. Today's
+  specs were written to avoid that dependency (register fresh accounts,
+  reference no specific seeded product beyond what local dev happens to
+  have) — worth flagging since it means **this milestone's E2E suite has
+  only been run against local dev data, not yet against the CI path's
+  from-scratch database**, and that's a real gap between "passes locally"
+  and "proven in CI."
+
+### 11.5 CI pipeline (`.github/workflows/ci.yml`)
+Four jobs: `backend-test` (unit, then integration against a real `postgres:16`
+service container), `frontend-test` (Vitest unit + coverage), `typecheck`
+(`tsc --noEmit` both apps), `e2e` (builds the API, boots it from `dist/`,
+runs Playwright against it — gated on the other three jobs passing first).
+Coverage thresholds are enforced by the test runners themselves (§11.2), not
+re-implemented as a separate CI step. **Not yet run on GitHub's actual
+runners** — written and locally reasoned through line-by-line (every
+command in it matches a command actually run and confirmed working during
+this milestone — `nest build` produced a working `dist/main.js`, `npm run
+test:cov` enforces the threshold, etc.) but the workflow file itself hasn't
+executed end-to-end on a real Actions runner yet. That first real run is
+Phase 2's actual proof, not this write-up.
+
+---
+
+## 12. How to Run
 
 ```bash
 # Postgres (if not already running)
@@ -656,4 +757,11 @@ npx nest start                # Swagger UI at http://localhost:4000/docs
 #   POST /api/v1/admin/recommendations/backfill-co-occurrence — populate Frequently Bought Together
 #     from existing multi-item order history (see §9.5/§9.6 — this does nothing
 #     useful until there's at least one order with 2+ distinct products in it)
+
+# Running the test suite:
+npm test                      # unit tests (Jest, mocked Prisma, no DB needed)
+createdb jwel_test             # once — separate DB, never the dev `jwel` one
+set -a && source .env.test && set +a && npx prisma migrate deploy --schema=src/prisma/schema.prisma
+npm run test:integration -- --runInBand   # real NestJS app + real jwel_test Postgres DB
+npm run test:cov              # unit tests with the 90% coverage gate enforced
 ```

@@ -1,0 +1,197 @@
+name: CI
+
+# Root package.json declares pnpm as the package manager, but every install
+# this project has actually run (every milestone since 5) has used npm — see
+# BACKEND.md's "How to Run" sections. CI uses npm for the same reason: it's
+# the only path that's actually been validated, not because pnpm wouldn't
+# also work.
+
+on:
+  push:
+    branches: [main, Phase-II]
+  pull_request:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  backend-test:
+    name: Backend — unit + integration tests (90% coverage gate)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: jwel_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jwel_test?schema=public
+      JWT_SECRET: ci-test-secret-not-for-real-use
+      JWT_ACCESS_TOKEN_TTL: 900s
+      JWT_REFRESH_TOKEN_TTL: 30d
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      RAZORPAY_KEY_ID: ''
+      RAZORPAY_KEY_SECRET: ''
+      RESEND_API_KEY: ''
+      # Deliberately unreachable — exercises the documented Postgres-fallback
+      # path (BACKEND.md §8.4) instead of requiring a real Elasticsearch
+      # service container just to run the test suite.
+      ELASTICSEARCH_NODE: http://localhost:9201
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm install
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=src/prisma/schema.prisma
+
+      - name: Run unit tests with coverage (90% threshold enforced in jest config)
+        run: npm run test:cov
+
+      - name: Apply migrations to the test database
+        run: npx prisma migrate deploy --schema=src/prisma/schema.prisma
+
+      - name: Run integration tests against the real test database
+        run: npm run test:integration -- --runInBand
+
+  frontend-test:
+    name: Frontend — unit tests (90% coverage gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm install
+
+      - name: Run unit tests with coverage (90% threshold enforced in vitest config)
+        run: npm run test:cov
+
+  typecheck:
+    name: Typecheck (backend + frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client
+        working-directory: apps/api
+        run: npx prisma generate --schema=src/prisma/schema.prisma
+
+      - name: Typecheck backend
+        working-directory: apps/api
+        run: npx tsc --noEmit
+
+      - name: Typecheck frontend
+        working-directory: apps/web
+        run: npx tsc --noEmit
+
+  e2e:
+    name: E2E (Playwright, real stack)
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: jwel
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jwel?schema=public
+      JWT_SECRET: ci-e2e-secret-not-for-real-use
+      JWT_ACCESS_TOKEN_TTL: 900s
+      JWT_REFRESH_TOKEN_TTL: 30d
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      RESEND_API_KEY: ''
+      ELASTICSEARCH_NODE: http://localhost:9201
+      E2E_BASE_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate Prisma client and migrate
+        working-directory: apps/api
+        run: |
+          npx prisma generate --schema=src/prisma/schema.prisma
+          npx prisma migrate deploy --schema=src/prisma/schema.prisma
+
+      - name: Start the API in the background
+        working-directory: apps/api
+        run: |
+          npx nest build
+          nohup node dist/main.js > /tmp/api.log 2>&1 &
+          npx wait-on http://localhost:4000/docs --timeout 30000
+
+      - name: Install Playwright browsers
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        working-directory: apps/web
+        run: npx playwright test
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
+
+      - name: Upload API log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-log
+          path: /tmp/api.log
+          retention-days: 7
