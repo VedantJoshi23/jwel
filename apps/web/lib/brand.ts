@@ -59,7 +59,7 @@ export const brand = {
   homeCategories: [
     { slug: 'jhumkas', name: 'Jhumkas' },
     { slug: 'necklace-sets', name: 'Necklace Sets' },
-    { slug: 'bangles-and-rings', name: 'Bangles & Rings' },
+    { slug: 'bangles', name: 'Bangles' },
   ],
 
   newArrivals: {

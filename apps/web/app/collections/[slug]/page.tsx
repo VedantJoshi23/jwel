@@ -30,8 +30,16 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const page = Number(resolvedSearchParams.page ?? '1');
-  const sort = (resolvedSearchParams.sort as ProductSort) ?? 'newest';
-  const category = resolvedParams.slug === 'all' ? undefined : resolvedParams.slug;
+
+  // "new-arrivals" and "bestsellers" are curated views (matching the homepage
+  // sections of the same name), not real product categories — every other
+  // slug is treated as a literal Category.slug.
+  const isCuratedView = resolvedParams.slug === 'new-arrivals' || resolvedParams.slug === 'bestsellers';
+  const sort = isCuratedView
+    ? (resolvedParams.slug === 'bestsellers' ? 'popularity' : 'newest')
+    : ((resolvedSearchParams.sort as ProductSort) ?? 'newest');
+  const category =
+    resolvedParams.slug === 'all' || isCuratedView ? undefined : resolvedParams.slug;
 
   let result;
   try {
@@ -68,19 +76,23 @@ export default async function CollectionPage({ params, searchParams }: Collectio
         {/* Category filter pill strip */}
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <span className="font-display text-xl font-bold">Filter</span>
-          {brand.productTypes.map((type, i) => (
-            <a
-              key={type}
-              href={`/collections/${type.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and')}`}
-              className={`rounded-s border px-5 py-2.5 text-sm font-medium ${
-                i === 0
-                  ? 'border-brand-primary text-ink-primary'
-                  : 'border-border-warm text-ink-primary hover:border-brand-primary'
-              }`}
-            >
-              {type}
-            </a>
-          ))}
+          {brand.productTypes.map((type) => {
+            const typeSlug = type.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and');
+            const isActive = typeSlug === resolvedParams.slug;
+            return (
+              <a
+                key={type}
+                href={`/collections/${typeSlug}`}
+                className={`rounded-s border px-5 py-2.5 text-sm font-medium ${
+                  isActive
+                    ? 'border-brand-primary text-ink-primary'
+                    : 'border-border-warm text-ink-primary hover:border-brand-primary'
+                }`}
+              >
+                {type}
+              </a>
+            );
+          })}
         </div>
 
         {/* Sidebar + grid */}
