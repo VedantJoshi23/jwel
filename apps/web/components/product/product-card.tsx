@@ -38,10 +38,10 @@ export function ProductCard({ product, isNew }: ProductCardProps) {
       </div>
 
       {/* Card body */}
-      <div className="p-4 space-y-2">
+      <div className="space-y-2.5 pt-5">
         <p className="font-medium leading-tight">{product.name}</p>
         {product.description && (
-          <p className="line-clamp-2 text-xs text-ink-secondary">{product.description}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-ink-secondary">{product.description}</p>
         )}
         {Number(product.avgRating) > 0 && (
           <RatingStars value={Number(product.avgRating)} count={product.ratingCount} />

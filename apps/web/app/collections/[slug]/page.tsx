@@ -7,7 +7,13 @@ import { brand } from '@/lib/brand';
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ metal?: string; sort?: string; page?: string }>;
+  searchParams: Promise<{
+    metal?: string;
+    sort?: string;
+    page?: string;
+    priceMin?: string;
+    priceMax?: string;
+  }>;
 }
 
 function titleCase(slug: string): string {
@@ -41,10 +47,21 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   const category =
     resolvedParams.slug === 'all' || isCuratedView ? undefined : resolvedParams.slug;
 
+  const priceMin = resolvedSearchParams.priceMin ? Number(resolvedSearchParams.priceMin) * 100 : undefined;
+  const priceMax = resolvedSearchParams.priceMax ? Number(resolvedSearchParams.priceMax) * 100 : undefined;
+
   let result;
   try {
     result = await getProducts(
-      { category, metal: resolvedSearchParams.metal || undefined, sort, page, pageSize: 12 },
+      {
+        category,
+        metal: resolvedSearchParams.metal || undefined,
+        priceMin,
+        priceMax,
+        sort,
+        page,
+        pageSize: 12,
+      },
       30,
     );
   } catch {
@@ -102,6 +119,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               basePath={`/collections/${resolvedParams.slug}`}
               defaultMetal={resolvedSearchParams.metal}
               defaultSort={resolvedSearchParams.sort}
+              defaultPriceMin={resolvedSearchParams.priceMin}
+              defaultPriceMax={resolvedSearchParams.priceMax}
             />
           </aside>
 
@@ -111,11 +130,9 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                 No products found in this collection yet.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4">
                 {result.items.map((product) => (
-                  <div key={product.id} className="bg-surface">
-                    <ProductCard product={product} />
-                  </div>
+                  <ProductCard key={product.id} product={product} />
                 ))}
               </div>
             )}

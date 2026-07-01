@@ -10,15 +10,21 @@ describe('FilterForm', () => {
     expect(form).toHaveAttribute('action', '/collections/rings');
   });
 
-  it('defaults to "Any" metal when none is specified', () => {
+  it('defaults to "Any metal" when none is specified', () => {
     render(<FilterForm basePath="/collections/rings" />);
-    expect(screen.getByLabelText('Any')).toBeChecked();
+    expect(screen.getByLabelText('Any metal')).toBeChecked();
   });
 
   it('pre-selects the given default metal', () => {
-    render(<FilterForm basePath="/collections/rings" defaultMetal="ANTIQUE_GOLD" />);
-    expect(screen.getByLabelText('Antique Gold')).toBeChecked();
-    expect(screen.getByLabelText('Any')).not.toBeChecked();
+    render(<FilterForm basePath="/collections/rings" defaultMetal="GOLD" />);
+    expect(screen.getByLabelText('Gold', { exact: true })).toBeChecked();
+    expect(screen.getByLabelText('Any metal')).not.toBeChecked();
+  });
+
+  it('pre-fills the given default price range', () => {
+    render(<FilterForm basePath="/collections/rings" defaultPriceMin="1000" defaultPriceMax="5000" />);
+    expect(screen.getByLabelText(/Minimum price/)).toHaveValue(1000);
+    expect(screen.getByLabelText(/Maximum price/)).toHaveValue(5000);
   });
 
   it('defaults sort to "newest"', () => {

@@ -89,21 +89,20 @@ export const brand = {
   // Top-level product category pills shown on shop/collection pages
   productTypes: ['Jhumkas', 'Necklace Sets', 'Rings', 'Bangles', 'Choker Sets'],
 
-  // Sidebar filter sections on collection pages
+  // Sidebar filter sections on collection pages — values must match the
+  // backend's MetalType enum exactly (see apps/api prisma schema).
   filterSections: [
-    { key: 'customer', label: 'Targeted customer' },
-    { key: 'price', label: 'Price' },
-    { key: 'composition', label: 'Composition ratio' },
     {
       key: 'metal',
-      label: 'Metal used',
+      label: 'Metal',
       options: [
-        { value: 'ANTIQUE_GOLD', label: 'Antique Gold' },
-        { value: 'KUNDAN', label: 'Kundan Work' },
-        { value: 'OXIDISED_SILVER', label: 'Oxidised Silver' },
+        { value: 'GOLD', label: 'Gold' },
+        { value: 'GOLD_PLATED', label: 'Gold Plated' },
+        { value: 'SILVER', label: 'Silver' },
+        { value: 'PLATINUM', label: 'Platinum' },
+        { value: 'STAINLESS_STEEL', label: 'Stainless Steel' },
       ],
     },
-    { key: 'type', label: 'Type' },
   ],
 
   // "You May Also Love" section on PDP
