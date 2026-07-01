@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
-import { OrderSummary } from '@/components/cart/order-summary';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createOrder } from '@/lib/api/orders';
 import { validateCoupon } from '@/lib/api/coupons';
 import { ApiError } from '@/lib/api/client';
+import { formatMinorUnits } from '@/lib/money';
+import { brand } from '@/lib/brand';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function CheckoutPage() {
   if (lines.length === 0) {
     return (
       <div className="px-6 py-16 text-center lg:px-8">
-        <p className="text-ink-secondary">Your bag is empty.</p>
+        <p className="text-ink-secondary">{brand.cart.emptyMessage}</p>
         <Button asChild className="mt-5">
           <Link href="/collections/all">Continue shopping</Link>
         </Button>
@@ -51,7 +52,7 @@ export default function CheckoutPage() {
     try {
       const result = await validateCoupon(token, couponCode.trim(), subtotalMinorUnits);
       setDiscountMinorUnits(result.discountMinorUnits);
-      setCouponMessage(`Coupon applied — you saved on this order.`);
+      setCouponMessage('Coupon applied — you saved on this order.');
     } catch (err) {
       setDiscountMinorUnits(0);
       setCouponMessage(err instanceof ApiError ? err.message : 'Could not apply this coupon.');
@@ -78,57 +79,51 @@ export default function CheckoutPage() {
     }
   }
 
+  const finalTotal = subtotalMinorUnits - discountMinorUnits;
+
   return (
     <div className="px-6 py-8 lg:px-8">
-      <h1 className="mb-8 font-display text-4xl font-bold">Checkout</h1>
+      {/* Back link */}
+      <Link href="/cart" className="mb-4 flex items-center gap-1.5 text-sm text-ink-primary hover:underline">
+        <span>‹</span> Back
+      </Link>
 
-      <form onSubmit={handleSubmit} className="grid gap-10 lg:grid-cols-2">
-        <div className="space-y-5">
-          <h2 className="font-display text-2xl font-bold">Shipping address</h2>
-          <div className="grid gap-3">
-            <label className="text-sm font-medium" htmlFor="line1">
-              Address line 1
-            </label>
-            <Input
-              id="line1"
-              required
-              value={address.line1}
-              onChange={(e) => setAddress({ ...address, line1: e.target.value })}
-            />
-            <label className="text-sm font-medium" htmlFor="line2">
-              Address line 2 (optional)
-            </label>
-            <Input id="line2" value={address.line2} onChange={(e) => setAddress({ ...address, line2: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm font-medium" htmlFor="city">
-                  City
-                </label>
-                <Input id="city" required value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
+      <form onSubmit={handleSubmit} className="grid gap-12 lg:grid-cols-2">
+
+        {/* ── Left column: Items overview ─────────────────────────────── */}
+        <div>
+          <h1 className="font-display text-4xl font-bold tracking-tight">
+            {brand.checkout.itemsHeadline}
+          </h1>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-ink-secondary">
+            {brand.checkout.itemsSubtext}
+          </p>
+
+          {/* Line items */}
+          <div className="mt-6 space-y-3">
+            {lines.map((line) => (
+              <div key={line.variantId} className="flex items-center gap-5 border border-border-sale p-5">
+                <div
+                  className="h-[90px] w-[120px] shrink-0 bg-[repeating-linear-gradient(45deg,#EAE0C4_0_11px,#DFD0B0_11px_22px)]"
+                  aria-hidden="true"
+                />
+                <div className="flex-1">
+                  <p className="font-medium">{line.productName}</p>
+                  <p className="mt-1 text-sm text-ink-secondary">Quantity: {line.quantity}</p>
+                </div>
+                <p className="font-display font-bold">
+                  {formatMinorUnits(line.unitPriceMinorUnits * line.quantity)}
+                </p>
               </div>
-              <div>
-                <label className="text-sm font-medium" htmlFor="state">
-                  State
-                </label>
-                <Input id="state" required value={address.state} onChange={(e) => setAddress({ ...address, state: e.target.value })} />
-              </div>
-            </div>
-            <label className="text-sm font-medium" htmlFor="pincode">
-              Pincode
-            </label>
-            <Input
-              id="pincode"
-              required
-              value={address.pincode}
-              onChange={(e) => setAddress({ ...address, pincode: e.target.value })}
-            />
+            ))}
           </div>
 
-          <div>
+          {/* Coupon */}
+          <div className="mt-6">
             <label className="text-sm font-medium" htmlFor="coupon">
               Coupon code
             </label>
-            <div className="mt-1 flex gap-2">
+            <div className="mt-1.5 flex gap-2">
               <Input id="coupon" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} />
               <Button type="button" variant="secondary" onClick={handleApplyCoupon}>
                 Apply
@@ -137,22 +132,87 @@ export default function CheckoutPage() {
             {couponMessage && <p className="mt-2 text-sm text-ink-secondary">{couponMessage}</p>}
           </div>
 
-          <p className="text-xs text-ink-muted">
-            Payment is processed via Stripe. This MVP checkout creates the order and a payment intent but
-            does not yet render the Stripe Elements card form — see FRONTEND.md for what remains.
-          </p>
+          {/* Shipping */}
+          <div className="mt-6">
+            <p className="mb-3 font-semibold">{brand.checkout.shippingLabel}</p>
+            <div className="flex items-center justify-between rounded-s border border-brand-primary px-4 py-3.5 text-sm">
+              <span className="flex items-center gap-2.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-brand-primary" />
+                {brand.checkout.standardDeliveryLabel}
+              </span>
+              <span>Free</span>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-5">
-          <h2 className="font-display text-2xl font-bold">Order summary</h2>
-          <OrderSummary subtotalMinorUnits={subtotalMinorUnits} discountMinorUnits={discountMinorUnits} />
+        {/* ── Right column: Payment details ───────────────────────────── */}
+        <div>
+          <h2 className="font-display text-4xl font-bold tracking-tight">
+            {brand.checkout.paymentHeadline}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-ink-secondary">
+            {brand.checkout.paymentSubtext}
+          </p>
+
+          <div className="mt-6 flex flex-col gap-1">
+            {[
+              { id: 'email', label: 'Email Address', type: 'email' },
+              { id: 'fullname', label: 'Full Name', type: 'text' },
+              { id: 'line1', label: 'Address', type: 'text' },
+              { id: 'city', label: 'City', type: 'text' },
+              { id: 'pincode', label: 'Zip Code', type: 'text' },
+            ].map(({ id, label, type }) => (
+              <div key={id}>
+                <label className="pt-4 block text-sm text-ink-primary" htmlFor={id}>
+                  {label}
+                </label>
+                <div className="border-b border-border-warm pb-2">
+                  <input
+                    id={id}
+                    type={type}
+                    required
+                    className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
+                    onChange={(e) => {
+                      if (id === 'line1') setAddress((a) => ({ ...a, line1: e.target.value }));
+                      if (id === 'city') setAddress((a) => ({ ...a, city: e.target.value }));
+                      if (id === 'pincode') setAddress((a) => ({ ...a, pincode: e.target.value }));
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Order total */}
+          <div className="mt-7 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatMinorUnits(subtotalMinorUnits)}</span>
+            </div>
+            {discountMinorUnits > 0 && (
+              <div className="flex justify-between text-feedback-success">
+                <span>Discount</span>
+                <span>− {formatMinorUnits(discountMinorUnits)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span>Shipping</span>
+              <span>Free</span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-2 text-base font-bold">
+              <span>Total</span>
+              <span>{formatMinorUnits(finalTotal)}</span>
+            </div>
+          </div>
+
           {error && (
-            <p role="alert" className="text-sm text-feedback-error">
+            <p role="alert" className="mt-4 text-sm text-feedback-error">
               {error}
             </p>
           )}
-          <Button type="submit" size="l" className="w-full" loading={submitting}>
-            Finish purchase
+
+          <Button type="submit" size="l" className="mt-6 w-full" loading={submitting}>
+            {brand.checkout.placeCta}
           </Button>
         </div>
       </form>

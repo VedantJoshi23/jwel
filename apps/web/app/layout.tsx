@@ -4,22 +4,24 @@ import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
 import { SiteHeader } from '@/components/layout/header';
 import { SiteFooter } from '@/components/layout/footer';
+import { brand } from '@/lib/brand';
 
+// To swap fonts for a white-label: change these three Google Font imports
+// and update --font-display / --font-sans / --font-mono in globals.css.
 const fontDisplay = Fraunces({ subsets: ['latin'], variable: '--font-display', weight: ['600', '700'] });
 const fontSans = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const fontMono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['500', '600'] });
 
 export const metadata: Metadata = {
   title: {
-    default: 'Jwel — Everyday shine, zero rules.',
-    template: '%s | Jwel',
+    default: brand.seo.defaultTitle,
+    template: brand.seo.titleTemplate,
   },
-  description:
-    'Jwel is a luxury jewellery storefront for hoops, chains, stacking rings and statement pieces — designed to layer, mix and wear on repeat.',
+  description: brand.seo.defaultDescription,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
   openGraph: {
     type: 'website',
-    siteName: 'Jwel',
+    siteName: brand.seo.siteName,
   },
 };
 

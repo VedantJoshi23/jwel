@@ -3,19 +3,20 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatMinorUnits } from '@/lib/money';
 
-export default function CheckoutConfirmationPage({
+export default async function CheckoutConfirmationPage({
   searchParams,
 }: {
-  searchParams: { orderId?: string; total?: string };
+  searchParams: Promise<{ orderId?: string; total?: string }>;
 }) {
+  const resolvedSearchParams = await searchParams;
   return (
     <div className="px-6 py-20 text-center lg:px-8">
       <CheckCircle2 className="mx-auto h-12 w-12 text-feedback-success" aria-hidden="true" />
       <h1 className="mt-5 font-display text-3xl font-bold">Order placed</h1>
-      {searchParams.orderId && (
+      {resolvedSearchParams.orderId && (
         <p className="mt-3 text-ink-secondary">
-          Order <span className="font-mono">{searchParams.orderId}</span>
-          {searchParams.total && <> — {formatMinorUnits(Number(searchParams.total))}</>}
+          Order <span className="font-mono">{resolvedSearchParams.orderId}</span>
+          {resolvedSearchParams.total && <> — {formatMinorUnits(Number(resolvedSearchParams.total))}</>}
         </p>
       )}
       <p className="mx-auto mt-3 max-w-md text-sm text-ink-secondary">

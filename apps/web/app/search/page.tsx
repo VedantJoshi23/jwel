@@ -13,9 +13,10 @@ const EMPTY_RESULT: PaginatedResult<Product> = { items: [], page: 1, pageSize: 2
 export default async function SearchPage({
   searchParams,
 }: {
-  searchParams: { q?: string };
+  searchParams: Promise<{ q?: string }>;
 }) {
-  const query = searchParams.q?.trim() ?? '';
+  const resolvedSearchParams = await searchParams;
+  const query = resolvedSearchParams.q?.trim() ?? '';
 
   let initialData = EMPTY_RESULT;
   if (query) {

@@ -16,8 +16,8 @@ describe('FilterForm', () => {
   });
 
   it('pre-selects the given default metal', () => {
-    render(<FilterForm basePath="/collections/rings" defaultMetal="GOLD" />);
-    expect(screen.getByLabelText('Gold')).toBeChecked();
+    render(<FilterForm basePath="/collections/rings" defaultMetal="ANTIQUE_GOLD" />);
+    expect(screen.getByLabelText('Antique Gold')).toBeChecked();
     expect(screen.getByLabelText('Any')).not.toBeChecked();
   });
 

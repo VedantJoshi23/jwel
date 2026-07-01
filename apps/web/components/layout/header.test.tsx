@@ -7,6 +7,7 @@ import { useCartStore } from '@/lib/cart-store';
 const push = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  usePathname: () => '/',
 }));
 
 describe('SiteHeader', () => {
