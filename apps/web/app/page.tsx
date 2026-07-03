@@ -1,23 +1,15 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { getProducts } from '@/lib/api/products';
+import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { ProductCard } from '@/components/product/product-card';
 import { brand } from '@/lib/brand';
-import type { Product } from '@/lib/api/types';
+import { categoryImages, heroImage } from '@/lib/jewellery-images';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
   description: brand.seo.defaultDescription,
 };
-
-async function safeGetProducts(query: Parameters<typeof getProducts>[0]): Promise<Product[]> {
-  try {
-    const result = await getProducts(query);
-    return result.items;
-  } catch {
-    return [];
-  }
-}
 
 export default async function HomePage() {
   const [newIn, bestsellers] = await Promise.all([
@@ -31,11 +23,15 @@ export default async function HomePage() {
     <>
       {/* ── Hero — wireframe 01 split layout ──────────────────────────────── */}
       <section className="grid bg-surface-alt lg:grid-cols-2">
-        <div
-          className="flex min-h-[280px] items-center justify-center bg-[repeating-linear-gradient(45deg,#F0DBBE_0_11px,#E4CCA8_11px_22px)] font-mono text-xs tracking-wide text-ink-muted lg:min-h-[380px]"
-          aria-hidden="true"
-        >
-          [ hero campaign image ]
+        <div className="relative min-h-[280px] lg:min-h-[380px]" aria-hidden="true">
+          <Image
+            src={heroImage}
+            alt=""
+            fill
+            priority
+            sizes="(min-width: 1024px) 50vw, 100vw"
+            className="object-cover"
+          />
         </div>
         <div className="flex flex-col justify-center gap-5 bg-surface-alt px-6 py-14 lg:px-12">
           <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary lg:text-5xl">
@@ -65,11 +61,14 @@ export default async function HomePage() {
       <section className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
         {brand.homeCategories.map((category) => (
           <Link key={category.slug} href={`/collections/${category.slug}`} className="group">
-            <div
-              className="flex h-[200px] items-center justify-center bg-[repeating-linear-gradient(45deg,#F0DCBA_0_11px,#E4CBA8_11px_22px)] font-mono text-xs text-ink-muted"
-              aria-hidden="true"
-            >
-              [ category ]
+            <div className="relative h-[200px] overflow-hidden">
+              <Image
+                src={categoryImages[category.slug] ?? heroImage}
+                alt={category.name}
+                fill
+                sizes="(min-width: 640px) 33vw, 100vw"
+                className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+              />
             </div>
             <p className="mt-3.5 text-center font-medium">{category.name}</p>
           </Link>
@@ -154,6 +153,14 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ── Internal: concept comparison link (remove once a version is chosen) ── */}
+      <p className="border-t border-border bg-surface-alt py-4 text-center text-xs text-ink-muted">
+        Reviewing homepage concepts?{' '}
+        <Link href="/cinematic" className="font-semibold text-brand-primary underline">
+          See the cinematic scroll concept →
+        </Link>
+      </p>
     </>
   );
 }

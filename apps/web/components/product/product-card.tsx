@@ -1,5 +1,7 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Product } from '@/lib/api/types';
+import { getProductStockImage } from '@/lib/jewellery-images';
 import { PriceTag } from './price-tag';
 import { RatingStars } from './rating-stars';
 
@@ -29,11 +31,14 @@ export function ProductCard({ product, isNew }: ProductCardProps) {
             ARRIVAL
           </div>
         )}
-        <div
-          className="flex aspect-square items-center justify-center bg-surface-alt font-mono text-xs text-ink-muted"
-          aria-hidden="true"
-        >
-          [ {product.name} ]
+        <div className="relative aspect-square overflow-hidden bg-surface-alt">
+          <Image
+            src={product.media[0]?.storageRef.startsWith('http') ? product.media[0].storageRef : getProductStockImage(product.id)}
+            alt={product.name}
+            fill
+            sizes="(min-width: 1024px) 33vw, 50vw"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          />
         </div>
       </div>
 
