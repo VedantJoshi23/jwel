@@ -1,10 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { Sparkles } from 'lucide-react';
 import type { Metadata } from 'next';
 import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { ProductCard } from '@/components/product/product-card';
 import { brand } from '@/lib/brand';
 import { categoryImages, heroImage } from '@/lib/jewellery-images';
+import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -113,23 +115,30 @@ export default async function HomePage() {
         </p>
 
         <div className="mx-auto mt-9 flex max-w-lg flex-wrap justify-center gap-14">
-          {brand.subscription.steps.map((step) => (
-            <div key={step} className="text-center">
-              <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-[14px] bg-price-bg font-mono text-[11px] text-ink-muted">
-                [ icon ]
+          {brand.subscription.steps.map((step) => {
+            const Icon = SUBSCRIPTION_STEP_ICONS[step] ?? Sparkles;
+            return (
+              <div key={step} className="text-center">
+                <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-[14px] bg-price-bg text-brand-primary">
+                  <Icon className="h-7 w-7" aria-hidden="true" />
+                </div>
+                <p className="mt-3 text-sm font-medium">{step}</p>
               </div>
-              <p className="mt-3 text-sm font-medium">{step}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        <Link
-          href="#subscribe"
-          className="mt-8 inline-block bg-brand-primary px-8 py-3.5 text-sm font-semibold text-white hover:bg-brand-dark"
-        >
-          {brand.subscription.cta}
-        </Link>
-        <p className="mt-4 text-xs text-ink-muted underline">{brand.subscription.manageLink}</p>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <Link
+            href="/subscriptions"
+            className="inline-block bg-brand-primary px-8 py-3.5 text-sm font-semibold text-white hover:bg-brand-dark"
+          >
+            {brand.subscription.cta}
+          </Link>
+          <Link href="/subscriptions" className="inline-block text-xs text-ink-muted underline">
+            {brand.subscription.manageLink}
+          </Link>
+        </div>
       </section>
 
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
@@ -159,6 +168,10 @@ export default async function HomePage() {
         Reviewing homepage concepts?{' '}
         <Link href="/cinematic" className="font-semibold text-brand-primary underline">
           See the cinematic scroll concept →
+        </Link>{' '}
+        ·{' '}
+        <Link href="/vision" className="font-semibold text-brand-primary underline">
+          See the black &amp; gold vision concept →
         </Link>
       </p>
     </>

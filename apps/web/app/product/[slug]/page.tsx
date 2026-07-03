@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,6 +10,7 @@ import { AddToCart } from '@/components/product/add-to-cart';
 import { ProductCard } from '@/components/product/product-card';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
+import { getProductStockImage } from '@/lib/jewellery-images';
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -85,14 +87,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <span className="text-ink-primary underline">{product.name}</span>
         </nav>
 
-        {/* 2-col product layout */}
-        <div className="grid gap-10 lg:grid-cols-2">
+        {/* 2-col product layout — switches to side-by-side at `md` (768px) so a
+            tablet in portrait doesn't stack a ~full-width square image above
+            the details, forcing a long scroll before reaching "Add to bag". */}
+        <div className="grid gap-10 md:grid-cols-2">
           {/* Product image */}
-          <div
-            className="flex aspect-square items-center justify-center bg-[repeating-linear-gradient(45deg,#F0DBBE_0_13px,#E4CCA8_13px_26px)] font-mono text-xs text-ink-muted"
-            aria-label={`Product photo of ${product.name}`}
-          >
-            [ product shot ]
+          <div className="relative aspect-square overflow-hidden bg-surface-alt">
+            <Image
+              src={product.media[0]?.storageRef.startsWith('http') ? product.media[0].storageRef : getProductStockImage(product.id)}
+              alt={product.name}
+              fill
+              priority
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
+            />
           </div>
 
           {/* Product details */}
@@ -116,53 +124,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.description}
             </p>
 
-            {/* Variant pills */}
-            {product.variants.length > 1 && (
-              <div className="mt-6 flex flex-wrap gap-3">
-                {product.variants.map((v, i) => (
-                  <span
-                    key={v.id}
-                    className={`rounded-s border px-6 py-3 text-sm font-medium ${
-                      i === 0
-                        ? 'border-brand-primary text-ink-primary'
-                        : 'border-border-warm bg-surface-alt text-ink-muted'
-                    }`}
-                  >
-                    {String(v.metal).replace(/_/g, ' ')}
+            {/* Price — variant selection, quantity, and the actual "Add to bag"
+                control all live inside AddToCart; this is just the marketing
+                price context (MRP/discount) shown once, above it. */}
+            <div className="mt-7">
+              {compareAt && (
+                <p className="mb-1 text-sm text-ink-muted line-through">
+                  MRP {formatMinorUnits(compareAt)}
+                </p>
+              )}
+              <div className="flex items-center gap-3">
+                <span className="font-display text-4xl font-bold text-brand-primary">
+                  {formatMinorUnits(minPrice)}
+                </span>
+                {discountPct > 0 && (
+                  <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
+                    {discountPct}% OFF
                   </span>
-                ))}
-              </div>
-            )}
-
-            {/* Quantity + Price row */}
-            <div className="mt-7 flex items-end justify-between">
-              <div>
-                <p className="mb-3 font-display text-lg font-bold">{brand.pdp.quantityLabel}</p>
-                <div className="flex items-center gap-5 text-2xl font-medium text-ink-muted">
-                  <span className="cursor-pointer select-none hover:text-ink-primary">−</span>
-                  <span className="text-ink-primary">1</span>
-                  <span className="cursor-pointer select-none hover:text-ink-primary">+</span>
-                </div>
-              </div>
-
-              <div className="text-right">
-                {compareAt && (
-                  <p className="mb-1 text-sm text-ink-muted line-through">
-                    MRP {formatMinorUnits(compareAt)}
-                  </p>
                 )}
-                <div className="flex items-center gap-3">
-                  <span className="font-display text-4xl font-bold text-brand-primary">
-                    {formatMinorUnits(minPrice)}
-                  </span>
-                  {discountPct > 0 && (
-                    <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
-                      {discountPct}% OFF
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-brand-primary">Extra ₹300 off at checkout</p>
               </div>
+              <p className="mt-1 text-xs text-brand-primary">Extra ₹300 off at checkout</p>
             </div>
 
             {/* Add to cart */}

@@ -1,9 +1,11 @@
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getProducts, type ProductSort } from '@/lib/api/products';
 import { ProductCard } from '@/components/product/product-card';
 import { FilterForm } from '@/components/common/filter-form';
 import { Pagination } from '@/components/common/pagination';
 import { brand } from '@/lib/brand';
+import { getCategoryBannerImage } from '@/lib/jewellery-images';
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
@@ -73,7 +75,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   return (
     <div>
       {/* Split category hero — wireframe 03 */}
-      <div className="grid lg:grid-cols-2">
+      <div className="grid md:grid-cols-2">
         <div className="flex items-center bg-[#DFD0B0] px-12 py-14">
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
             {collectionTitle}
@@ -81,11 +83,14 @@ export default async function CollectionPage({ params, searchParams }: Collectio
             <span className="font-normal">Selection</span>
           </h1>
         </div>
-        <div
-          className="flex min-h-[200px] items-center justify-center bg-[repeating-linear-gradient(45deg,#EDD8B8_0_13px,#E0C8A4_13px_26px)] font-mono text-xs text-[#8f8f8f] lg:min-h-[260px]"
-          aria-hidden="true"
-        >
-          [ category lifestyle image ]
+        <div className="relative min-h-[200px] md:min-h-[260px]" aria-hidden="true">
+          <Image
+            src={getCategoryBannerImage(resolvedParams.slug)}
+            alt=""
+            fill
+            sizes="(min-width: 768px) 50vw, 100vw"
+            className="object-cover"
+          />
         </div>
       </div>
 
@@ -112,16 +117,33 @@ export default async function CollectionPage({ params, searchParams }: Collectio
           })}
         </div>
 
-        {/* Sidebar + grid */}
-        <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
+        {/* Sidebar + grid — permanent sidebar from `md` up (768px): a tablet
+            has plenty of room for it, no reason to make it wait for `lg`. */}
+        <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr]">
           <aside aria-label="Filters">
-            <FilterForm
-              basePath={`/collections/${resolvedParams.slug}`}
-              defaultMetal={resolvedSearchParams.metal}
-              defaultSort={resolvedSearchParams.sort}
-              defaultPriceMin={resolvedSearchParams.priceMin}
-              defaultPriceMax={resolvedSearchParams.priceMax}
-            />
+            <details className="mb-6 rounded-s border border-border md:hidden">
+              <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold">
+                Filters
+              </summary>
+              <div className="border-t border-border px-4 py-5">
+                <FilterForm
+                  basePath={`/collections/${resolvedParams.slug}`}
+                  defaultMetal={resolvedSearchParams.metal}
+                  defaultSort={resolvedSearchParams.sort}
+                  defaultPriceMin={resolvedSearchParams.priceMin}
+                  defaultPriceMax={resolvedSearchParams.priceMax}
+                />
+              </div>
+            </details>
+            <div className="hidden md:block">
+              <FilterForm
+                basePath={`/collections/${resolvedParams.slug}`}
+                defaultMetal={resolvedSearchParams.metal}
+                defaultSort={resolvedSearchParams.sort}
+                defaultPriceMin={resolvedSearchParams.priceMin}
+                defaultPriceMax={resolvedSearchParams.priceMax}
+              />
+            </div>
           </aside>
 
           <div>

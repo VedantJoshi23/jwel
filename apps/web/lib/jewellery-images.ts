@@ -18,7 +18,20 @@ export const categoryImages: Record<string, string> = {
   jhumkas: '/images/jewellery/category-jhumkas.jpg',
   'necklace-sets': '/images/jewellery/category-necklace-sets.jpg',
   bangles: '/images/jewellery/category-bangles.jpg',
+  earrings: '/images/jewellery/category-jhumkas.jpg',
+  rings: '/images/jewellery/bestseller-ring.jpg',
+  necklaces: '/images/jewellery/bestseller-necklace.jpg',
+  'temple-jewelry': '/images/jewellery/hero-model.jpg',
+  'choker-sets': '/images/jewellery/newarrival-pearl.jpg',
+  all: '/images/jewellery/hero-model.jpg',
+  'new-arrivals': '/images/jewellery/newarrival-pearl.jpg',
+  bestsellers: '/images/jewellery/bestseller-necklace.jpg',
 };
+
+/** Collection/PLP banner image for a category or curated-view slug, with a sane fallback. */
+export function getCategoryBannerImage(slug: string): string {
+  return categoryImages[slug] ?? heroImage;
+}
 
 const productImagePool = [
   '/images/jewellery/bestseller-necklace.jpg',

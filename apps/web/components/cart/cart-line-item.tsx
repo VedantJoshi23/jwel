@@ -1,8 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import { X } from 'lucide-react';
 import { QuantityStepper } from '@/components/product/quantity-stepper';
 import { PriceTag } from '@/components/product/price-tag';
+import { getProductStockImage } from '@/lib/jewellery-images';
 import type { CartLine } from '@/lib/cart-store';
 
 export function CartLineItemRow({
@@ -15,21 +17,24 @@ export function CartLineItemRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[120px_1fr_auto] items-center gap-5 border-b border-border py-5">
-      <div
-        className="flex aspect-square items-center justify-center bg-surface-alt font-mono text-[10px] text-ink-muted"
-        aria-hidden="true"
-      >
-        [ image ]
+    <div className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-5 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-5 sm:px-5">
+      <div className="relative aspect-square overflow-hidden bg-surface-alt">
+        <Image
+          src={getProductStockImage(line.productSlug)}
+          alt={line.productName}
+          fill
+          sizes="(min-width: 640px) 120px, 84px"
+          className="object-cover"
+        />
       </div>
-      <div>
-        <p className="font-medium">{line.productName}</p>
+      <div className="min-w-0">
+        <p className="truncate font-medium">{line.productName}</p>
         <p className="text-sm text-ink-secondary">
           {line.metal.replace('_', ' ')}
           {line.size ? ` · ${line.size}` : ''}
         </p>
         <PriceTag amountMinorUnits={line.unitPriceMinorUnits} className="mt-2" />
-        <div className="mt-3 flex items-center gap-5">
+        <div className="mt-3 flex flex-wrap items-center gap-3 sm:gap-5">
           <QuantityStepper value={line.quantity} onChange={onQuantityChange} />
           <button
             type="button"
@@ -41,7 +46,7 @@ export function CartLineItemRow({
           </button>
         </div>
       </div>
-      <p className="font-display text-lg font-bold">
+      <p className="font-display text-base font-bold sm:text-lg">
         {(line.unitPriceMinorUnits * line.quantity / 100).toLocaleString('en-IN', {
           style: 'currency',
           currency: 'INR',

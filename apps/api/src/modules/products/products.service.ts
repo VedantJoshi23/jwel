@@ -38,17 +38,39 @@ export class ProductsService {
   async findAll(query: QueryProductsDto): Promise<PaginatedResult<ProductWithRelations>> {
     const { page, pageSize, category, metal, q, priceMin, priceMax, sort } = query;
 
+    // `q` matching used to be a single literal `contains` on name/description —
+    // strict substring matching, no typo tolerance, no per-word matching (a
+    // two-word query only matched if both words appeared adjacently, in order).
+    // `products.search_vector` (generated tsvector column + GIN index) and the
+    // `pg_trgm` extension already exist for exactly this case (see the
+    // constraints_and_search migration) but were never wired up here — this is
+    // the Postgres side of the "elastic" fallback ARCHITECTURE.md always
+    // specified, not a new capability. `websearch_to_tsquery` gives per-word/
+    // any-order matching; `word_similarity` catches typos on an individual word
+    // within a longer name that `websearch_to_tsquery` can't (e.g. "neckless"
+    // still finding "Temple Coin Necklace") — plain `similarity()` compares the
+    // whole strings and was tried first, but a short typo'd word against a long
+    // multi-word product name scores too low against it (0.2, under any
+    // reasonable threshold) even though the single-word match is a good one.
+    const matchingIds = q
+      ? (
+          await this.prisma.$queryRaw<{ id: string }[]>`
+            SELECT id FROM products
+            WHERE status = 'PUBLISHED' AND deleted_at IS NULL
+              AND (
+                search_vector @@ websearch_to_tsquery('english', ${q})
+                OR word_similarity(${q}, name) > 0.4
+              )
+          `
+        ).map((row) => row.id)
+      : undefined;
+
     const where: Prisma.ProductWhereInput = {
       status: ProductStatus.PUBLISHED,
       deletedAt: null,
       ...(category && { category: { slug: category } }),
       ...(metal && { variants: { some: { metal } } }),
-      ...(q && {
-        OR: [
-          { name: { contains: q, mode: Prisma.QueryMode.insensitive } },
-          { description: { contains: q, mode: Prisma.QueryMode.insensitive } },
-        ],
-      }),
+      ...(matchingIds && { id: { in: matchingIds } }),
     };
 
     const matches = await this.prisma.product.findMany({ where, include: productInclude });
