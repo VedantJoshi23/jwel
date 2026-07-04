@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { ScrollReveal } from '@/components/cinematic/scroll-reveal';
 
 interface GemStat {
@@ -27,13 +28,15 @@ interface GemChapterProps {
   stats?: GemStat[];
   align: 'left' | 'right';
   gem: GemVisual;
+  href: string;
+  ctaLabel: string;
 }
 
 /** One of the three "gemstone chapter" scenes — Emerald / Ruby / Sapphire — sharing
  * layout and motion, differing only in palette, copy, and the CSS-only gem shape
  * (no WebGL/Three.js — a flat clip-path + radial glow reads just as well at this
  * scale and keeps this pitch page dependency-free). */
-export function GemChapter({ background, wash, accent, eyebrow, headline, body, stats, align, gem }: GemChapterProps) {
+export function GemChapter({ background, wash, accent, eyebrow, headline, body, stats, align, gem, href, ctaLabel }: GemChapterProps) {
   return (
     <section className="relative min-h-[110vh] overflow-hidden" style={{ background }}>
       <div className="pointer-events-none absolute inset-0" style={{ background: wash }} />
@@ -90,6 +93,13 @@ export function GemChapter({ background, wash, accent, eyebrow, headline, body, 
                 ))}
               </div>
             )}
+            <Link
+              href={href}
+              data-vision-magnet
+              className={`mt-12 inline-block text-[11px] uppercase tracking-[.4em] text-[#F5F1EA] underline decoration-[#F5F1EA]/40 underline-offset-8 transition-colors hover:decoration-[#F5F1EA] ${align === 'right' ? 'text-right' : ''}`}
+            >
+              {ctaLabel}
+            </Link>
           </ScrollReveal>
         </div>
       </div>

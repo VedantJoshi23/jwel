@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { brand } from '@/lib/brand';
 import { ParticleField } from './particle-field';
 
 export function VisionLoader() {
@@ -15,7 +16,7 @@ export function VisionLoader() {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-8 bg-[#0A0A0C]"
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-8 bg-[rgb(var(--v-bg))]"
       initial={false}
       animate={{ opacity: visible ? 1 : 0 }}
       transition={{ duration: 0.9, ease: [0.65, 0.05, 0.36, 1] }}
@@ -25,13 +26,13 @@ export function VisionLoader() {
       <ParticleField className="absolute inset-0 h-full w-full" count={60} />
       <div className="relative h-[120px] w-[120px]">
         <svg width="120" height="120" viewBox="0 0 120 120" className="-rotate-90">
-          <circle cx="60" cy="60" r="45" fill="none" stroke="rgba(200,162,74,.15)" strokeWidth="1" />
+          <circle cx="60" cy="60" r="45" fill="none" stroke="rgb(var(--v-gold) / 0.15)" strokeWidth="1" />
           <motion.circle
             cx="60"
             cy="60"
             r="45"
             fill="none"
-            stroke="#C8A24A"
+            stroke="rgb(var(--v-gold))"
             strokeWidth="1"
             strokeDasharray={283}
             initial={{ strokeDashoffset: 283 }}
@@ -40,17 +41,17 @@ export function VisionLoader() {
           />
         </svg>
         <div
-          className="absolute inset-0 flex items-center justify-center pl-2 text-[22px] text-[#E8CB7B]"
+          className="absolute inset-0 flex items-center justify-center pl-2 text-[22px] text-[rgb(var(--v-gold-soft))]"
           style={{ fontFamily: 'var(--vision-font-serif)', letterSpacing: '.5em' }}
         >
-          G
+          {brand.name.charAt(0)}
         </div>
       </div>
       <div
-        className="text-[10px] uppercase text-[#F5F1EA]/40"
+        className="text-[10px] uppercase text-[rgb(var(--v-ink)/0.4)]"
         style={{ fontFamily: 'var(--vision-font-sans)', letterSpacing: '.5em' }}
       >
-        Crafted since 1962
+        {brand.tagline}
       </div>
     </motion.div>
   );

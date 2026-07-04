@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import { craftPolishImage, craftStoneSettingImage, craftToolsImage } from './images';
+import { brand } from '@/lib/brand';
 
 const FRAMES = [
   {
@@ -75,16 +76,15 @@ export function VisionCraft() {
           className="text-[clamp(36px,7vw,120px)] leading-[1] tracking-tight text-[#F5F1EA]"
           style={{ fontFamily: 'var(--vision-font-serif)', fontWeight: 300 }}
         >
-          Fourteen <em className="italic text-[#F5F1EA]/55">hands.</em>
+          Handcrafted,
           <br />
-          Ninety-two <em className="italic text-[#F5F1EA]/55">hours.</em>
+          <em className="italic text-[#F5F1EA]/55">by hand.</em>
         </div>
         <p
           className="mt-10 max-w-[440px] text-sm leading-[1.7] text-[#F5F1EA]/55"
           style={{ fontFamily: 'var(--vision-font-sans)', letterSpacing: '.04em' }}
         >
-          A single piece passes through the hands of fourteen artisans. Each one carrying a
-          discipline learned across three generations.
+          {brand.story.values[0].body}
         </p>
       </div>
 
@@ -128,7 +128,7 @@ export function VisionCraft() {
           className="mt-10 text-[11px] uppercase text-[#C8A24A]"
           style={{ fontFamily: 'var(--vision-font-sans)', letterSpacing: '.4em' }}
         >
-          — Master Craftsman · Rajkumar Soni
+          — The Atelier
         </p>
       </div>
     </>
