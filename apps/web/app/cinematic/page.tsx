@@ -8,6 +8,7 @@ import { MacroScene } from '@/components/cinematic/macro-scene';
 import { ScrollReveal } from '@/components/cinematic/scroll-reveal';
 import { brand } from '@/lib/brand';
 import { categoryImages, heroImage, macroSparkleImage } from '@/lib/jewellery-images';
+import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -93,15 +94,20 @@ export default async function CinematicHomePage() {
             {brand.subscription.subtext}
           </p>
           <div className="mx-auto mt-10 flex max-w-lg flex-wrap justify-center gap-14">
-            {brand.subscription.steps.map((step) => (
-              <div key={step} className="text-center">
-                <div className="mx-auto h-px w-10 bg-footer-accent" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium">{step}</p>
-              </div>
-            ))}
+            {brand.subscription.steps.map((step) => {
+              const Icon = SUBSCRIPTION_STEP_ICONS[step];
+              return (
+                <div key={step} className="text-center">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-footer-accent/40 text-footer-accent">
+                    {Icon && <Icon className="h-5 w-5" aria-hidden="true" />}
+                  </div>
+                  <p className="mt-3 text-sm font-medium">{step}</p>
+                </div>
+              );
+            })}
           </div>
           <Link
-            href="#subscribe"
+            href="/subscriptions"
             className="mt-10 inline-block bg-brand-accent px-8 py-3.5 text-sm font-semibold text-footer-bg transition-transform duration-300 hover:scale-[1.03]"
           >
             {brand.subscription.cta}
@@ -138,6 +144,10 @@ export default async function CinematicHomePage() {
         Comparing concepts?{' '}
         <Link href="/" className="font-semibold text-brand-primary underline">
           ← Back to the classic layout
+        </Link>{' '}
+        ·{' '}
+        <Link href="/vision" className="font-semibold text-brand-primary underline">
+          See the black &amp; gold vision concept →
         </Link>
       </p>
     </>

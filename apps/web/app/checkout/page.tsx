@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
@@ -12,6 +13,7 @@ import { validateCoupon } from '@/lib/api/coupons';
 import { ApiError } from '@/lib/api/client';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
+import { getProductStockImage } from '@/lib/jewellery-images';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -103,10 +105,15 @@ export default function CheckoutPage() {
           <div className="mt-6 space-y-3">
             {lines.map((line) => (
               <div key={line.variantId} className="flex items-center gap-5 border border-border-sale p-5">
-                <div
-                  className="h-[90px] w-[120px] shrink-0 bg-[repeating-linear-gradient(45deg,#EAE0C4_0_11px,#DFD0B0_11px_22px)]"
-                  aria-hidden="true"
-                />
+                <div className="relative h-[90px] w-[120px] shrink-0 overflow-hidden bg-surface-alt">
+                  <Image
+                    src={getProductStockImage(line.productSlug)}
+                    alt={line.productName}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                  />
+                </div>
                 <div className="flex-1">
                   <p className="font-medium">{line.productName}</p>
                   <p className="mt-1 text-sm text-ink-secondary">Quantity: {line.quantity}</p>

@@ -16,6 +16,26 @@ export const brand = {
   description:
     'Handcrafted Kundan chokers, temple jhumkas, pearl sets and meenakari rings — heirloom pieces built for festive glamour and everyday elegance.',
 
+  // ── Brand story (About page + reused anywhere the same value props appear) ──
+  story: {
+    intro:
+      "GLINT started with a simple idea: festive jewellery shouldn't mean choosing between heirloom craftsmanship and something you'd actually wear on a regular Tuesday. We work with artisan clusters who specialise in Kundan work, temple jhumkas, pearl sets and meenakari rings to bring that craftsmanship to pieces designed for everyday rotation, not just the back of a locker.",
+    values: [
+      {
+        title: 'Handcrafted',
+        body: 'Every piece is shaped, set and finished by hand by artisans who have spent decades perfecting Kundan, meenakari and temple jewellery techniques.',
+      },
+      {
+        title: 'Heritage-led',
+        body: 'Our designs draw on centuries-old South Asian jewellery traditions, reworked for how people actually dress and layer today.',
+      },
+      {
+        title: 'Built to last',
+        body: 'Tarnish-resistant plating and considered construction mean these are pieces you reach for season after season, not just for one occasion.',
+      },
+    ],
+  },
+
   // ── SEO defaults (used in layout.tsx metadata) ─────────────────────────────
   seo: {
     defaultTitle: 'GLINT — Timeless craft, festive spirit.',

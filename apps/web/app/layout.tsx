@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import { Fraunces, IBM_Plex_Mono, Inter } from 'next/font/google';
 import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
-import { SiteHeader } from '@/components/layout/header';
-import { SiteFooter } from '@/components/layout/footer';
+import { SiteChrome } from '@/components/layout/site-chrome';
 import { brand } from '@/lib/brand';
 
 // To swap fonts for a white-label: change these three Google Font imports
@@ -33,16 +32,15 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${fontDisplay.variable} ${fontSans.variable} ${fontMono.variable}`}>
-      <body className="flex min-h-screen flex-col">
+      {/* suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+          data-gr-* attributes onto <body> before React hydrates, which is a
+          client-only DOM mutation React can't and shouldn't try to reconcile. */}
+      <body className="flex min-h-screen flex-col" suppressHydrationWarning>
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
         <QueryProvider>
-          <SiteHeader />
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
-          <SiteFooter />
+          <SiteChrome>{children}</SiteChrome>
         </QueryProvider>
       </body>
     </html>
