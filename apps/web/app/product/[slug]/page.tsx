@@ -94,7 +94,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {/* Product image */}
           <div className="relative aspect-square overflow-hidden bg-surface-alt">
             <Image
-              src={product.media[0]?.storageRef.startsWith('http') ? product.media[0].storageRef : getProductStockImage(product.id)}
+              src={product.media[0]?.url ?? getProductStockImage(product.id)}
               alt={product.name}
               fill
               priority

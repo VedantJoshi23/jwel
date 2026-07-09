@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -129,16 +130,21 @@ export default function AdminProductsPage() {
                     <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    {product.status === 'DRAFT' && (
-                      <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'PUBLISHED')}>
-                        Publish
-                      </Button>
-                    )}
-                    {product.status === 'PUBLISHED' && (
-                      <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'ARCHIVED')}>
-                        Archive
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      <Link href={`/admin/products/${product.id}`} className="text-sm text-ink-secondary underline">
+                        Photos ({product.media.length})
+                      </Link>
+                      {product.status === 'DRAFT' && (
+                        <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'PUBLISHED')}>
+                          Publish
+                        </Button>
+                      )}
+                      {product.status === 'PUBLISHED' && (
+                        <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'ARCHIVED')}>
+                          Archive
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

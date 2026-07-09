@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Role } from '../../common/enums/role.enum';
+import { OAuthValidatedProfile } from './oauth/oauth-profile';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -46,6 +47,54 @@ export class AuthService {
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
     }
+
+    return this.buildAuthResponse(user.id, user.email, user.name, user.role as Role);
+  }
+
+  // Shared entry point for Google/Facebook/Apple — the strategies only differ
+  // in how they get here (see modules/auth/oauth/*.strategy.ts); every one of
+  // them hands off a normalized OAuthValidatedProfile.
+  async loginWithOAuth(profile: OAuthValidatedProfile): Promise<AuthResponseDto> {
+    const existingAccount = await this.prisma.oAuthAccount.findUnique({
+      where: { provider_providerAccountId: { provider: profile.provider, providerAccountId: profile.providerAccountId } },
+      include: { user: true },
+    });
+
+    if (existingAccount) {
+      if (existingAccount.user.deletedAt) {
+        throw new UnauthorizedException('Account no longer active');
+      }
+      return this.buildAuthResponse(
+        existingAccount.user.id,
+        existingAccount.user.email,
+        existingAccount.user.name,
+        existingAccount.user.role as Role,
+      );
+    }
+
+    // First time this provider identity has been seen. Link it to an
+    // existing email/password (or other-provider) account if the email
+    // matches one; otherwise this is a brand-new customer.
+    if (!profile.email) {
+      throw new BadRequestException(
+        `${profile.provider} did not share an email address, and no account is already linked to this identity. ` +
+          'Sign in with an email/password account first, or use a provider that shares an email, to link this identity.',
+      );
+    }
+
+    const user =
+      (await this.prisma.user.findUnique({ where: { email: profile.email } })) ??
+      (await this.prisma.user.create({
+        data: { email: profile.email, name: profile.name, role: Role.CUSTOMER },
+      }));
+
+    if (user.deletedAt) {
+      throw new UnauthorizedException('Account no longer active');
+    }
+
+    await this.prisma.oAuthAccount.create({
+      data: { userId: user.id, provider: profile.provider, providerAccountId: profile.providerAccountId },
+    });
 
     return this.buildAuthResponse(user.id, user.email, user.name, user.role as Role);
   }

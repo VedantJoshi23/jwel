@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { register as registerRequest } from '@/lib/api/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api/client';
+import { SocialLoginButtons } from '@/components/auth/social-login-buttons';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -71,6 +72,9 @@ export default function RegisterPage() {
           Create account
         </Button>
       </form>
+      <div className="mt-6">
+        <SocialLoginButtons />
+      </div>
       <p className="mt-5 text-center text-sm text-ink-secondary">
         Already have an account?{' '}
         <Link href="/login" className="underline">

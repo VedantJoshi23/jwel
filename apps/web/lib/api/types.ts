@@ -27,7 +27,10 @@ export interface ProductVariant {
 
 export interface ProductMedia {
   id: string;
+  /** Opaque — resolved server-side by the Storage port. Never load this directly; use `url`. */
   storageRef: string;
+  /** Resolved, directly loadable image URL — always present once the Storage port is wired up. */
+  url: string;
   type: 'IMAGE' | 'VIDEO';
   sortOrder: number;
 }

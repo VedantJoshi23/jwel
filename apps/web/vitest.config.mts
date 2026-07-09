@@ -25,7 +25,11 @@ export default defineConfig({
       // production code under `lib/**`/`components/**` still requires
       // coverage; a throwaway concept pitch doesn't need retroactive tests
       // written for it to satisfy a threshold it was never going to justify.
-      exclude: ['lib/api/types.ts', '**/*.d.ts', 'components/vision/**'],
+      // `components/cinematic/**` is used exclusively by the same vision
+      // concept-pitch pages (app/vision/**, app/cinematic/page.tsx) as
+      // `components/vision/**` above — same reasoning, just a sibling
+      // directory that was missed the first time.
+      exclude: ['lib/api/types.ts', '**/*.d.ts', 'components/vision/**', 'components/cinematic/**'],
       thresholds: {
         statements: 90,
         branches: 90,

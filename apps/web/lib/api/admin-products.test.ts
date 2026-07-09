@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { adminGetProduct, adminListProducts, adminUpdateProductStatus, bulkImportProducts } from './admin-products';
+import {
+  adminGetProduct,
+  adminListProducts,
+  adminRemoveProductMedia,
+  adminReorderProductMedia,
+  adminUpdateProductStatus,
+  adminUploadProductMedia,
+  bulkImportProducts,
+} from './admin-products';
 
 describe('admin-products API', () => {
   beforeEach(() => {
@@ -40,5 +48,29 @@ describe('admin-products API', () => {
     expect(url).toContain('/admin/products/bulk-import');
     expect(options.body).toBeInstanceOf(FormData);
     expect(options.body.get('file')).toBe(file);
+  });
+
+  it('adminUploadProductMedia POSTs the photo as multipart form data to the product’s media endpoint', async () => {
+    const file = new File(['bytes'], 'photo.png', { type: 'image/png' });
+    await adminUploadProductMedia('token-1', 'p1', file);
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products/p1/media');
+    expect(options.body).toBeInstanceOf(FormData);
+    expect(options.body.get('file')).toBe(file);
+  });
+
+  it('adminRemoveProductMedia DELETEs the specific media item', async () => {
+    await adminRemoveProductMedia('token-1', 'p1', 'm1');
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products/p1/media/m1');
+    expect(options.method).toBe('DELETE');
+  });
+
+  it('adminReorderProductMedia PUTs the new mediaIds order', async () => {
+    await adminReorderProductMedia('token-1', 'p1', ['m2', 'm1']);
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products/p1/media/reorder');
+    expect(options.method).toBe('PUT');
+    expect(JSON.parse(options.body)).toEqual({ mediaIds: ['m2', 'm1'] });
   });
 });

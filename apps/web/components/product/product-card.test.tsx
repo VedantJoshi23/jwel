@@ -59,4 +59,23 @@ describe('ProductCard', () => {
     render(<ProductCard product={fakeProduct({ avgRating: '4.5', ratingCount: 10 })} />);
     expect(screen.getByRole('img', { name: /out of 5 stars/i })).toBeInTheDocument();
   });
+
+  it('shows the NEW ARRIVAL badge when isNew is true', () => {
+    render(<ProductCard product={fakeProduct()} isNew />);
+    expect(screen.getByLabelText('New arrival')).toBeInTheDocument();
+  });
+
+  it('omits the NEW ARRIVAL badge by default', () => {
+    render(<ProductCard product={fakeProduct()} />);
+    expect(screen.queryByLabelText('New arrival')).not.toBeInTheDocument();
+  });
+
+  it('uses the resolved media URL when the product has a photo', () => {
+    render(
+      <ProductCard
+        product={fakeProduct({ media: [{ id: 'm1', storageRef: 's3:x.png', url: 'https://cdn.example.com/x.png', type: 'IMAGE', sortOrder: 0 }] })}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Gold Ring' })).toHaveAttribute('src', expect.stringContaining('cdn.example.com'));
+  });
 });
