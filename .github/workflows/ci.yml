@@ -164,6 +164,14 @@ jobs:
           npx prisma generate --schema=src/prisma/schema.prisma
           npx prisma migrate deploy --schema=src/prisma/schema.prisma
 
+      # Minimal fixture data (currently just "Diamond Halo Ring") that
+      # e2e/storefront.spec.ts assumes already exists — nothing ever seeded
+      # it before, in CI or otherwise, which is why those specs only ever
+      # passed against someone's leftover local data.
+      - name: Seed minimal E2E fixture data
+        working-directory: apps/api
+        run: npm run prisma:seed
+
       # PORT is scoped to just this step, not the job — the API needs it to
       # bind :4000, but a job-level env var would also leak into the E2E
       # step below and make `next dev` (which also honors $PORT) try to
