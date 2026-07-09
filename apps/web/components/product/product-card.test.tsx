@@ -47,12 +47,16 @@ describe('ProductCard', () => {
   });
 
   it('omits the rating stars when avgRating is 0', () => {
+    // Scoped to the rating stars' own accessible name — the card's product
+    // photo is also role="img" (a real `next/image` `<img alt="...">`,
+    // present regardless of rating), so an unscoped query here was matching
+    // the wrong element instead of asserting anything about rating stars.
     render(<ProductCard product={fakeProduct({ avgRating: '0' })} />);
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: /out of 5 stars/i })).not.toBeInTheDocument();
   });
 
   it('shows rating stars when avgRating is positive', () => {
     render(<ProductCard product={fakeProduct({ avgRating: '4.5', ratingCount: 10 })} />);
-    expect(screen.getByRole('img')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /out of 5 stars/i })).toBeInTheDocument();
   });
 });

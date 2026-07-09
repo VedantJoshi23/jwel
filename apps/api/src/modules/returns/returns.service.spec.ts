@@ -3,18 +3,19 @@ import { OrderStatus, ReturnStatus } from '@prisma/client';
 import { ReturnsService } from './returns.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { PaymentsService } from '../payments/payments.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
 
 type MockPrisma = {
   orderItem: { findUnique: jest.Mock };
   returnRequest: { create: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
-  payment: { updateMany: jest.Mock };
 };
 
 describe('ReturnsService', () => {
   let prisma: MockPrisma;
   let inventory: { restock: jest.Mock };
+  let payments: { markRefunded: jest.Mock };
   let eventBus: { emit: jest.Mock };
   let service: ReturnsService;
 
@@ -22,11 +23,16 @@ describe('ReturnsService', () => {
     prisma = {
       orderItem: { findUnique: jest.fn() },
       returnRequest: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
-      payment: { updateMany: jest.fn() },
     };
     inventory = { restock: jest.fn() };
+    payments = { markRefunded: jest.fn() };
     eventBus = { emit: jest.fn() };
-    service = new ReturnsService(prisma as unknown as PrismaService, inventory as unknown as InventoryService, eventBus as unknown as EventBusService);
+    service = new ReturnsService(
+      prisma as unknown as PrismaService,
+      inventory as unknown as InventoryService,
+      payments as unknown as PaymentsService,
+      eventBus as unknown as EventBusService,
+    );
   });
 
   describe('create', () => {
@@ -147,10 +153,10 @@ describe('ReturnsService', () => {
       prisma.returnRequest.update.mockResolvedValue({ id: 'r1', status: ReturnStatus.APPROVED });
       await service.adminUpdateStatus('r1', ReturnStatus.APPROVED);
       expect(inventory.restock).not.toHaveBeenCalled();
-      expect(prisma.payment.updateMany).not.toHaveBeenCalled();
+      expect(payments.markRefunded).not.toHaveBeenCalled();
     });
 
-    it('restocks inventory and marks the payment REFUNDED when transitioning to REFUNDED', async () => {
+    it('restocks inventory and marks the payment REFUNDED (via PaymentsService) when transitioning to REFUNDED', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({
         status: ReturnStatus.REFUND_PROCESSING,
         orderItem: { variantId: 'v1', quantity: 2, orderId: 'o1' },
@@ -163,10 +169,7 @@ describe('ReturnsService', () => {
       await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 5000);
 
       expect(inventory.restock).toHaveBeenCalledWith('v1', 2);
-      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { orderId: 'o1' },
-        data: { status: 'REFUNDED' },
-      });
+      expect(payments.markRefunded).toHaveBeenCalledWith('o1');
     });
 
     it('emits return.refunded with the refund amount only when transitioning to REFUNDED', async () => {

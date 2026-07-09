@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
-import { OrderStatus, PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
+import { PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import {
@@ -55,17 +55,13 @@ export class PaymentsService {
     return { payment, clientSecret: intent.clientSecret };
   }
 
-  // The Order-state update still happens directly here (not purely via the
-  // event bus) because it's the same aggregate this service is authoritative
-  // for confirming — but the *side effect* (notifying the customer) now goes
-  // through EventBusService.emit('order.confirmed', ...) rather than
-  // PaymentsService calling a Notification service directly. This is the
-  // event-bus gap named in BACKEND.md §4, closed for this one event; Order ->
-  // Inventory and Order -> Analytics from ARCHITECTURE.md §5's event catalog
-  // remain direct calls for now (OrdersService already calls InventoryService
-  // directly, which is the inventory-update path, not a missing wiring).
-  // Idempotent on `providerRef` + current status check, so a duplicated
-  // webhook delivery is safe to replay without double-emitting the event.
+  // Payments only ever writes its own `payment` row here (Law 1 — no
+  // cross-module table writes, see M2 Constitution). The Order-state
+  // transition into CONFIRMED, and the resulting `order.confirmed`
+  // notification, are owned entirely by OrdersService, which listens for
+  // `payment.succeeded` (see OrdersService.onModuleInit). Idempotent on
+  // `providerRef` + current status check, so a duplicated webhook delivery
+  // is safe to replay without double-emitting the event.
   async handleStripeWebhook(rawBody: Buffer, signatureHeader: string): Promise<void> {
     const event = this.stripe.constructEvent(rawBody, signatureHeader);
 
@@ -81,28 +77,15 @@ export class PaymentsService {
   }
 
   private async markSucceeded(providerRef: string): Promise<void> {
-    // select, not include, on `user` — see returns.service.ts's comment on the
-    // same mistake; this path never reaches an HTTP response today, but
-    // over-fetching passwordHash here is still the wrong default to copy.
-    const payment = await this.prisma.payment.findUnique({
-      where: { providerRef },
-      include: { order: { include: { user: { select: { id: true, email: true } } } } },
-    });
+    const payment = await this.prisma.payment.findUnique({ where: { providerRef } });
     if (!payment || payment.status === PaymentStatus.SUCCEEDED) {
       return;
     }
-    await this.prisma.$transaction([
-      this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.SUCCEEDED } }),
-      this.prisma.order.update({ where: { id: payment.orderId }, data: { status: OrderStatus.CONFIRMED } }),
-      this.prisma.orderStatusHistory.create({
-        data: { orderId: payment.orderId, status: OrderStatus.CONFIRMED, note: 'Payment succeeded' },
-      }),
-    ]);
+    await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.SUCCEEDED } });
 
-    this.eventBus.emit('order.confirmed', {
+    this.eventBus.emit('payment.succeeded', {
       orderId: payment.orderId,
-      userEmail: payment.order.user.email,
-      totalMinorUnits: payment.amountMinorUnits,
+      amountMinorUnits: payment.amountMinorUnits,
     });
   }
 
@@ -112,5 +95,18 @@ export class PaymentsService {
       return;
     }
     await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.FAILED } });
+  }
+
+  // Owned by Payments (Law 1) — Returns calls this rather than writing
+  // `payment` rows itself. Bookkeeping only: this marks the Payment row
+  // REFUNDED, it does not call Stripe's refund API — PaymentProviderPort has
+  // no `refund` method yet, same known gap ReturnsService documented before
+  // this method existed. A real refund must still be issued through the
+  // Stripe dashboard/API directly until that port is extended.
+  async markRefunded(orderId: string): Promise<void> {
+    await this.prisma.payment.updateMany({
+      where: { orderId },
+      data: { status: PaymentStatus.REFUNDED },
+    });
   }
 }

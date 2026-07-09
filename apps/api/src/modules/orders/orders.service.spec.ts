@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { PaymentsService } from '../payments/payments.service';
+import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
 
 type MockPrisma = {
@@ -30,6 +31,7 @@ describe('OrdersService', () => {
   let inventory: { commit: jest.Mock; release: jest.Mock; reserve: jest.Mock };
   let coupons: { validate: jest.Mock; redeem: jest.Mock };
   let payments: { initiateForOrder: jest.Mock };
+  let eventBus: { emit: jest.Mock; on: jest.Mock };
   let service: OrdersService;
   let tx: { order: { create: jest.Mock; update: jest.Mock } };
 
@@ -43,12 +45,40 @@ describe('OrdersService', () => {
     inventory = { commit: jest.fn(), release: jest.fn(), reserve: jest.fn() };
     coupons = { validate: jest.fn(), redeem: jest.fn() };
     payments = { initiateForOrder: jest.fn() };
+    eventBus = { emit: jest.fn(), on: jest.fn() };
     service = new OrdersService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
       coupons as unknown as CouponsService,
       payments as unknown as PaymentsService,
+      eventBus as unknown as EventBusService,
     );
+  });
+
+  describe('onModuleInit / payment.succeeded handling', () => {
+    it('registers a payment.succeeded listener that confirms the order and emits order.confirmed', async () => {
+      service.onModuleInit();
+      expect(eventBus.on).toHaveBeenCalledWith('payment.succeeded', expect.any(Function));
+
+      const handler = eventBus.on.mock.calls[0][1];
+      prisma.order.update.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
+
+      await handler({ orderId: 'o1', amountMinorUnits: 5000 });
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'o1' },
+        data: {
+          status: OrderStatus.CONFIRMED,
+          statusHistory: { create: { status: OrderStatus.CONFIRMED, note: 'Payment succeeded' } },
+        },
+        include: { user: { select: { email: true } } },
+      });
+      expect(eventBus.emit).toHaveBeenCalledWith('order.confirmed', {
+        orderId: 'o1',
+        userEmail: 'a@b.com',
+        totalMinorUnits: 5000,
+      });
+    });
   });
 
   describe('create', () => {
