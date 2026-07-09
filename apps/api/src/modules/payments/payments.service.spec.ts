@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { PaymentProvider, PaymentStatus, OrderStatus } from '@prisma/client';
+import { PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
@@ -7,9 +7,6 @@ import { StripePaymentProvider } from './providers/stripe-payment.provider';
 
 type MockPrisma = {
   payment: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
-  order: { update: jest.Mock };
-  orderStatusHistory: { create: jest.Mock };
-  $transaction: jest.Mock;
 };
 
 describe('PaymentsService', () => {
@@ -23,9 +20,6 @@ describe('PaymentsService', () => {
   beforeEach(() => {
     prisma = {
       payment: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-      order: { update: jest.fn() },
-      orderStatusHistory: { create: jest.fn() },
-      $transaction: jest.fn((ops) => Promise.all(ops)),
     };
     stripeProvider = { createPaymentIntent: jest.fn() };
     razorpayProvider = { createPaymentIntent: jest.fn() };
@@ -75,20 +69,19 @@ describe('PaymentsService', () => {
   });
 
   describe('handleStripeWebhook', () => {
-    it('marks the payment SUCCEEDED, confirms the order, and emits order.confirmed for payment_intent.succeeded', async () => {
+    it('marks the payment SUCCEEDED and emits payment.succeeded for payment_intent.succeeded, without touching Order', async () => {
       stripe.constructEvent.mockReturnValue({ type: 'payment_intent.succeeded', data: { object: { id: 'pi_1' } } });
       prisma.payment.findUnique.mockResolvedValue({
         id: 'pay_1',
         orderId: 'o1',
         status: PaymentStatus.PENDING,
         amountMinorUnits: 5000,
-        order: { user: { email: 'a@b.com' } },
       });
 
       await service.handleStripeWebhook(Buffer.from(''), 'sig');
 
-      expect(prisma.order.update).toHaveBeenCalledWith({ where: { id: 'o1' }, data: { status: OrderStatus.CONFIRMED } });
-      expect(eventBus.emit).toHaveBeenCalledWith('order.confirmed', { orderId: 'o1', userEmail: 'a@b.com', totalMinorUnits: 5000 });
+      expect(prisma.payment.update).toHaveBeenCalledWith({ where: { id: 'pay_1' }, data: { status: PaymentStatus.SUCCEEDED } });
+      expect(eventBus.emit).toHaveBeenCalledWith('payment.succeeded', { orderId: 'o1', amountMinorUnits: 5000 });
     });
 
     it('is idempotent — a webhook replay for an already-SUCCEEDED payment does nothing', async () => {
@@ -97,7 +90,6 @@ describe('PaymentsService', () => {
 
       await service.handleStripeWebhook(Buffer.from(''), 'sig');
 
-      expect(prisma.order.update).not.toHaveBeenCalled();
       expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
@@ -114,7 +106,7 @@ describe('PaymentsService', () => {
       stripe.constructEvent.mockReturnValue({ type: 'charge.dispute.created', data: { object: {} } });
       await service.handleStripeWebhook(Buffer.from(''), 'sig');
       expect(prisma.payment.update).not.toHaveBeenCalled();
-      expect(prisma.order.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
     it('does nothing when the webhook references a payment that does not exist locally', async () => {

@@ -5,9 +5,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, PaymentStatus, ReturnStatus } from '@prisma/client';
+import { OrderStatus, ReturnStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { PaymentsService } from '../payments/payments.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -46,6 +47,7 @@ export class ReturnsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventoryService: InventoryService,
+    private readonly paymentsService: PaymentsService,
     private readonly eventBus: EventBusService,
   ) {}
 
@@ -143,15 +145,10 @@ export class ReturnsService {
       const { variantId, quantity } = returnRequest.orderItem;
       await this.inventoryService.restock(variantId, quantity);
 
-      // Simplification, named rather than silently done: this marks the
-      // Payment row REFUNDED for bookkeeping but does not call Stripe's
-      // refund API — PaymentProviderPort has no `refund` method yet. A real
-      // refund must be issued through the Stripe dashboard/API directly until
-      // that port is extended. Tracked as a follow-up, not implemented here.
-      await this.prisma.payment.updateMany({
-        where: { orderId: returnRequest.orderItem.orderId },
-        data: { status: PaymentStatus.REFUNDED },
-      });
+      // Payments owns the `payment` table (Law 1) — Returns calls its
+      // service method rather than writing that row itself. See
+      // PaymentsService.markRefunded for the Stripe-refund-API caveat.
+      await this.paymentsService.markRefunded(returnRequest.orderItem.orderId);
     }
 
     const updated = await this.prisma.returnRequest.update({

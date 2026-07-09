@@ -16,7 +16,11 @@ describe('Checkbox', () => {
   });
 
   it('renders as checked when checked prop is true', () => {
-    render(<Checkbox checked readOnly />);
+    // No `onCheckedChange` needed here — this is a controlled, checked
+    // render, not an interaction test; `readOnly` isn't a real prop on
+    // Radix's Checkbox.Root (it's an HTML input attribute, not part of
+    // Radix's checked/onCheckedChange-based API) and was a type error.
+    render(<Checkbox checked />);
     expect(screen.getByRole('checkbox')).toBeChecked();
   });
 });

@@ -17,7 +17,18 @@ describe('Input', () => {
 
   it('forwards a ref to the underlying input element', () => {
     let ref: HTMLInputElement | null = null;
-    render(<Input ref={(el) => (ref = el)} placeholder="x" />);
+    // Block body, not `(el) => (ref = el)` — a callback ref must return
+    // void or a cleanup function (React 19's ref-cleanup typing); an
+    // assignment expression implicitly returns the assigned value, which
+    // is a type error now even though it worked at runtime before.
+    render(
+      <Input
+        ref={(el) => {
+          ref = el;
+        }}
+        placeholder="x"
+      />,
+    );
     expect(ref).toBeInstanceOf(HTMLInputElement);
   });
 });

@@ -4,12 +4,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { OrderStatus, PaymentProvider, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { PaymentsService } from '../payments/payments.service';
+import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -25,7 +27,7 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 };
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   private readonly logger = new Logger(OrdersService.name);
 
   constructor(
@@ -33,7 +35,33 @@ export class OrdersService {
     private readonly inventoryService: InventoryService,
     private readonly couponsService: CouponsService,
     private readonly paymentsService: PaymentsService,
+    private readonly eventBus: EventBusService,
   ) {}
+
+  // Order owns its own status transitions (Law 1) — Payments only ever
+  // publishes `payment.succeeded`; this listener is what actually moves the
+  // order into CONFIRMED, then republishes `order.confirmed` for
+  // Notifications (see NotificationsService.onModuleInit).
+  onModuleInit(): void {
+    this.eventBus.on('payment.succeeded', (payload) => this.confirmPayment(payload.orderId, payload.amountMinorUnits));
+  }
+
+  private async confirmPayment(orderId: string, amountMinorUnits: number): Promise<void> {
+    const order = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: OrderStatus.CONFIRMED,
+        statusHistory: { create: { status: OrderStatus.CONFIRMED, note: 'Payment succeeded' } },
+      },
+      include: { user: { select: { email: true } } },
+    });
+
+    this.eventBus.emit('order.confirmed', {
+      orderId: order.id,
+      userEmail: order.user.email,
+      totalMinorUnits: amountMinorUnits,
+    });
+  }
 
   /**
    * Checkout orchestration (FR-9). Stock reservation + order/coupon-redemption

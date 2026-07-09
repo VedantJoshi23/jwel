@@ -9,6 +9,15 @@ export interface OrderConfirmedEvent {
   totalMinorUnits: number;
 }
 
+// Payments owns the Payment aggregate only (Law 1 — no cross-module table
+// writes) — it publishes this instead of writing Order's status directly.
+// Orders owns the transition into CONFIRMED and re-publishes
+// `order.confirmed` once its own state is updated.
+export interface PaymentSucceededEvent {
+  orderId: string;
+  amountMinorUnits: number;
+}
+
 export interface ReturnRequestedEvent {
   returnId: string;
   userEmail: string;
@@ -36,6 +45,7 @@ export interface ProductDeletedEvent {
 
 export interface DomainEvents {
   'order.confirmed': OrderConfirmedEvent;
+  'payment.succeeded': PaymentSucceededEvent;
   'return.requested': ReturnRequestedEvent;
   'return.refunded': ReturnRefundedEvent;
   'product.upserted': ProductUpsertedEvent;
