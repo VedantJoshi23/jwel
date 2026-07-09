@@ -1,12 +1,14 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { ProductSort } from './dto/query-products.dto';
 
 type MockPrisma = {
   product: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; count: jest.Mock };
+  productMedia: { count: jest.Mock; create: jest.Mock; delete: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -17,6 +19,7 @@ function fakeProduct(id: string, basePriceMinorUnits: number, overrides: Partial
     ratingCount: 0,
     createdAt: new Date('2026-01-01'),
     variants: [{ basePriceMinorUnits }],
+    media: [],
     ...overrides,
   };
 }
@@ -24,15 +27,26 @@ function fakeProduct(id: string, basePriceMinorUnits: number, overrides: Partial
 describe('ProductsService', () => {
   let prisma: MockPrisma;
   let eventBus: { emit: jest.Mock };
+  let storage: { upload: jest.Mock; delete: jest.Mock; resolveUrl: jest.Mock };
   let service: ProductsService;
 
   beforeEach(() => {
     prisma = {
       product: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
+      productMedia: { count: jest.fn(), create: jest.fn(), delete: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
     eventBus = { emit: jest.fn() };
-    service = new ProductsService(prisma as unknown as PrismaService, eventBus as unknown as EventBusService);
+    storage = {
+      upload: jest.fn().mockResolvedValue({ storageRef: 'local:products/new.jpg' }),
+      delete: jest.fn(),
+      resolveUrl: jest.fn((ref: string) => `https://cdn.example.com/${ref}`),
+    };
+    service = new ProductsService(
+      prisma as unknown as PrismaService,
+      eventBus as unknown as EventBusService,
+      storage as unknown as StorageProviderPort,
+    );
   });
 
   describe('findAll', () => {
@@ -112,10 +126,10 @@ describe('ProductsService', () => {
       await expect(service.findBySlug('missing')).rejects.toThrow(NotFoundException);
     });
 
-    it('returns the product when found', async () => {
+    it('returns the product when found, with media URLs resolved', async () => {
       const product = fakeProduct('p1', 1000);
       prisma.product.findFirst.mockResolvedValue(product);
-      expect(await service.findBySlug('p1')).toBe(product);
+      expect(await service.findBySlug('p1')).toEqual({ ...product, media: [] });
     });
   });
 
@@ -128,19 +142,19 @@ describe('ProductsService', () => {
     it('returns the product (including drafts) when found', async () => {
       const product = fakeProduct('p1', 1000);
       prisma.product.findUnique.mockResolvedValue(product);
-      expect(await service.adminFindOne('p1')).toBe(product);
+      expect(await service.adminFindOne('p1')).toEqual({ ...product, media: [] });
     });
   });
 
   describe('adminCreate / adminUpdate / adminDelete', () => {
     it('adminCreate always sets status DRAFT, even though the caller cannot specify a status', async () => {
-      prisma.product.create.mockResolvedValue({ id: 'p1' });
+      prisma.product.create.mockResolvedValue(fakeProduct('p1', 100));
       await service.adminCreate({ name: 'x', slug: 'x', categoryId: 'c1', description: 'd', variants: [] } as any);
       expect(prisma.product.create.mock.calls[0][0].data.status).toBe(ProductStatus.DRAFT);
     });
 
     it('adminCreate emits product.upserted', async () => {
-      prisma.product.create.mockResolvedValue({ id: 'p1' });
+      prisma.product.create.mockResolvedValue(fakeProduct('p1', 100));
       await service.adminCreate({ name: 'x', slug: 'x', categoryId: 'c1', description: 'd', variants: [] } as any);
       expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
     });
@@ -152,14 +166,14 @@ describe('ProductsService', () => {
     });
 
     it('adminUpdate emits product.upserted on success', async () => {
-      prisma.product.findUnique.mockResolvedValue({ id: 'p1' });
-      prisma.product.update.mockResolvedValue({ id: 'p1' });
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.product.update.mockResolvedValue(fakeProduct('p1', 100));
       await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
       expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
     });
 
     it('adminDelete soft-deletes (sets deletedAt + ARCHIVED) and emits product.deleted', async () => {
-      prisma.product.findUnique.mockResolvedValue({ id: 'p1' });
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
       prisma.product.update.mockResolvedValue({});
       await service.adminDelete('p1');
 
@@ -178,6 +192,86 @@ describe('ProductsService', () => {
       const result = await service.adminFindAll({ page: 1, pageSize: 10 });
       expect(prisma.product.findMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
       expect(result).toEqual({ items: [fakeProduct('p1', 100)], page: 1, pageSize: 10, total: 1 });
+    });
+  });
+
+  describe('addMedia', () => {
+    it('throws NotFoundException for a nonexistent product', async () => {
+      prisma.product.findUnique.mockResolvedValue(null);
+      await expect(
+        service.addMedia('missing', { buffer: Buffer.from('x'), mimetype: 'image/png', originalname: 'a.png' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unsupported MIME type before ever calling the storage port', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      await expect(
+        service.addMedia('p1', { buffer: Buffer.from('x'), mimetype: 'application/pdf', originalname: 'a.pdf' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file over the size limit before ever calling the storage port', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      const big = Buffer.alloc(9 * 1024 * 1024);
+      await expect(
+        service.addMedia('p1', { buffer: big, mimetype: 'image/png', originalname: 'a.png' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('uploads via the storage port and persists a ProductMedia row with the next sortOrder', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productMedia.count.mockResolvedValue(2);
+
+      await service.addMedia('p1', { buffer: Buffer.from('x'), mimetype: 'image/png', originalname: 'a.png' });
+
+      expect(storage.upload).toHaveBeenCalledWith({
+        buffer: Buffer.from('x'),
+        mimeType: 'image/png',
+        originalFilename: 'a.png',
+        folder: 'products',
+      });
+      expect(prisma.productMedia.create).toHaveBeenCalledWith({
+        data: { productId: 'p1', storageRef: 'local:products/new.jpg', sortOrder: 2 },
+      });
+      expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
+    });
+  });
+
+  describe('removeMedia', () => {
+    it('throws NotFoundException when the media does not belong to this product', async () => {
+      prisma.productMedia.findUnique.mockResolvedValue({ id: 'm1', productId: 'other-product' });
+      await expect(service.removeMedia('p1', 'm1')).rejects.toThrow(NotFoundException);
+      expect(storage.delete).not.toHaveBeenCalled();
+    });
+
+    it('deletes from storage and the database', async () => {
+      prisma.productMedia.findUnique.mockResolvedValue({ id: 'm1', productId: 'p1', storageRef: 'local:products/a.jpg' });
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+
+      await service.removeMedia('p1', 'm1');
+
+      expect(storage.delete).toHaveBeenCalledWith('local:products/a.jpg');
+      expect(prisma.productMedia.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
+    });
+  });
+
+  describe('reorderMedia', () => {
+    it('rejects a mediaIds list that does not exactly match the product’s current media', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100, { media: [{ id: 'm1' }, { id: 'm2' }] }));
+      await expect(service.reorderMedia('p1', ['m1'])).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('updates sortOrder to match the given order', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100, { media: [{ id: 'm1' }, { id: 'm2' }] }));
+
+      await service.reorderMedia('p1', ['m2', 'm1']);
+
+      expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm2' }, data: { sortOrder: 0 } });
+      expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { sortOrder: 1 } });
     });
   });
 });

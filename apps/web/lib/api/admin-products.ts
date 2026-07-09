@@ -31,3 +31,21 @@ export function bulkImportProducts(token: string, file: File) {
   formData.append('file', file);
   return apiUpload<BulkImportResult>('/admin/products/bulk-import', formData, token);
 }
+
+export function adminUploadProductMedia(token: string, productId: string, file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiUpload<Product>(`/admin/products/${productId}/media`, formData, token);
+}
+
+export function adminRemoveProductMedia(token: string, productId: string, mediaId: string) {
+  return apiFetch<Product>(`/admin/products/${productId}/media/${mediaId}`, { method: 'DELETE', token });
+}
+
+export function adminReorderProductMedia(token: string, productId: string, mediaIds: string[]) {
+  return apiFetch<Product>(`/admin/products/${productId}/media/reorder`, {
+    method: 'PUT',
+    token,
+    body: JSON.stringify({ mediaIds }),
+  });
+}

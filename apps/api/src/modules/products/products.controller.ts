@@ -5,8 +5,10 @@ import {
   Delete,
   Get,
   Param,
+  ParseFilePipeBuilder,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseInterceptors,
@@ -18,9 +20,18 @@ import { BulkImportService } from './bulk-import.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ReorderMediaDto } from './dto/reorder-media.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+
+// Mirrors ProductsService's own limits (SECURITY.md §6 — validated server-
+// side before the file is handed to the Storage port). Duplicated as a
+// literal, not imported from the service, on purpose: this is Multer/pipe
+// configuration for the HTTP boundary, a different layer than the service's
+// own defense-in-depth check on the same numbers.
+const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
+const ALLOWED_MEDIA_MIME_REGEX = /^image\/(jpeg|png|webp)$/;
 
 @ApiTags('products')
 @Controller('api/v1')
@@ -99,5 +110,41 @@ export class ProductsController {
       throw new BadRequestException('No file uploaded — expected a multipart field named "file"');
     }
     return this.bulkImportService.importProductsCsv(file.buffer);
+  }
+
+  @ApiBearerAuth()
+  @Post('admin/products/:id/media')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_MEDIA_BYTES } }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiOperation({ summary: '[Admin/Staff] Upload a product photo (jpeg/png/webp, max 8 MB)' })
+  addMedia(
+    @Param('id') id: string,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: ALLOWED_MEDIA_MIME_REGEX })
+        .addMaxSizeValidator({ maxSize: MAX_MEDIA_BYTES })
+        .build(),
+    )
+    file: Express.Multer.File,
+  ) {
+    return this.productsService.addMedia(id, file);
+  }
+
+  @ApiBearerAuth()
+  @Delete('admin/products/:id/media/:mediaId')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] Remove a product photo' })
+  removeMedia(@Param('id') id: string, @Param('mediaId') mediaId: string) {
+    return this.productsService.removeMedia(id, mediaId);
+  }
+
+  @ApiBearerAuth()
+  @Put('admin/products/:id/media/reorder')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] Reorder a product’s photos' })
+  reorderMedia(@Param('id') id: string, @Body() dto: ReorderMediaDto) {
+    return this.productsService.reorderMedia(id, dto.mediaIds);
   }
 }

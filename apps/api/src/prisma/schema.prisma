@@ -34,6 +34,12 @@ enum Role {
   ADMIN
 }
 
+enum OAuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+}
+
 enum MetalType {
   GOLD
   GOLD_PLATED
@@ -166,17 +172,38 @@ model User {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  addresses    Address[]
-  cart         Cart?
-  orders       Order[]
-  wishlist     Wishlist?
-  reviews      Review[]
-  productViews ProductView[]
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  wishlist      Wishlist?
+  reviews       Review[]
+  productViews  ProductView[]
+  oauthAccounts OAuthAccount[]
 
   // Reporting: fast "active customers" / cohort queries exclude soft-deleted.
   @@index([role])
   @@index([createdAt], type: Brin)
   @@map("users")
+}
+
+// One row per linked social identity — a user can sign up with email/password
+// and later link Google/Facebook/Apple, or start from any one of them; this
+// table is what makes that a link rather than a second, disconnected User row.
+// `providerAccountId` is the provider's own opaque subject id (Google/Facebook
+// `sub`, Apple's `sub`) — never the email, since some providers (Apple, and
+// Facebook accounts with no verified email) may not return one on every login.
+model OAuthAccount {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  provider          OAuthProvider
+  providerAccountId String        @map("provider_account_id")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
 }
 
 model Address {

@@ -12,6 +12,9 @@ describe('ProductsController', () => {
     adminCreate: jest.Mock;
     adminUpdate: jest.Mock;
     adminDelete: jest.Mock;
+    addMedia: jest.Mock;
+    removeMedia: jest.Mock;
+    reorderMedia: jest.Mock;
   };
   let bulkImport: { importProductsCsv: jest.Mock };
   let controller: ProductsController;
@@ -25,6 +28,9 @@ describe('ProductsController', () => {
       adminCreate: jest.fn().mockReturnValue('created'),
       adminUpdate: jest.fn().mockReturnValue('updated'),
       adminDelete: jest.fn().mockReturnValue('deleted'),
+      addMedia: jest.fn().mockResolvedValue('with-new-media'),
+      removeMedia: jest.fn().mockResolvedValue('media-removed'),
+      reorderMedia: jest.fn().mockResolvedValue('reordered'),
     };
     bulkImport = { importProductsCsv: jest.fn().mockResolvedValue('import-result') };
     controller = new ProductsController(products as unknown as ProductsService, bulkImport as unknown as BulkImportService);
@@ -76,6 +82,25 @@ describe('ProductsController', () => {
       const file = { buffer: Buffer.from('csv,data') } as any;
       expect(await controller.bulkImport(file)).toBe('import-result');
       expect(bulkImport.importProductsCsv).toHaveBeenCalledWith(file.buffer);
+    });
+  });
+
+  describe('media management', () => {
+    it('addMedia delegates the product id and file to ProductsService', async () => {
+      const file = { buffer: Buffer.from('x'), mimetype: 'image/png', originalname: 'a.png' } as any;
+      expect(await controller.addMedia('p1', file)).toBe('with-new-media');
+      expect(products.addMedia).toHaveBeenCalledWith('p1', file);
+    });
+
+    it('removeMedia delegates the product id and media id', async () => {
+      expect(await controller.removeMedia('p1', 'm1')).toBe('media-removed');
+      expect(products.removeMedia).toHaveBeenCalledWith('p1', 'm1');
+    });
+
+    it('reorderMedia delegates the product id and mediaIds', async () => {
+      const dto = { mediaIds: ['m2', 'm1'] };
+      expect(await controller.reorderMedia('p1', dto as any)).toBe('reordered');
+      expect(products.reorderMedia).toHaveBeenCalledWith('p1', ['m2', 'm1']);
     });
   });
 });

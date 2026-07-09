@@ -1,13 +1,17 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { OAuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../common/enums/role.enum';
 
 jest.mock('bcrypt');
 
-type MockPrisma = { user: { findUnique: jest.Mock; create: jest.Mock } };
+type MockPrisma = {
+  user: { findUnique: jest.Mock; create: jest.Mock };
+  oAuthAccount: { findUnique: jest.Mock; create: jest.Mock };
+};
 
 describe('AuthService', () => {
   let prisma: MockPrisma;
@@ -15,7 +19,10 @@ describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(() => {
-    prisma = { user: { findUnique: jest.fn(), create: jest.fn() } };
+    prisma = {
+      user: { findUnique: jest.fn(), create: jest.fn() },
+      oAuthAccount: { findUnique: jest.fn(), create: jest.fn() },
+    };
     jwt = { sign: jest.fn().mockReturnValue('signed-jwt-token') };
     service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService);
     jest.clearAllMocks();
@@ -99,6 +106,65 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('signed-jwt-token');
       expect(result.user.role).toBe(Role.ADMIN);
+    });
+  });
+
+  describe('loginWithOAuth', () => {
+    const googleProfile = { provider: OAuthProvider.GOOGLE, providerAccountId: 'g-123', email: 'a@b.com', name: 'A' };
+
+    it('signs in directly when this provider identity is already linked', async () => {
+      prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: { id: 'u1', email: 'a@b.com', name: 'A', role: Role.CUSTOMER, deletedAt: null },
+      });
+
+      const result = await service.loginWithOAuth(googleProfile);
+
+      expect(prisma.user.findUnique).not.toHaveBeenCalled();
+      expect(prisma.oAuthAccount.create).not.toHaveBeenCalled();
+      expect(result.accessToken).toBe('signed-jwt-token');
+      expect(result.user.email).toBe('a@b.com');
+    });
+
+    it('throws UnauthorizedException when the linked account was soft-deleted', async () => {
+      prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: { id: 'u1', deletedAt: new Date() },
+      });
+      await expect(service.loginWithOAuth(googleProfile)).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('links this provider identity to an existing email/password account on first login', async () => {
+      prisma.oAuthAccount.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', email: 'a@b.com', name: 'A', role: Role.CUSTOMER, deletedAt: null });
+
+      await service.loginWithOAuth(googleProfile);
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
+      expect(prisma.oAuthAccount.create).toHaveBeenCalledWith({
+        data: { userId: 'u1', provider: OAuthProvider.GOOGLE, providerAccountId: 'g-123' },
+      });
+    });
+
+    it('creates a brand-new customer when no account exists for this email', async () => {
+      prisma.oAuthAccount.findUnique.mockResolvedValue(null);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({ id: 'u2', email: 'a@b.com', name: 'A', role: Role.CUSTOMER, deletedAt: null });
+
+      const result = await service.loginWithOAuth(googleProfile);
+
+      expect(prisma.user.create).toHaveBeenCalledWith({
+        data: { email: 'a@b.com', name: 'A', role: Role.CUSTOMER },
+      });
+      expect(prisma.oAuthAccount.create).toHaveBeenCalledWith({
+        data: { userId: 'u2', provider: OAuthProvider.GOOGLE, providerAccountId: 'g-123' },
+      });
+      expect(result.accessToken).toBe('signed-jwt-token');
+    });
+
+    it('throws BadRequestException when the provider gave no email and no account is already linked', async () => {
+      prisma.oAuthAccount.findUnique.mockResolvedValue(null);
+      const appleProfile = { provider: OAuthProvider.APPLE, providerAccountId: 'apple-sub-1' };
+      await expect(service.loginWithOAuth(appleProfile)).rejects.toThrow(BadRequestException);
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
   });
 });

@@ -2,10 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // Placeholder remote pattern for the S3-backed StorageProvider (ARCHITECTURE.md
-    // §3) once product media is served from real URLs instead of [ placeholder ]
-    // blocks. Update once the storage adapter exposes a public asset domain.
-    remotePatterns: [{ protocol: 'https', hostname: '**.amazonaws.com' }],
+    // `**.amazonaws.com` — the S3StorageProvider's default resolveUrl() shape
+    // (ports/storage-provider.port.ts); add your CloudFront domain here too
+    // if CDN_BASE_URL is configured. `localhost:4000` — the
+    // FilesystemStorageProvider's dev/test adapter, which serves uploads
+    // back from the API itself; never reachable in a real deployment
+    // (STORAGE_PROVIDER=s3 there), safe to leave listed regardless.
+    remotePatterns: [
+      { protocol: 'https', hostname: '**.amazonaws.com' },
+      { protocol: 'http', hostname: 'localhost', port: '4000', pathname: '/uploads/**' },
+    ],
   },
 };
 
