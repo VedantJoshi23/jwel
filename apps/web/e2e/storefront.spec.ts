@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Storefront browsing', () => {
   test('homepage loads and shows the site header/footer', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('link', { name: 'GLINT' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: 'ELYSIAN' }).first()).toBeVisible();
     await expect(page.locator('footer')).toBeVisible();
   });
 

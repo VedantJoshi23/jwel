@@ -1,4 +1,5 @@
 import { ScrollReveal } from '@/components/cinematic/scroll-reveal';
+import { brand } from '@/lib/brand';
 
 export function VisionVoices() {
   return (
@@ -25,7 +26,7 @@ export function VisionVoices() {
           className="mt-14 text-[11px] uppercase text-[rgb(var(--v-gold))]"
           style={{ fontFamily: 'var(--vision-font-sans)', letterSpacing: '.4em' }}
         >
-          — A GLINT customer
+          — A {brand.name} customer
         </p>
       </ScrollReveal>
     </section>

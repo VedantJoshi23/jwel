@@ -166,9 +166,15 @@ CaratLane (see Sources at bottom).
 ### Customer-Facing
 - **FR-1 Authentication**: Email/social sign-up & login (Auth.js), guest checkout,
   password reset, session persistence across devices.
-- **FR-2 Catalog Browsing**: Category pages (Rings, Earrings, Necklaces, Bracelets,
-  Pendants, Diamond Collections, Gold Collections), faceted Filters (metal, purity,
-  gemstone, price band, occasion, gender), sort (price, popularity, new-in).
+- **FR-2 Catalog Browsing**: Category pages, two levels deep (client-provided
+  taxonomy, replacing the placeholder category list this FR originally
+  named): **Rings** (Solitaire, Couple, Adjustable, Toe rings), **Earrings**
+  (Jhumkas, Hoops, Studs, Oxidised Silver), **Necklaces & Pendants** (Heart
+  pendants, Zodiac pendants, Spiritual pendants), **Bracelets & Anklets**
+  (Charm bracelets, Nazariya, Kids' silver) — plus faceted Filters (metal,
+  purity, gemstone, price band, occasion, gender), sort (price, popularity,
+  new-in). Per-category item counts are still a placeholder pending real
+  client inventory data.
 - **FR-3 Search**: Full-text/typo-tolerant product search with autosuggest
   (Elasticsearch-backed).
 - **FR-4 Product Detail Page**: High-res imagery/zoom, variant selection
