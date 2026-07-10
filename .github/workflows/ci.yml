@@ -12,7 +12,16 @@ on:
   pull_request:
 
 env:
-  NODE_VERSION: '20'
+  # Was '20' — actions/setup-node@v4 no longer supports it on this runner
+  # image and was silently falling back to Node 24 (a deprecation warning
+  # buried in every job's log, easy to miss). That undocumented fallback is
+  # the likely cause of an intermittent `next build` failure ("<Html>
+  # should not be imported outside of pages/_document", thrown while
+  # statically exporting Next's own auto-generated error page) that never
+  # reproduced locally on Node 22. Pinned explicitly to 22 (current LTS,
+  # verified working for every build/test run in this migration) instead
+  # of leaving the actual version ambiguous.
+  NODE_VERSION: '22'
 
 jobs:
   backend-test:
