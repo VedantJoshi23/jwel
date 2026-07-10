@@ -12,7 +12,16 @@ on:
   pull_request:
 
 env:
-  NODE_VERSION: '20'
+  # Was '20' — actions/setup-node@v4 no longer supports it on this runner
+  # image and was silently falling back to Node 24 (a deprecation warning
+  # buried in every job's log, easy to miss). That undocumented fallback is
+  # the likely cause of an intermittent `next build` failure ("<Html>
+  # should not be imported outside of pages/_document", thrown while
+  # statically exporting Next's own auto-generated error page) that never
+  # reproduced locally on Node 22. Pinned explicitly to 22 (current LTS,
+  # verified working for every build/test run in this migration) instead
+  # of leaving the actual version ambiguous.
+  NODE_VERSION: '22'
 
 jobs:
   backend-test:
@@ -174,9 +183,9 @@ jobs:
 
       # PORT is scoped to just this step, not the job — the API needs it to
       # bind :4000, but a job-level env var would also leak into the E2E
-      # step below and make `next dev` (which also honors $PORT) try to
-      # bind :4000 too, colliding with the already-running API instead of
-      # its default :3000.
+      # step below and make Next.js (which also honors $PORT, whether run
+      # via `next dev` or `next start`) try to bind :4000 too, colliding
+      # with the already-running API instead of its default :3000.
       - name: Start the API in the background
         working-directory: apps/api
         env:
@@ -185,6 +194,16 @@ jobs:
           npx nest build
           nohup node dist/main.js > /tmp/api.log 2>&1 &
           npx wait-on http://localhost:4000/docs --timeout 30000
+
+      # Built once here, started via `next start` by playwright.config.ts's
+      # webServer (CI branch) — never `next dev` in CI. A dynamic route's
+      # first on-demand compile in dev mode was measured to exceed the 30s
+      # per-test timeout on this runner, causing intermittent
+      # `/product/[slug]` navigation timeouts; a production build has no
+      # such compile-on-first-request cost at all.
+      - name: Build the web app
+        working-directory: apps/web
+        run: npm run build
 
       - name: Install Playwright browsers
         working-directory: apps/web
