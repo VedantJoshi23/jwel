@@ -148,6 +148,7 @@ microservice extraction cheap.
 | **Coupon/Discount** | Coupon rules, validation, campaigns | Cart contents | FR-8, FR-22 |
 | **Order** | Order lifecycle, status timeline | Payment processing, shipping carrier integration | FR-9, FR-10, FR-19 |
 | **Payment** | Payment provider abstraction (Stripe live, Razorpay stub) | Order state (listens via events) | FR-9 |
+| **Shipping** — **added, was a named gap since Milestone 2**: Order's own row above always said it does not own "shipping carrier integration," but no context ever claimed it; see the revision note below the table. | Shipment creation/cancellation, carrier tracking state (AWB, courier status), serviceability (pincode + COD eligibility) lookup, COD remittance ledger | Order lifecycle/status itself (only ever requests a transition via events — never writes `orders.status` directly, same Law 1 boundary Payment already respects) | FR-9, FR-10, FR-19 |
 | **Returns** | Return/exchange requests, refund status | Original order mutation | FR-11 |
 | **Review** | Ratings, review content, moderation queue | Purchase verification logic (asks Order context) | FR-5 |
 | **Wishlist** | Saved items, shareable links | Cart conversion logic | FR-6 |
@@ -155,8 +156,42 @@ microservice extraction cheap.
 | **Search** | Elasticsearch indexing/query, autosuggest — **implemented Milestone 8** (BACKEND.md §8) | Source-of-truth product data (Catalog owns it; Search is a read-optimized projection) | FR-3 |
 | **CMS** | Banners, landing content, lookbook pages — **homepage banners implemented Milestone 10; landing content/lookbook still unimplemented** (BACKEND.md §10.1) | Product data | FR-23 |
 | **Analytics** | Dashboard aggregation, PostHog event forwarding — **a live (uncached, no materialized views) dashboard summary implemented Milestone 10; PostHog forwarding still unimplemented** (BACKEND.md §10.2) | — | FR-21 |
-| **Notification** | Email dispatch via Resend, templates | — | supports FR-9–11 |
+| **Notification** — **extended** to cover SMS/WhatsApp, not just email (see the revision note below the table) | Email (Resend), SMS/WhatsApp (provider per `ADR-0003`) dispatch, templates, per-customer channel preference | — | supports FR-9–11 |
 | **Storage** | Swappable file storage port (S3 today) | — | NFR-9 |
+| **Risk** — **added** (see revision note below the table) | Order/account risk scores, velocity counters (orders per account per time window), flagged-order queue for manual review | Whether to actually block/hold an order (Order applies the hold; Risk only ever recommends via a score + event, never enforces directly) | supports FR-9, FR-19; SECURITY.md's fraud threat category |
+
+> **Revision (Shiprocket integration planning):** added the **Shipping**
+> bounded context above. FR-10 already required "shipment tracking
+> reference" and Order's own row already excluded "shipping carrier
+> integration" from what it owns — but no context was ever declared to
+> own it, an oversight this revision closes rather than works around at
+> a lower layer (`OV-006`'s own rule: a missing dependency/context is an
+> Architecture revision, not a Domain or Feature Spec workaround). See
+> `knowledge/decisions/ADR-0001-shiprocket-as-shipping-provider.md` for
+> the provider choice and `knowledge/domains/DOM-SHIPPING.md` for the
+> full domain specification.
+
+> **Revision (WhatsApp/SMS notifications planning):** extended
+> **Notification**'s Owns column — email-only was correct when this
+> table was first written, but FR-9–11's "order confirmation," "shipment
+> tracking," and "refund confirmation" notifications are all better
+> served by WhatsApp in this market than email alone (see
+> `knowledge/decisions/ADR-0003-whatsapp-sms-provider.md`). No new
+> bounded context needed — this is an extension of an existing one, per
+> `knowledge/domains/DOM-NOTIFICATION.md`.
+
+> **Revision (Fraud/risk scoring planning):** added the **Risk** bounded
+> context above — `SECURITY.md` already names fraud as a threat category
+> but nothing computes a risk signal for any order today. Deliberately
+> scoped as advisory: Risk recommends (a score + a "hold for review"
+> event), it never itself blocks an order — Order remains the only
+> context that actually applies a hold, same non-enforcement posture
+> `DOM-SHIPPING`'s COD-value gate already takes independently (the two
+> are intentionally not merged — see
+> `knowledge/domains/DOM-RISK.md` §9). See
+> `knowledge/decisions/ADR-0004-fraud-risk-scoring-approach.md` for the
+> build-vs-buy decision and `knowledge/domains/DOM-RISK.md` for the full
+> domain specification.
 
 ### Context Map (relationships)
 
@@ -418,8 +453,85 @@ sequenceDiagram
 | `PaymentSucceeded` / `PaymentFailed` | Payment | Order, Notification |
 | `OrderShipped` / `OrderDelivered` | Order | Notification, Analytics |
 | `ReturnRequested` / `ReturnApproved` / `RefundProcessed` | Returns | Inventory, Payment, Notification |
+| `ShipmentCreated` | Shipping | Order, Notification |
+| `ShipmentPickedUp` / `ShipmentInTransit` / `ShipmentOutForDelivery` | Shipping | Order, Notification |
+| `ShipmentDelivered` | Shipping | Order, Notification, Analytics |
+| `ShipmentNdrRaised` (non-delivery report — requires a reattempt/return decision within the carrier's SLA window, ~48h) | Shipping | Order, Notification |
+| `ShipmentRtoInitiated` (return-to-origin) | Shipping | Order, Inventory, Notification |
+| `CodRemittanceReceived` | Shipping | Payment, Analytics |
+| `OrderRiskScored` | Risk | Order (advisory only — Order decides whether to hold; Risk never blocks directly), Analytics |
+| `OrderFlaggedForReview` | Risk | Order, Notification (internal admin alert, not a customer-facing message) |
 | `ReviewSubmitted` / `ReviewApproved` | Review | Analytics, Recommendation |
 | `CouponRedeemed` | Coupon | Analytics |
+
+### 5.5 Fulfillment → Shipping Event Flow
+
+```mermaid
+sequenceDiagram
+    participant Admin as Admin UI
+    participant Order as Order Module
+    participant Shipping as Shipping Module
+    participant Shiprocket
+    participant Bus as Event Bus
+    participant Notify as Notification Module
+
+    Note over Order: Order reaches CONFIRMED (payment succeeded)
+    Admin->>Order: transition to PROCESSING (ready to fulfill)
+    Order->>Shipping: createShipment(orderId, items, shippingAddress)
+    Shipping->>Shiprocket: check serviceability(pincode) + create order/AWB
+    Shiprocket-->>Shipping: awbNumber, courierName, estimatedDelivery
+    Shipping-->>Bus: emit ShipmentCreated
+    Bus->>Order: handle(ShipmentCreated) → transition to SHIPPED
+    Bus->>Notify: handle(ShipmentCreated) → send "your order has shipped" + tracking link
+
+    Note over Shiprocket: Webhook deliveries as the shipment moves
+    Shiprocket-->>Shipping: webhook: status update
+    alt delivered
+        Shipping-->>Bus: emit ShipmentDelivered
+        Bus->>Order: handle(ShipmentDelivered) → transition to DELIVERED
+        Bus->>Notify: handle(ShipmentDelivered)
+    else non-delivery (NDR)
+        Shipping-->>Bus: emit ShipmentNdrRaised
+        Bus->>Notify: handle(ShipmentNdrRaised) → notify admin queue
+    else return-to-origin
+        Shipping-->>Bus: emit ShipmentRtoInitiated
+        Bus->>Order: handle(ShipmentRtoInitiated) → transition to CANCELLED
+        Bus->>Notify: handle(ShipmentRtoInitiated)
+    end
+```
+
+Every arrow from Shipping to Order or Notification goes through the event
+bus, never a direct call — both are listeners, not callees. This is the
+same one-way discipline the Payments→Orders Law 1 fix established after
+the fact (see
+`knowledge/domains/DOM-SHIPPING.md` §7 and the M8 implementation audit).
+
+### 5.6 Order Risk Scoring Event Flow
+
+```mermaid
+sequenceDiagram
+    participant Order as Order Module
+    participant Bus as Event Bus
+    participant Risk as Risk Module
+    participant Admin as Admin UI
+
+    Order-->>Bus: emit OrderPlaced
+    Bus->>Risk: handle(OrderPlaced) → compute velocity + value + account-age score
+    Risk-->>Bus: emit OrderRiskScored
+    Bus->>Order: handle(OrderRiskScored) → informational only, no automatic hold
+    alt score above threshold
+        Risk-->>Bus: emit OrderFlaggedForReview
+        Bus->>Admin: surfaces in the manual-review queue
+        Note over Admin: A human decides whether to hold/cancel — Risk never holds an order itself
+    end
+```
+
+Risk is purely advisory: it scores and flags, an admin (or, later, a
+documented automated policy layered on top — not built here) decides
+whether to actually act on a flag. This is a deliberate, narrower scope
+than `DOM-SHIPPING`'s COD gate, which does directly withhold an option at
+checkout — see `knowledge/domains/DOM-RISK.md` §9 for why the two aren't
+merged into one enforcement point yet.
 
 ---
 
@@ -508,6 +620,9 @@ Jwel/
 │       │   │   ├── payment/
 │       │   │   │   ├── domain/ports/payment-provider.port.ts
 │       │   │   │   └── infrastructure/{stripe,razorpay}/
+│       │   │   ├── shipping/
+│       │   │   │   ├── domain/ports/shipping-provider.port.ts
+│       │   │   │   └── infrastructure/shiprocket/
 │       │   │   ├── returns/
 │       │   │   ├── review/
 │       │   │   ├── wishlist/
