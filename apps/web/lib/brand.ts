@@ -11,12 +11,27 @@
  */
 export const brand = {
   // ── Identity ──────────────────────────────────────────────────────────────
-  name: 'GLINT',
-  tagline: 'Timeless craft, festive spirit.',
+  // RENAMED from "GLINT" (placeholder) to the client's real brand: ELYSIAN
+  // (full wordmark "Elysian Ornaments"; tagline is the client's own, from
+  // their logo mockup). Mechanical rename only — description/story/hero
+  // copy below are still GLINT's old "festive Kundan/temple jhumka" framing
+  // and are flagged pending, not silently rewritten, since the actual
+  // positioning direction (palette, tone, narrative) is what's being
+  // proposed to the client next, not decided yet.
+  name: 'ELYSIAN',
+  tagline: 'Elegance Redefined',
+  // TODO — pending brand positioning discussion: this description still
+  // describes the old GLINT festive/Kundan narrative, which doesn't match
+  // either the ELYSIAN name or the real category taxonomy (adjustable/toe
+  // rings, nazariya, kids' silver — broader everyday-wear range than a
+  // purely festive/heirloom line implies).
   description:
     'Handcrafted Kundan chokers, temple jhumkas, pearl sets and meenakari rings — heirloom pieces built for festive glamour and everyday elegance.',
 
   // ── Brand story (About page + reused anywhere the same value props appear) ──
+  // TODO — same pending-revision flag as `description` above; left intact
+  // (not deleted) so nothing on the About page breaks before a real
+  // ELYSIAN narrative is agreed with the client.
   story: {
     intro:
       "GLINT started with a simple idea: festive jewellery shouldn't mean choosing between heirloom craftsmanship and something you'd actually wear on a regular Tuesday. We work with artisan clusters who specialise in Kundan work, temple jhumkas, pearl sets and meenakari rings to bring that craftsmanship to pieces designed for everyday rotation, not just the back of a locker.",
@@ -38,11 +53,11 @@ export const brand = {
 
   // ── SEO defaults (used in layout.tsx metadata) ─────────────────────────────
   seo: {
-    defaultTitle: 'GLINT — Timeless craft, festive spirit.',
-    titleTemplate: '%s | GLINT',
+    defaultTitle: 'ELYSIAN — Elegance Redefined',
+    titleTemplate: '%s | ELYSIAN',
     defaultDescription:
       'Handcrafted Kundan, temple jhumkas, pearl sets and meenakari rings — heirloom jewellery built for festive glamour and everyday elegance.',
-    siteName: 'GLINT',
+    siteName: 'ELYSIAN',
   },
 
   // ── Localisation ──────────────────────────────────────────────────────────
@@ -75,11 +90,18 @@ export const brand = {
     secondaryCtaHref: '/collections/bestsellers',
   },
 
-  // Homepage category grid (3 tiles)
+  // Homepage category grid — updated to the client's real taxonomy
+  // (previously invented placeholder slugs: jhumkas/necklace-sets/bangles
+  // as if they were top-level categories; the client's data makes clear
+  // those are actually sub-categories — see `subcategories` below).
+  // Slugs match the exact slugification `/collections/[slug]/page.tsx`'s
+  // filter-pill strip already derives from `productTypes` below
+  // (`.toLowerCase().replace(/\s+/g,'-').replace(/&/g,'and')`) — kept in
+  // sync by hand since that derivation isn't a shared helper today.
   homeCategories: [
-    { slug: 'jhumkas', name: 'Jhumkas' },
-    { slug: 'necklace-sets', name: 'Necklace Sets' },
-    { slug: 'bangles', name: 'Bangles' },
+    { slug: 'rings', name: 'Rings' },
+    { slug: 'earrings', name: 'Earrings' },
+    { slug: 'necklaces-and-pendants', name: 'Necklaces & Pendants' },
   ],
 
   newArrivals: {
@@ -106,8 +128,25 @@ export const brand = {
 
   // ── Product / catalogue ───────────────────────────────────────────────────
 
-  // Top-level product category pills shown on shop/collection pages
-  productTypes: ['Jhumkas', 'Necklace Sets', 'Rings', 'Bangles', 'Choker Sets'],
+  // Top-level product category pills shown on shop/collection pages —
+  // the client's real main-category taxonomy (was a flat, partly-invented
+  // list mixing top-level and sub-category names: Jhumkas/Necklace Sets/
+  // Bangles/Choker Sets never actually existed as top-level categories).
+  productTypes: ['Rings', 'Earrings', 'Necklaces & Pendants', 'Bracelets & Anklets'],
+
+  // Sub-categories per main category, per the client-provided taxonomy.
+  // Not yet wired into a filter UI (the collection page's `FilterForm` only
+  // has a metal filter today) — `product.category` is a flat Category
+  // record with a `parentId` the schema already supports, so this is the
+  // data this codebase is missing, not a schema gap. Wiring a
+  // sub-category pill/filter into `/collections/[slug]` is follow-up work,
+  // not done as part of this taxonomy correction.
+  subcategories: {
+    Rings: ['Solitaire', 'Couple', 'Adjustable', 'Toe rings'],
+    Earrings: ['Jhumkas', 'Hoops', 'Studs', 'Oxidised Silver'],
+    'Necklaces & Pendants': ['Heart pendants', 'Zodiac pendants', 'Spiritual pendants'],
+    'Bracelets & Anklets': ['Charm bracelets', 'Nazariya', "Kids' silver"],
+  },
 
   // Sidebar filter sections on collection pages — values must match the
   // backend's MetalType enum exactly (see apps/api prisma schema).

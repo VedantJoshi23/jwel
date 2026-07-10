@@ -14,6 +14,14 @@
 export const heroImage = '/images/jewellery/hero-model.jpg';
 export const macroSparkleImage = '/images/jewellery/macro-sparkle.jpg';
 
+// Keys match the real client taxonomy's four main categories (see
+// `brand.ts`'s `productTypes`/`subcategories`) plus the pre-existing
+// curated-view slugs (`all`, `new-arrivals`, `bestsellers`,
+// `temple-jewelry`) that aren't real `Category` rows.
+// `jhumkas`/`necklace-sets`/`bangles`/`choker-sets` were the old,
+// partly-invented top-level slugs — kept here (not deleted) only because
+// `getCategoryBannerImage`'s fallback makes a missing key harmless, and a
+// sub-category filter UI may want per-sub-category imagery later.
 export const categoryImages: Record<string, string> = {
   jhumkas: '/images/jewellery/category-jhumkas.jpg',
   'necklace-sets': '/images/jewellery/category-necklace-sets.jpg',
@@ -21,6 +29,8 @@ export const categoryImages: Record<string, string> = {
   earrings: '/images/jewellery/category-jhumkas.jpg',
   rings: '/images/jewellery/bestseller-ring.jpg',
   necklaces: '/images/jewellery/bestseller-necklace.jpg',
+  'necklaces-and-pendants': '/images/jewellery/bestseller-necklace.jpg',
+  'bracelets-and-anklets': '/images/jewellery/newarrival-bracelet.jpg',
   'temple-jewelry': '/images/jewellery/hero-model.jpg',
   'choker-sets': '/images/jewellery/newarrival-pearl.jpg',
   all: '/images/jewellery/hero-model.jpg',

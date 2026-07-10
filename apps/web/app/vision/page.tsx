@@ -13,9 +13,8 @@ import { VisionVoices } from '@/components/vision/voices';
 import { VisionAtelier } from '@/components/vision/atelier';
 
 export const metadata: Metadata = {
-  title: 'GLINT — Crafted to become timeless. (Vision Concept)',
-  description:
-    'An unlisted concept pitch: a cinematic, editorial direction for GLINT — not the live storefront.',
+  title: `${brand.name} — Crafted to become timeless. (Vision Concept)`,
+  description: `An unlisted concept pitch: a cinematic, editorial direction for ${brand.name} — not the live storefront.`,
   robots: { index: false, follow: false },
 };
 
