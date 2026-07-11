@@ -46,3 +46,18 @@ export function getProductReviews(productId: string, page = 1, pageSize = 10) {
     { revalidate: 60 },
   );
 }
+
+export interface CreateReviewInput {
+  productId: string;
+  rating: number;
+  title?: string;
+  body: string;
+}
+
+export function createReview(token: string, input: CreateReviewInput) {
+  return apiFetch<Review>('/reviews', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
