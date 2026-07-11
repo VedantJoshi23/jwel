@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { ApiError } from '@/lib/api/client';
 import { getProductBySlug, getProductReviews, getProducts } from '@/lib/api/products';
 import { RatingStars } from '@/components/product/rating-stars';
+import { ReviewForm } from '@/components/product/review-form';
 import { CertificationBadge } from '@/components/product/certification-badge';
 import { AddToCart } from '@/components/product/add-to-cart';
 import { ProductCard } from '@/components/product/product-card';
@@ -194,6 +195,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             ))}
           </ul>
         )}
+
+        <ReviewForm productId={product.id} />
       </section>
 
       <p className="sr-only">Starting from {formatMinorUnits(minPrice)}</p>

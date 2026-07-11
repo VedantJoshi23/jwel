@@ -8,6 +8,7 @@ import {
   PaymentProviderPort,
 } from './ports/payment-provider.port';
 import { StripePaymentProvider } from './providers/stripe-payment.provider';
+import { MockPaymentProvider } from './providers/mock-payment.provider';
 
 type Client = PrismaService | Prisma.TransactionClient;
 
@@ -51,6 +52,15 @@ export class PaymentsService {
         providerRef: intent.providerRef,
       },
     });
+
+    // Real providers confirm asynchronously via webhook (see
+    // handleStripeWebhook below). The mock provider has no webhook to wait
+    // for, so it confirms itself immediately — this is the only path that
+    // ever calls markSucceeded outside a real signed webhook callback, and
+    // it's unreachable in production (see payments.module.ts).
+    if (adapter instanceof MockPaymentProvider) {
+      await this.markSucceeded(intent.providerRef);
+    }
 
     return { payment, clientSecret: intent.clientSecret };
   }

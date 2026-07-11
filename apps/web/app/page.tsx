@@ -163,17 +163,6 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ── Internal: concept comparison link (remove once a version is chosen) ── */}
-      <p className="border-t border-border bg-surface-alt py-4 text-center text-xs text-ink-muted">
-        Reviewing homepage concepts?{' '}
-        <Link href="/cinematic" className="font-semibold text-brand-primary underline">
-          See the cinematic scroll concept →
-        </Link>{' '}
-        ·{' '}
-        <Link href="/vision" className="font-semibold text-brand-primary underline">
-          See the black &amp; gold vision concept →
-        </Link>
-      </p>
     </>
   );
 }

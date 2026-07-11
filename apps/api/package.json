@@ -15,7 +15,8 @@
     "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema=src/prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema=src/prisma/schema.prisma",
-    "prisma:seed": "ts-node src/prisma/seed.ts"
+    "prisma:seed": "ts-node src/prisma/seed.ts",
+    "prisma:seed:demo": "ts-node --transpile-only src/prisma/seed-demo.ts"
   },
   "prisma": {
     "seed": "ts-node src/prisma/seed.ts"

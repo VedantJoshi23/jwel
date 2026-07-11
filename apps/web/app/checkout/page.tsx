@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,13 @@ import { ApiError } from '@/lib/api/client';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 import { getProductStockImage } from '@/lib/jewellery-images';
+
+// `next dev`/`next start` bake NODE_ENV in at build time, so a production
+// build can never resolve this to true — matches the backend's own
+// `NODE_ENV !== 'production'` gate on MockPaymentProvider (payments.module.ts).
+// This flag only controls the toast copy; the mock behavior itself lives
+// entirely server-side.
+const IS_DEV_MODE = process.env.NODE_ENV !== 'production';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -64,6 +72,13 @@ export default function CheckoutPage() {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!token) return;
+
+    if (IS_DEV_MODE) {
+      toast.info('No payment gateway is integrated yet', {
+        description: 'Dev mode: continuing to the order confirmation without a real charge.',
+      });
+    }
+
     setSubmitting(true);
     setError('');
     try {
@@ -221,6 +236,11 @@ export default function CheckoutPage() {
           <Button type="submit" size="l" className="mt-6 w-full" loading={submitting}>
             {brand.checkout.placeCta}
           </Button>
+          {IS_DEV_MODE && (
+            <p className="mt-2 text-center text-xs text-ink-muted">
+              Dev mode — payments are mocked, no real charge will be made.
+            </p>
+          )}
         </div>
       </form>
     </div>

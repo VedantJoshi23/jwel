@@ -72,7 +72,6 @@ export const brand = {
   // ── Navigation ────────────────────────────────────────────────────────────
   nav: [
     { label: 'Shop', href: '/collections/all' },
-    { label: 'Temple Jewelry', href: '/collections/temple-jewelry' },
     { label: 'New Arrivals', href: '/collections/new-arrivals' },
     { label: 'About', href: '/about' },
   ],
@@ -210,7 +209,6 @@ export const brand = {
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Sitemap', href: '/sitemap.xml' },
       { label: 'Subscriptions', href: '/subscriptions' },
-      { label: 'Temple Jewelry', href: '/collections/temple-jewelry' },
     ],
   },
 } as const;

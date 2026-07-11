@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Fraunces, IBM_Plex_Mono, Inter } from 'next/font/google';
+import { Toaster } from 'sonner';
 import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
 import { SiteChrome } from '@/components/layout/site-chrome';
@@ -42,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <QueryProvider>
           <SiteChrome>{children}</SiteChrome>
         </QueryProvider>
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );
