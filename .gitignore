@@ -8,7 +8,11 @@ coverage/
 .env.*
 .env.local
 .env.*.local
+# Committed template — `.env.*` above would otherwise swallow it, which is why
+# the `cp .env.example .env` step in BACKEND.md had no file to copy.
+!.env.example
 *.log
+*.tsbuildinfo
 .DS_Store
 .vercel/
 prisma/.env

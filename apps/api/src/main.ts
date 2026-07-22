@@ -24,9 +24,18 @@ async function bootstrap() {
 
   app.use(helmet());
   app.enableCors({
-    origin: (process.env.CORS_ALLOWED_ORIGINS ?? '').split(',').filter(Boolean),
+    origin: (appConfig.get<string>('CORS_ALLOWED_ORIGINS') ?? '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
     credentials: true,
   });
+
+  // Close DB connections cleanly on SIGTERM/SIGINT instead of dropping
+  // in-flight requests during a rolling deploy or restart. Without this Nest
+  // never registers the signal listeners, which left PrismaService's
+  // onModuleDestroy (prisma.service.ts) as dead code.
+  app.enableShutdownHooks();
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -37,29 +46,37 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
-    .setTitle('Jwel API')
-    .setDescription(
-      'Jwel — luxury jewellery e-commerce backend. Implements Authentication, Users, ' +
-        'Products, Orders, Payments, Inventory, Reviews and Coupons per ARCHITECTURE.md.',
-    )
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addTag('auth')
-    .addTag('users')
-    .addTag('products')
-    .addTag('inventory')
-    .addTag('coupons')
-    .addTag('reviews')
-    .addTag('orders')
-    .addTag('payments')
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+  // Swagger publishes the entire API surface — every route, DTO shape and the
+  // auth scheme — and is unauthenticated. Useful everywhere except the one
+  // place it doubles as reconnaissance for an attacker.
+  const isProduction = appConfig.get<string>('NODE_ENV') === 'production';
+  if (!isProduction) {
+    const config = new DocumentBuilder()
+      .setTitle('Jwel API')
+      .setDescription(
+        'Jwel — luxury jewellery e-commerce backend. Implements Authentication, Users, ' +
+          'Products, Orders, Payments, Inventory, Reviews and Coupons per ARCHITECTURE.md.',
+      )
+      .setVersion('1.0')
+      .addBearerAuth()
+      .addTag('auth')
+      .addTag('users')
+      .addTag('products')
+      .addTag('inventory')
+      .addTag('coupons')
+      .addTag('reviews')
+      .addTag('orders')
+      .addTag('payments')
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
-  const port = process.env.PORT ?? 4000;
+  const port = appConfig.get<string>('PORT') ?? 4000;
   await app.listen(port);
-  logger.log(`Jwel API listening on :${port} — Swagger UI at /docs`);
+  logger.log(
+    `Jwel API listening on :${port}${isProduction ? '' : ' — Swagger UI at /docs'}`,
+  );
 }
 
 bootstrap();

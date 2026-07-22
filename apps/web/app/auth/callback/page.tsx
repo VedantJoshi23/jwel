@@ -1,19 +1,23 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { getProfile } from '@/lib/api/users';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api/client';
 
 // Landed here after GET /api/v1/auth/{google,facebook,apple}/callback on the
-// backend redirects the browser back with `?token=`. The backend's redirect
+// backend redirects the browser back with `#token=`. The backend's redirect
 // only carries the JWT, not the full user object (Google/Facebook/Apple
 // profiles are shaped differently from AuthUser and normalizing them belongs
 // in AuthService, not repeated in this redirect URL) — so this page's first
 // job is exchanging that token for the profile the same way the rest of the
 // app already does, via GET /me, before handing off to the same
 // useAuth().setSession every other login path uses.
+//
+// Read from the fragment rather than a query param: fragments are never sent
+// to a server, keeping the JWT out of Next.js request logs, Referer headers
+// and any proxy in between. See the redirect in auth.controller.ts.
 export default function OAuthCallbackPage() {
   return (
     <Suspense>
@@ -24,12 +28,21 @@ export default function OAuthCallbackPage() {
 
 function OAuthCallback() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { setSession } = useAuth();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    // `window.location.hash` rather than useSearchParams — the token arrives in
+    // the fragment. Safe in an effect, which only runs client-side.
+    const token = new URLSearchParams(window.location.hash.slice(1)).get('token');
+
+    // Drop the credential from the address bar and this history entry
+    // immediately, so it can't be recovered from the back button or leaked by
+    // the user copying the URL.
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
     if (!token) {
       setError('No login token was returned. Please try again.');
       return;

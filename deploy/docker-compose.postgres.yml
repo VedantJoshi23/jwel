@@ -1,0 +1,41 @@
+# Data stack — lives on its own lifecycle. You should be able to redeploy the
+# API a hundred times without this file ever being touched.
+#
+#   docker network create jwel-net     # once, before first `up`
+#   docker compose -f docker-compose.postgres.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-jwel}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Dump target, so `pg_dump` output lands outside the container.
+      - ./backups:/backups
+    # Deliberately NOT published to 0.0.0.0. Bound to loopback only so you can
+    # still reach it with `psql -h 127.0.0.1` over an SSH tunnel for admin work,
+    # while remaining invisible to the internet.
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - jwel-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    shm_size: 256mb
+
+volumes:
+  pgdata:
+    # Named, external-ish: `docker compose down -v` on the API stack can never
+    # reach it, because it is declared here and nowhere else.
+
+networks:
+  jwel-net:
+    external: true

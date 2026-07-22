@@ -3,6 +3,7 @@ import {
   CreatePaymentIntentInput,
   CreatePaymentIntentResult,
   PaymentProviderPort,
+  WebhookOutcome,
 } from '../ports/payment-provider.port';
 
 /**
@@ -20,7 +21,9 @@ export class RazorpayPaymentProviderStub implements PaymentProviderPort {
     );
   }
 
-  verifyWebhookSignature(_rawBody: Buffer, _signatureHeader: string): boolean {
-    return false;
+  parseWebhookEvent(_rawBody: Buffer, _signatureHeader: string): WebhookOutcome {
+    throw new ServiceUnavailableException(
+      'Razorpay is configured as a stub provider and cannot verify webhook signatures.',
+    );
   }
 }
