@@ -72,6 +72,14 @@ export class ProductsController {
   }
 
   @ApiBearerAuth()
+  @Get('admin/categories')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] List all categories, for populating a product form' })
+  adminListCategories() {
+    return this.productsService.listCategories();
+  }
+
+  @ApiBearerAuth()
   @Post('admin/products')
   @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: '[Admin/Staff] Create a product with its variants (FR-17)' })

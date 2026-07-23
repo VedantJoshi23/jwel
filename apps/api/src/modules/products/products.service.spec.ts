@@ -9,6 +9,7 @@ import { ProductSort } from './dto/query-products.dto';
 type MockPrisma = {
   product: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; count: jest.Mock };
   productMedia: { count: jest.Mock; create: jest.Mock; delete: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+  productVariant: { findUnique: jest.Mock; update: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -34,7 +35,14 @@ describe('ProductsService', () => {
     prisma = {
       product: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
       productMedia: { count: jest.fn(), create: jest.fn(), delete: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-      $transaction: jest.fn((ops) => Promise.all(ops)),
+      productVariant: { findUnique: jest.fn(), update: jest.fn() },
+      // Prisma's $transaction has two forms and this service uses both: an
+      // array of operations (reorderMedia) and an interactive callback
+      // (adminUpdate). Handle each, or the callback form gets passed to
+      // Promise.all and throws "function is not iterable".
+      $transaction: jest.fn((opsOrFn) =>
+        typeof opsOrFn === 'function' ? opsOrFn(prisma) : Promise.all(opsOrFn),
+      ),
     };
     eventBus = { emit: jest.fn() };
     storage = {
@@ -170,6 +178,48 @@ describe('ProductsService', () => {
       prisma.product.update.mockResolvedValue(fakeProduct('p1', 100));
       await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
       expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
+    });
+
+    // variantPriceUpdates is the only way an admin can change pricing —
+    // UpdateProductDto exposes no other variant fields.
+    it('adminUpdate applies variant price updates inside the transaction', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.product.update.mockResolvedValue(fakeProduct('p1', 250));
+      prisma.productVariant.findUnique.mockResolvedValue({ id: 'v1', productId: 'p1' });
+
+      await service.adminUpdate('p1', {
+        variantPriceUpdates: [{ variantId: 'v1', basePriceMinorUnits: 250 }],
+      } as any);
+
+      expect(prisma.productVariant.update).toHaveBeenCalledWith({
+        where: { id: 'v1' },
+        data: { basePriceMinorUnits: 250 },
+      });
+    });
+
+    // Guards against repricing another product's variant by passing its id.
+    it('adminUpdate rejects a variant that belongs to a different product', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productVariant.findUnique.mockResolvedValue({ id: 'v9', productId: 'other' });
+
+      await expect(
+        service.adminUpdate('p1', {
+          variantPriceUpdates: [{ variantId: 'v9', basePriceMinorUnits: 1 }],
+        } as any),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(prisma.productVariant.update).not.toHaveBeenCalled();
+    });
+
+    it('adminUpdate rejects an unknown variant id', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productVariant.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.adminUpdate('p1', {
+          variantPriceUpdates: [{ variantId: 'nope', basePriceMinorUnits: 1 }],
+        } as any),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('adminDelete soft-deletes (sets deletedAt + ARCHIVED) and emits product.deleted', async () => {

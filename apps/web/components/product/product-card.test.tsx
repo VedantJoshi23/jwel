@@ -13,7 +13,7 @@ function fakeProduct(overrides: Partial<Product> = {}): Product {
     certificationType: null,
     avgRating: '0',
     ratingCount: 0,
-    category: { id: 'c1', name: 'Rings', slug: 'rings' },
+    category: { id: 'c1', name: 'Rings', slug: 'rings', parentId: null },
     variants: [{ id: 'v1', sku: 'S1', metal: 'GOLD', purity: '18K', size: null, weightGrams: '2', basePriceMinorUnits: 250000 }],
     media: [],
     ...overrides,

@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -9,9 +8,9 @@ import { ReviewForm } from '@/components/product/review-form';
 import { CertificationBadge } from '@/components/product/certification-badge';
 import { AddToCart } from '@/components/product/add-to-cart';
 import { ProductCard } from '@/components/product/product-card';
+import { ProductGallery } from '@/components/product/product-gallery';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
-import { getProductStockImage } from '@/lib/jewellery-images';
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -93,16 +92,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             the details, forcing a long scroll before reaching "Add to bag". */}
         <div className="grid gap-10 md:grid-cols-2">
           {/* Product image */}
-          <div className="relative aspect-square overflow-hidden bg-surface-alt">
-            <Image
-              src={product.media[0]?.url ?? getProductStockImage(product.id)}
-              alt={product.name}
-              fill
-              priority
-              sizes="(min-width: 768px) 50vw, 100vw"
-              className="object-cover"
-            />
-          </div>
+          <ProductGallery media={product.media} productId={product.id} productName={product.name} />
 
           {/* Product details */}
           <div>

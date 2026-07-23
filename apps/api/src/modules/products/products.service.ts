@@ -205,9 +205,27 @@ export class ProductsService {
 
   async adminUpdate(id: string, dto: UpdateProductDto): Promise<ProductResponse> {
     await this.findProductOrThrow(id);
-    const product = await this.prisma.product.update({ where: { id }, data: dto, include: productInclude });
+    const { variantPriceUpdates, ...productFields } = dto;
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      for (const { variantId, basePriceMinorUnits } of variantPriceUpdates ?? []) {
+        const variant = await tx.productVariant.findUnique({ where: { id: variantId } });
+        if (!variant || variant.productId !== id) {
+          throw new NotFoundException(`Variant ${variantId} not found on this product`);
+        }
+        await tx.productVariant.update({ where: { id: variantId }, data: { basePriceMinorUnits } });
+      }
+      return tx.product.update({ where: { id }, data: productFields, include: productInclude });
+    });
+
     this.eventBus.emit('product.upserted', { productId: product.id });
     return this.withResolvedMedia(product);
+  }
+
+  async listCategories() {
+    return this.prisma.category.findMany({
+      orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }],
+    });
   }
 
   async adminDelete(id: string): Promise<void> {

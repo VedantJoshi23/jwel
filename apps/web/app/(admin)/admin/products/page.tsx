@@ -65,7 +65,10 @@ export default function AdminProductsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold">Products</h1>
-        <div>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/products/new">
+            <Button variant="secondary">New product</Button>
+          </Link>
           <input
             ref={fileInputRef}
             type="file"
@@ -133,6 +136,9 @@ export default function AdminProductsPage() {
                     <div className="flex gap-2">
                       <Link href={`/admin/products/${product.id}`} className="text-sm text-ink-secondary underline">
                         Photos ({product.media.length})
+                      </Link>
+                      <Link href={`/admin/products/${product.id}/edit`} className="text-sm text-ink-secondary underline">
+                        Edit
                       </Link>
                       {product.status === 'DRAFT' && (
                         <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'PUBLISHED')}>

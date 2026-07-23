@@ -1,6 +1,53 @@
 import { apiFetch, apiUpload } from './client';
-import type { BulkImportResult, Product } from './types';
+import type { BulkImportResult, Category, CertificationType, MetalType, Product } from './types';
 import type { ProductQuery } from './products';
+
+export interface CreateProductVariantInput {
+  sku: string;
+  metal: MetalType;
+  purity?: string;
+  size?: string;
+  weightGrams: number;
+  basePriceMinorUnits: number;
+}
+
+export interface CreateProductInput {
+  name: string;
+  slug: string;
+  categoryId: string;
+  description: string;
+  certificationType?: CertificationType;
+  certificationDocRef?: string;
+  variants: CreateProductVariantInput[];
+}
+
+export interface UpdateProductInput {
+  name?: string;
+  description?: string;
+  categoryId?: string;
+  status?: Product['status'];
+  variantPriceUpdates?: { variantId: string; basePriceMinorUnits: number }[];
+}
+
+export function adminListCategories(token: string) {
+  return apiFetch<Category[]>('/admin/categories', { token, cache: 'no-store' });
+}
+
+export function adminCreateProduct(token: string, input: CreateProductInput) {
+  return apiFetch<Product>('/admin/products', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  });
+}
+
+export function adminUpdateProduct(token: string, id: string, input: UpdateProductInput) {
+  return apiFetch<Product>(`/admin/products/${id}`, {
+    method: 'PATCH',
+    token,
+    body: JSON.stringify(input),
+  });
+}
 
 export function adminListProducts(token: string, query: ProductQuery & { page?: number; pageSize?: number } = {}) {
   const params = new URLSearchParams();
