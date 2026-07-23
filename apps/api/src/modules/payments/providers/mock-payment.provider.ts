@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import {
   CreatePaymentIntentInput,
   CreatePaymentIntentResult,
   PaymentProviderPort,
+  WebhookOutcome,
 } from '../ports/payment-provider.port';
 
 /**
@@ -30,7 +31,14 @@ export class MockPaymentProvider implements PaymentProviderPort {
     };
   }
 
-  verifyWebhookSignature(): boolean {
-    return false;
+  // The mock confirms payments inline at intent-creation time (see
+  // PaymentsService.initiateForOrder), so it has no webhook to receive.
+  // Reaching here means a real gateway is posting to an environment that
+  // resolved to the mock — a misconfiguration worth failing loudly on rather
+  // than silently 200-ing, which would tell the gateway to stop retrying.
+  parseWebhookEvent(): WebhookOutcome {
+    throw new ServiceUnavailableException(
+      'No payment gateway is configured; this environment cannot verify webhook signatures.',
+    );
   }
 }

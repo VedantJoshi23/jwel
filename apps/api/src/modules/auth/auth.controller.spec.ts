@@ -34,7 +34,7 @@ describe('AuthController', () => {
     const res = { redirect: jest.fn() };
     await controller.googleCallback(req as any, res as any);
     expect(service.loginWithOAuth).toHaveBeenCalledWith(req.user);
-    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback?token=oauth-token');
+    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback#token=oauth-token');
   });
 
   it('exchanges an OAuth profile for a JWT and redirects to the frontend callback page with it (facebook)', async () => {
@@ -42,7 +42,7 @@ describe('AuthController', () => {
     const res = { redirect: jest.fn() };
     await controller.facebookCallback(req as any, res as any);
     expect(service.loginWithOAuth).toHaveBeenCalledWith(req.user);
-    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback?token=oauth-token');
+    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback#token=oauth-token');
   });
 
   it('exchanges an OAuth profile for a JWT and redirects to the frontend callback page with it (apple)', async () => {
@@ -50,7 +50,21 @@ describe('AuthController', () => {
     const res = { redirect: jest.fn() };
     await controller.appleCallback(req as any, res as any);
     expect(service.loginWithOAuth).toHaveBeenCalledWith(req.user);
-    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback?token=oauth-token');
+    expect(res.redirect).toHaveBeenCalledWith('http://localhost:3000/auth/callback#token=oauth-token');
+  });
+
+  // Regression guard: the token must stay in the fragment. A query param is
+  // transmitted to the frontend server and lands in its access logs.
+  it('never places the token in the query string', async () => {
+    const res = { redirect: jest.fn() };
+    await controller.googleCallback(
+      { user: { provider: 'GOOGLE', providerAccountId: 'g-1', email: 'a@b.com' } } as any,
+      res as any,
+    );
+
+    const target = res.redirect.mock.calls[0][0] as string;
+    expect(new URL(target).search).toBe('');
+    expect(target).toContain('#token=');
   });
 
   it('googleLogin/facebookLogin/appleLogin bodies are no-ops — the redirect happens entirely inside the Passport guard', () => {

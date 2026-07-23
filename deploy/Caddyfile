@@ -1,0 +1,23 @@
+# Automatic HTTPS via Let's Encrypt. Replace the domain and email.
+api.yourdomain.com {
+	encode gzip
+
+	# Stripe signature verification hashes the RAW body. Caddy's reverse_proxy
+	# streams bytes through untouched, which is what we need — do not add any
+	# body-rewriting directive above this line.
+	reverse_proxy api:4000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Defence in depth: main.ts no longer mounts Swagger when
+	# NODE_ENV=production, so /docs should already 404. This keeps it closed
+	# even if the API is started with the wrong NODE_ENV.
+	@docs path /docs*
+	respond @docs 404
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

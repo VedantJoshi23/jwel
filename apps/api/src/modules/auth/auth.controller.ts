@@ -113,6 +113,17 @@ export class AuthController {
     const profile = req.user as OAuthValidatedProfile;
     const { accessToken } = await this.authService.loginWithOAuth(profile);
     const frontendUrl = this.config.get<string>('FRONTEND_URL', 'http://localhost:3000');
-    res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(accessToken)}`);
+
+    // Token goes in the URL *fragment*, not the query string. A fragment is
+    // never transmitted to any server, so it stays out of the Next.js server's
+    // request logs, the Referer header on subsequent navigations, and any
+    // reverse-proxy/CDN access log in between — all of which a `?token=` query
+    // param lands in as cleartext credentials.
+    //
+    // The callback page strips the fragment from history as soon as it reads
+    // it (apps/web/app/auth/callback/page.tsx). This is a mitigation, not the
+    // end state: the real fix is httpOnly cookies with DB-backed revocable
+    // sessions per SECURITY.md §67-72, tracked separately.
+    res.redirect(`${frontendUrl}/auth/callback#token=${encodeURIComponent(accessToken)}`);
   }
 }

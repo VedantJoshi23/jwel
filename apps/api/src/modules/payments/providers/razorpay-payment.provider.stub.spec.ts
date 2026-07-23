@@ -10,7 +10,9 @@ describe('RazorpayPaymentProviderStub', () => {
     ).rejects.toThrow(ServiceUnavailableException);
   });
 
-  it('always reports webhook signatures as unverifiable', () => {
-    expect(provider.verifyWebhookSignature(Buffer.from(''), 'sig')).toBe(false);
+  it('refuses to decode webhooks rather than silently ignoring them', () => {
+    expect(() => provider.parseWebhookEvent(Buffer.from(''), 'sig')).toThrow(
+      ServiceUnavailableException,
+    );
   });
 });

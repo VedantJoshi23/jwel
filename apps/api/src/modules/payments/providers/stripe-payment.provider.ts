@@ -5,6 +5,7 @@ import {
   CreatePaymentIntentInput,
   CreatePaymentIntentResult,
   PaymentProviderPort,
+  WebhookOutcome,
 } from '../ports/payment-provider.port';
 
 @Injectable()
@@ -28,16 +29,18 @@ export class StripePaymentProvider implements PaymentProviderPort {
     return { providerRef: intent.id, clientSecret: intent.client_secret as string };
   }
 
-  verifyWebhookSignature(rawBody: Buffer, signatureHeader: string): boolean {
-    try {
-      this.stripe.webhooks.constructEvent(rawBody, signatureHeader, this.webhookSecret);
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  // `constructEvent` throws on a bad/absent signature, and it is the first
+  // thing that touches rawBody — so a forged event can never reach the
+  // mapping below, let alone PaymentsService.
+  parseWebhookEvent(rawBody: Buffer, signatureHeader: string): WebhookOutcome {
+    const event = this.stripe.webhooks.constructEvent(rawBody, signatureHeader, this.webhookSecret);
 
-  constructEvent(rawBody: Buffer, signatureHeader: string): Stripe.Event {
-    return this.stripe.webhooks.constructEvent(rawBody, signatureHeader, this.webhookSecret);
+    if (event.type === 'payment_intent.succeeded') {
+      return { kind: 'succeeded', providerRef: (event.data.object as Stripe.PaymentIntent).id };
+    }
+    if (event.type === 'payment_intent.payment_failed') {
+      return { kind: 'failed', providerRef: (event.data.object as Stripe.PaymentIntent).id };
+    }
+    return { kind: 'ignored', description: event.type };
   }
 }

@@ -43,24 +43,59 @@ describe('StripePaymentProvider', () => {
     });
   });
 
-  describe('verifyWebhookSignature', () => {
-    it('returns true when Stripe verifies the signature without throwing', () => {
-      mockConstructEvent.mockReturnValue({ type: 'payment_intent.succeeded' });
-      expect(provider.verifyWebhookSignature(Buffer.from(''), 'good-sig')).toBe(true);
+  describe('parseWebhookEvent', () => {
+    it('maps payment_intent.succeeded to a succeeded outcome', () => {
+      mockConstructEvent.mockReturnValue({
+        type: 'payment_intent.succeeded',
+        data: { object: { id: 'pi_123' } },
+      });
+
+      expect(provider.parseWebhookEvent(Buffer.from(''), 'good-sig')).toEqual({
+        kind: 'succeeded',
+        providerRef: 'pi_123',
+      });
     });
 
-    it('returns false when Stripe rejects the signature', () => {
+    it('maps payment_intent.payment_failed to a failed outcome', () => {
+      mockConstructEvent.mockReturnValue({
+        type: 'payment_intent.payment_failed',
+        data: { object: { id: 'pi_456' } },
+      });
+
+      expect(provider.parseWebhookEvent(Buffer.from(''), 'good-sig')).toEqual({
+        kind: 'failed',
+        providerRef: 'pi_456',
+      });
+    });
+
+    it('reports unrecognised event types as ignored rather than failing', () => {
+      mockConstructEvent.mockReturnValue({ type: 'charge.refunded', data: { object: {} } });
+
+      expect(provider.parseWebhookEvent(Buffer.from(''), 'good-sig')).toEqual({
+        kind: 'ignored',
+        description: 'charge.refunded',
+      });
+    });
+
+    // The security-critical case: a forged body must never be decoded into an
+    // outcome the caller could act on.
+    it('propagates the error when Stripe rejects the signature', () => {
       mockConstructEvent.mockImplementation(() => {
         throw new Error('invalid signature');
       });
-      expect(provider.verifyWebhookSignature(Buffer.from(''), 'bad-sig')).toBe(false);
-    });
-  });
 
-  describe('constructEvent', () => {
-    it('returns the verified Stripe event', () => {
-      mockConstructEvent.mockReturnValue({ type: 'payment_intent.succeeded' });
-      expect(provider.constructEvent(Buffer.from(''), 'sig')).toEqual({ type: 'payment_intent.succeeded' });
+      expect(() => provider.parseWebhookEvent(Buffer.from(''), 'bad-sig')).toThrow(
+        'invalid signature',
+      );
+    });
+
+    it('verifies against the configured webhook secret', () => {
+      mockConstructEvent.mockReturnValue({ type: 'x', data: { object: {} } });
+      const body = Buffer.from('raw');
+
+      provider.parseWebhookEvent(body, 'sig');
+
+      expect(mockConstructEvent).toHaveBeenCalledWith(body, 'sig', 'whsec_x');
     });
   });
 });

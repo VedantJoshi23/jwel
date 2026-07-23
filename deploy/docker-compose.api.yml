@@ -1,0 +1,96 @@
+# Application stack — the one you redeploy. Joins the same external network as
+# the Postgres stack and reaches it by service name (`postgres:5432`).
+#
+#   docker compose -f docker-compose.api.yml run --rm migrate
+#   docker compose -f docker-compose.api.yml up -d
+
+services:
+  api:
+    image: ghcr.io/${GH_OWNER}/jwel-api:${API_TAG:?pin a git SHA, never latest}
+    restart: unless-stopped
+    env_file:
+      - ./.env.production
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Service-name host: resolves over jwel-net, never leaves the host.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jwel}?schema=public
+      STORAGE_PROVIDER: filesystem
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      # Without this, every redeploy silently destroys uploaded product images.
+      - uploads:/app/uploads
+    networks:
+      - jwel-net
+    # No `ports:` — Caddy is the only thing that talks to the API.
+    healthcheck:
+      # /health/ready proves Prisma can actually reach Postgres, not merely
+      # that the HTTP listener is up — a container with a dead DB pool must not
+      # report healthy. See modules/health/health.controller.ts.
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # One-shot migration runner. Same image, different command — so the schema
+  # applied always matches the code being deployed. Run it BEFORE `up -d`.
+  # Kept out of the api container's CMD so two replicas can never race.
+  migrate:
+    image: ghcr.io/${GH_OWNER}/jwel-api:${API_TAG:?pin a git SHA, never latest}
+    profiles: ["tools"]
+    env_file:
+      - ./.env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jwel}?schema=public
+    command: >
+      npx prisma migrate deploy --schema=src/prisma/schema.prisma
+    networks:
+      - jwel-net
+    restart: "no"
+
+  # One-shot admin bootstrap. Creates (or promotes, and resets the password of)
+  # the account the client uses to manage the catalogue — nothing else in the
+  # codebase can produce an ADMIN. Deliberately NOT `prisma db seed`: the seed
+  # script resets the catalogue and would orphan every uploaded product image.
+  #
+  #   ADMIN_EMAIL=… ADMIN_PASSWORD=… docker compose \
+  #     -f docker-compose.api.yml run --rm create-admin
+  create-admin:
+    image: ghcr.io/${GH_OWNER}/jwel-api:${API_TAG:?pin a git SHA, never latest}
+    profiles: ["tools"]
+    env_file:
+      - ./.env.production
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jwel}?schema=public
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL for this invocation}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD for this invocation}
+      ADMIN_NAME: ${ADMIN_NAME:-Administrator}
+    command: npx ts-node --transpile-only scripts/create-admin.ts
+    networks:
+      - jwel-net
+    restart: "no"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # ACME certs — losing this re-issues and can hit LE rate limits
+      - caddy_config:/config
+    networks:
+      - jwel-net
+    depends_on:
+      - api
+
+volumes:
+  uploads:
+  caddy_data:
+  caddy_config:
+
+networks:
+  jwel-net:
+    external: true

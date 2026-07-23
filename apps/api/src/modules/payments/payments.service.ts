@@ -7,7 +7,6 @@ import {
   PAYMENT_PROVIDER_STRIPE,
   PaymentProviderPort,
 } from './ports/payment-provider.port';
-import { StripePaymentProvider } from './providers/stripe-payment.provider';
 import { MockPaymentProvider } from './providers/mock-payment.provider';
 
 type Client = PrismaService | Prisma.TransactionClient;
@@ -20,7 +19,6 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_PROVIDER_STRIPE) private readonly stripeProvider: PaymentProviderPort,
     @Inject(PAYMENT_PROVIDER_RAZORPAY) private readonly razorpayProvider: PaymentProviderPort,
-    private readonly stripe: StripePaymentProvider,
     private readonly eventBus: EventBusService,
   ) {}
 
@@ -73,16 +71,17 @@ export class PaymentsService {
   // `providerRef` + current status check, so a duplicated webhook delivery
   // is safe to replay without double-emitting the event.
   async handleStripeWebhook(rawBody: Buffer, signatureHeader: string): Promise<void> {
-    const event = this.stripe.constructEvent(rawBody, signatureHeader);
+    // Goes through the port, not the concrete Stripe adapter. Signature
+    // verification happens inside parseWebhookEvent and throws before any
+    // payload is trusted.
+    const outcome = this.stripeProvider.parseWebhookEvent(rawBody, signatureHeader);
 
-    if (event.type === 'payment_intent.succeeded') {
-      const intent = event.data.object as { id: string };
-      await this.markSucceeded(intent.id);
-    } else if (event.type === 'payment_intent.payment_failed') {
-      const intent = event.data.object as { id: string };
-      await this.markFailed(intent.id);
+    if (outcome.kind === 'succeeded') {
+      await this.markSucceeded(outcome.providerRef);
+    } else if (outcome.kind === 'failed') {
+      await this.markFailed(outcome.providerRef);
     } else {
-      this.logger.log(`Unhandled Stripe event type: ${event.type}`);
+      this.logger.log(`Unhandled Stripe event type: ${outcome.description}`);
     }
   }
 
