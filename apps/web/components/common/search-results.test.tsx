@@ -16,7 +16,7 @@ function fakeProduct(id: string): Product {
     certificationType: null,
     avgRating: '0',
     ratingCount: 0,
-    category: { id: 'c1', name: 'Rings', slug: 'rings' },
+    category: { id: 'c1', name: 'Rings', slug: 'rings', parentId: null },
     variants: [{ id: 'v1', sku: 'S1', metal: 'GOLD', purity: null, size: null, weightGrams: '1', basePriceMinorUnits: 1000 }],
     media: [],
   };

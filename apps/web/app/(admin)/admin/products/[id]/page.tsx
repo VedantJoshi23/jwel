@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/lib/auth-store';
 import {
   adminGetProduct,
@@ -24,8 +26,9 @@ export default function AdminProductMediaPage() {
   const token = useAuthStore((state) => state.token);
   const [product, setProduct] = useState<Product | null>(null);
   const [error, setError] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [busyMediaId, setBusyMediaId] = useState<string | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
@@ -37,17 +40,26 @@ export default function AdminProductMediaPage() {
 
   useEffect(load, [load]);
 
-  async function handleFileSelected(file: File) {
+  async function handleFilesSelected(files: FileList | File[]) {
     if (!token) return;
-    setUploading(true);
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
     setError('');
+    setUploadProgress({ done: 0, total: fileArray.length });
     try {
-      const updated = await adminUploadProductMedia(token, id, file);
-      setProduct(updated);
+      // Sequential, not parallel: the server computes each photo's position
+      // as the current photo count, so concurrent uploads would race and
+      // could land two photos at the same position.
+      for (let i = 0; i < fileArray.length; i++) {
+        const updated = await adminUploadProductMedia(token, id, fileArray[i]);
+        setProduct(updated);
+        setUploadProgress({ done: i + 1, total: fileArray.length });
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Upload failed');
     } finally {
-      setUploading(false);
+      setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -86,6 +98,19 @@ export default function AdminProductMediaPage() {
     }
   }
 
+  async function handleMakeThumbnail(mediaId: string) {
+    if (!token || !product) return;
+    const reordered = [mediaId, ...product.media.filter((m) => m.id !== mediaId).map((m) => m.id)];
+
+    setError('');
+    try {
+      const updated = await adminReorderProductMedia(token, id, reordered);
+      setProduct(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to set thumbnail');
+    }
+  }
+
   if (!product) {
     return <p className="text-sm text-ink-secondary">{error || 'Loading…'}</p>;
   }
@@ -97,19 +122,34 @@ export default function AdminProductMediaPage() {
       </Link>
       <div className="mb-6 mt-2 flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold">{product.name}</h1>
-        <div>
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDraggingOver(true);
+          }}
+          onDragLeave={() => setIsDraggingOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDraggingOver(false);
+            if (e.dataTransfer.files.length > 0) handleFilesSelected(e.dataTransfer.files);
+          }}
+          className={cn(
+            'rounded-s border-2 border-dashed p-2 transition-colors',
+            isDraggingOver ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent',
+          )}
+        >
           <input
             ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
+            multiple
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFileSelected(file);
+              if (e.target.files) handleFilesSelected(e.target.files);
             }}
           />
-          <Button onClick={() => fileInputRef.current?.click()} loading={uploading}>
-            Upload photo
+          <Button onClick={() => fileInputRef.current?.click()} loading={uploadProgress !== null}>
+            {uploadProgress ? `Uploading ${uploadProgress.done} of ${uploadProgress.total}…` : 'Upload photos'}
           </Button>
         </div>
       </div>
@@ -126,6 +166,11 @@ export default function AdminProductMediaPage() {
                 <div key={media.id} className="space-y-2">
                   <div className="relative aspect-square overflow-hidden rounded-s border border-border bg-surface-alt">
                     <Image src={media.url} alt="" fill sizes="25vw" className="object-cover" />
+                    {index === 0 && (
+                      <Badge variant="accent" className="absolute left-2 top-2">
+                        Thumbnail
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex gap-1">
@@ -157,6 +202,11 @@ export default function AdminProductMediaPage() {
                       Remove
                     </Button>
                   </div>
+                  {index !== 0 && (
+                    <Button size="s" variant="secondary" className="w-full" onClick={() => handleMakeThumbnail(media.id)}>
+                      Make thumbnail
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
