@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseFilePipeBuilder,
   Patch,
@@ -20,6 +22,8 @@ import { BulkImportService } from './bulk-import.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ReorderMediaDto } from './dto/reorder-media.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -77,6 +81,31 @@ export class ProductsController {
   @ApiOperation({ summary: '[Admin/Staff] List all categories, for populating a product form' })
   adminListCategories() {
     return this.productsService.listCategories();
+  }
+
+  @ApiBearerAuth()
+  @Post('admin/categories')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] Create a category (slug auto-derived from name if omitted)' })
+  adminCreateCategory(@Body() dto: CreateCategoryDto) {
+    return this.productsService.createCategory(dto);
+  }
+
+  @ApiBearerAuth()
+  @Patch('admin/categories/:id')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] Update a category' })
+  adminUpdateCategory(@Param('id') id: string, @Body() dto: UpdateCategoryDto) {
+    return this.productsService.updateCategory(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @Delete('admin/categories/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles(Role.ADMIN, Role.STAFF)
+  @ApiOperation({ summary: '[Admin/Staff] Delete an empty category (no products, no subcategories)' })
+  adminDeleteCategory(@Param('id') id: string) {
+    return this.productsService.deleteCategory(id);
   }
 
   @ApiBearerAuth()

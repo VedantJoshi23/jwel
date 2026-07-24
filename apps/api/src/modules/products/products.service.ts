@@ -4,6 +4,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
@@ -224,8 +226,122 @@ export class ProductsService {
 
   async listCategories() {
     return this.prisma.category.findMany({
+      where: { deletedAt: null },
       orderBy: [{ parentId: 'asc' }, { sortOrder: 'asc' }],
     });
+  }
+
+  // --- Category management ---------------------------------------------
+  // Lives here rather than in a standalone module because the admin product
+  // form is the only consumer and `listCategories` already does — keeps the
+  // one small surface together instead of spinning up a module for four
+  // methods. Slugs are unique and URL-facing, so a rename keeps the old slug
+  // unless the caller sends a new one explicitly.
+
+  private static slugify(input: string): string {
+    return input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  async createCategory(dto: CreateCategoryDto) {
+    const slug = (dto.slug ? ProductsService.slugify(dto.slug) : ProductsService.slugify(dto.name)) || '';
+    if (!slug) {
+      throw new BadRequestException('Category name must contain at least one alphanumeric character for its slug.');
+    }
+    if (dto.parentId) {
+      await this.getLiveCategoryOrThrow(dto.parentId);
+    }
+    try {
+      return await this.prisma.category.create({
+        data: { name: dto.name, slug, parentId: dto.parentId ?? null, sortOrder: dto.sortOrder ?? 0 },
+      });
+    } catch (error) {
+      throw this.mapCategoryWriteError(error, slug);
+    }
+  }
+
+  async updateCategory(id: string, dto: UpdateCategoryDto) {
+    await this.getLiveCategoryOrThrow(id);
+
+    if (dto.parentId !== undefined && dto.parentId !== null) {
+      if (dto.parentId === id) {
+        throw new BadRequestException('A category cannot be its own parent.');
+      }
+      await this.getLiveCategoryOrThrow(dto.parentId);
+      if (await this.isDescendant(dto.parentId, id)) {
+        throw new BadRequestException('Cannot move a category under one of its own descendants.');
+      }
+    }
+
+    const data: Prisma.CategoryUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.slug !== undefined) {
+      const slug = ProductsService.slugify(dto.slug);
+      if (!slug) throw new BadRequestException('Slug must contain at least one alphanumeric character.');
+      data.slug = slug;
+    }
+    if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    if (dto.parentId !== undefined) {
+      data.parent = dto.parentId === null ? { disconnect: true } : { connect: { id: dto.parentId } };
+    }
+
+    try {
+      return await this.prisma.category.update({ where: { id }, data });
+    } catch (error) {
+      throw this.mapCategoryWriteError(error, dto.slug);
+    }
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await this.getLiveCategoryOrThrow(id);
+
+    const [childCount, productCount] = await Promise.all([
+      this.prisma.category.count({ where: { parentId: id, deletedAt: null } }),
+      this.prisma.product.count({ where: { categoryId: id, deletedAt: null } }),
+    ]);
+    if (childCount > 0) {
+      throw new BadRequestException('Cannot delete a category that still has subcategories. Move or delete them first.');
+    }
+    if (productCount > 0) {
+      throw new BadRequestException(
+        `Cannot delete a category with ${productCount} product(s). Reassign or archive them first.`,
+      );
+    }
+
+    await this.prisma.category.update({ where: { id }, data: { deletedAt: new Date() } });
+  }
+
+  private async getLiveCategoryOrThrow(id: string) {
+    const category = await this.prisma.category.findFirst({ where: { id, deletedAt: null } });
+    if (!category) throw new NotFoundException(`Category ${id} not found`);
+    return category;
+  }
+
+  // Walk up from `startId` to check whether `ancestorId` sits above it — the
+  // guard that stops updateCategory from creating a parent/child cycle.
+  private async isDescendant(startId: string, ancestorId: string): Promise<boolean> {
+    let current: string | null = startId;
+    // Bounded by the number of categories; a corrupt cycle already in the data
+    // would otherwise loop forever, so cap the walk defensively.
+    for (let hops = 0; current && hops < 1000; hops++) {
+      if (current === ancestorId) return true;
+      const parent: { parentId: string | null } | null = await this.prisma.category.findUnique({
+        where: { id: current },
+        select: { parentId: true },
+      });
+      current = parent?.parentId ?? null;
+    }
+    return false;
+  }
+
+  private mapCategoryWriteError(error: unknown, slug?: string): Error {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return new BadRequestException(`A category with slug "${slug}" already exists.`);
+    }
+    return error as Error;
   }
 
   async adminDelete(id: string): Promise<void> {
