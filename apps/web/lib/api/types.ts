@@ -40,6 +40,7 @@ export interface Category {
   name: string;
   slug: string;
   parentId: string | null;
+  sortOrder?: number;
 }
 
 export interface Product {

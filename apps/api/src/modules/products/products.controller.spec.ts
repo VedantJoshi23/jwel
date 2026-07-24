@@ -15,6 +15,10 @@ describe('ProductsController', () => {
     addMedia: jest.Mock;
     removeMedia: jest.Mock;
     reorderMedia: jest.Mock;
+    listCategories: jest.Mock;
+    createCategory: jest.Mock;
+    updateCategory: jest.Mock;
+    deleteCategory: jest.Mock;
   };
   let bulkImport: { importProductsCsv: jest.Mock };
   let controller: ProductsController;
@@ -31,6 +35,10 @@ describe('ProductsController', () => {
       addMedia: jest.fn().mockResolvedValue('with-new-media'),
       removeMedia: jest.fn().mockResolvedValue('media-removed'),
       reorderMedia: jest.fn().mockResolvedValue('reordered'),
+      listCategories: jest.fn().mockReturnValue('category-list'),
+      createCategory: jest.fn().mockReturnValue('category-created'),
+      updateCategory: jest.fn().mockReturnValue('category-updated'),
+      deleteCategory: jest.fn().mockResolvedValue(undefined),
     };
     bulkImport = { importProductsCsv: jest.fn().mockResolvedValue('import-result') };
     controller = new ProductsController(products as unknown as ProductsService, bulkImport as unknown as BulkImportService);
@@ -101,6 +109,30 @@ describe('ProductsController', () => {
       const dto = { mediaIds: ['m2', 'm1'] };
       expect(await controller.reorderMedia('p1', dto as any)).toBe('reordered');
       expect(products.reorderMedia).toHaveBeenCalledWith('p1', ['m2', 'm1']);
+    });
+  });
+
+  describe('category management', () => {
+    it('adminListCategories delegates to the service', () => {
+      expect(controller.adminListCategories()).toBe('category-list');
+      expect(products.listCategories).toHaveBeenCalled();
+    });
+
+    it('adminCreateCategory delegates the dto', () => {
+      const dto = { name: 'Necklaces' } as any;
+      expect(controller.adminCreateCategory(dto)).toBe('category-created');
+      expect(products.createCategory).toHaveBeenCalledWith(dto);
+    });
+
+    it('adminUpdateCategory delegates the id and dto', () => {
+      const dto = { name: 'Renamed' } as any;
+      expect(controller.adminUpdateCategory('c1', dto)).toBe('category-updated');
+      expect(products.updateCategory).toHaveBeenCalledWith('c1', dto);
+    });
+
+    it('adminDeleteCategory delegates the id', async () => {
+      expect(await controller.adminDeleteCategory('c1')).toBeUndefined();
+      expect(products.deleteCategory).toHaveBeenCalledWith('c1');
     });
   });
 });

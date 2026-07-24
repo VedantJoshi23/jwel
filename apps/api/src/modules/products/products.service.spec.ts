@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
@@ -10,6 +10,14 @@ type MockPrisma = {
   product: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; count: jest.Mock };
   productMedia: { count: jest.Mock; create: jest.Mock; delete: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   productVariant: { findUnique: jest.Mock; update: jest.Mock };
+  category: {
+    findMany: jest.Mock;
+    findFirst: jest.Mock;
+    findUnique: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    count: jest.Mock;
+  };
   $transaction: jest.Mock;
 };
 
@@ -36,6 +44,14 @@ describe('ProductsService', () => {
       product: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), count: jest.fn() },
       productMedia: { count: jest.fn(), create: jest.fn(), delete: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       productVariant: { findUnique: jest.fn(), update: jest.fn() },
+      category: {
+        findMany: jest.fn(),
+        findFirst: jest.fn(),
+        findUnique: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        count: jest.fn(),
+      },
       // Prisma's $transaction has two forms and this service uses both: an
       // array of operations (reorderMedia) and an interactive callback
       // (adminUpdate). Handle each, or the callback form gets passed to
@@ -322,6 +338,155 @@ describe('ProductsService', () => {
 
       expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm2' }, data: { sortOrder: 0 } });
       expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { sortOrder: 1 } });
+    });
+  });
+
+  describe('listCategories', () => {
+    it('excludes soft-deleted categories', async () => {
+      prisma.category.findMany.mockResolvedValue([]);
+      await service.listCategories();
+      expect(prisma.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { deletedAt: null } }),
+      );
+    });
+  });
+
+  describe('createCategory', () => {
+    it('derives a slug from the name when none is supplied', async () => {
+      prisma.category.create.mockResolvedValue({ id: 'c1' });
+      await service.createCategory({ name: 'Necklaces & Pendants' } as any);
+      expect(prisma.category.create.mock.calls[0][0].data).toMatchObject({
+        name: 'Necklaces & Pendants',
+        slug: 'necklaces-pendants',
+        parentId: null,
+        sortOrder: 0,
+      });
+    });
+
+    it('slugifies a caller-supplied slug rather than trusting it verbatim', async () => {
+      prisma.category.create.mockResolvedValue({ id: 'c1' });
+      await service.createCategory({ name: 'X', slug: 'My Custom SLUG!' } as any);
+      expect(prisma.category.create.mock.calls[0][0].data.slug).toBe('my-custom-slug');
+    });
+
+    it('rejects a name with no alphanumeric characters (empty slug)', async () => {
+      await expect(service.createCategory({ name: '—' } as any)).rejects.toThrow(BadRequestException);
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('validates the parent exists before creating', async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+      await expect(service.createCategory({ name: 'Chokers', parentId: 'nope' } as any)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
+
+    it('connects a valid parent and honours an explicit sortOrder', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'p1' });
+      prisma.category.create.mockResolvedValue({ id: 'c2' });
+      await service.createCategory({ name: 'Chokers', parentId: 'p1', sortOrder: 3 } as any);
+      expect(prisma.category.create.mock.calls[0][0].data).toMatchObject({ parentId: 'p1', sortOrder: 3 });
+    });
+
+    it('maps a unique-constraint violation to a friendly BadRequest', async () => {
+      prisma.category.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' }),
+      );
+      await expect(service.createCategory({ name: 'Rings' } as any)).rejects.toThrow(/already exists/);
+    });
+
+    it('rethrows a non-P2002 database error unchanged', async () => {
+      prisma.category.create.mockRejectedValue(new Error('connection lost'));
+      await expect(service.createCategory({ name: 'Rings' } as any)).rejects.toThrow('connection lost');
+    });
+  });
+
+  describe('updateCategory', () => {
+    it('throws NotFound for a missing category before any write', async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+      await expect(service.updateCategory('missing', { name: 'x' })).rejects.toThrow(NotFoundException);
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects making a category its own parent', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      await expect(service.updateCategory('c1', { parentId: 'c1' })).rejects.toThrow(/own parent/);
+    });
+
+    it('rejects moving a category under one of its own descendants (cycle)', async () => {
+      // c1 exists; requested parent c2 exists; walking up from c2 reaches c1.
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.findUnique.mockResolvedValueOnce({ parentId: 'c1' }); // c2's parent is c1
+      await expect(service.updateCategory('c1', { parentId: 'c2' })).rejects.toThrow(/descendant/);
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('applies name, slugified slug, sortOrder and a parent connect', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.findUnique.mockResolvedValue({ parentId: null }); // parent p2 is top-level, no cycle
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.updateCategory('c1', { name: 'New', slug: 'New Slug', sortOrder: 5, parentId: 'p2' });
+      expect(prisma.category.update.mock.calls[0][0].data).toMatchObject({
+        name: 'New',
+        slug: 'new-slug',
+        sortOrder: 5,
+        parent: { connect: { id: 'p2' } },
+      });
+    });
+
+    it('disconnects the parent when parentId is explicitly null', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.updateCategory('c1', { parentId: null });
+      expect(prisma.category.update.mock.calls[0][0].data).toEqual({ parent: { disconnect: true } });
+    });
+
+    it('rejects a slug that slugifies to empty', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      await expect(service.updateCategory('c1', { slug: '!!!' })).rejects.toThrow(BadRequestException);
+    });
+
+    it('maps a duplicate slug to a friendly BadRequest', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('dup', { code: 'P2002', clientVersion: 'test' }),
+      );
+      await expect(service.updateCategory('c1', { slug: 'rings' })).rejects.toThrow(/already exists/);
+    });
+  });
+
+  describe('deleteCategory', () => {
+    it('throws NotFound for a missing category', async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+      await expect(service.deleteCategory('missing')).rejects.toThrow(NotFoundException);
+    });
+
+    it('refuses to delete a category that still has subcategories', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.count.mockResolvedValue(2); // children
+      prisma.product.count.mockResolvedValue(0);
+      await expect(service.deleteCategory('c1')).rejects.toThrow(/subcategories/);
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to delete a category that still has products', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.count.mockResolvedValue(0);
+      prisma.product.count.mockResolvedValue(7);
+      await expect(service.deleteCategory('c1')).rejects.toThrow(/7 product/);
+      expect(prisma.category.update).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes an empty category by stamping deletedAt', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.count.mockResolvedValue(0);
+      prisma.product.count.mockResolvedValue(0);
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.deleteCategory('c1');
+      const arg = prisma.category.update.mock.calls[0][0];
+      expect(arg.where).toEqual({ id: 'c1' });
+      expect(arg.data.deletedAt).toBeInstanceOf(Date);
     });
   });
 });
