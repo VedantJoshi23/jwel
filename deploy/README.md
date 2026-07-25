@@ -17,16 +17,22 @@ commands below address those volumes by name.
 ```
 deploy/
   docker-compose.postgres.yml       data stack   — brought up once, rarely touched
-  docker-compose.api.yml            app stack    — api + web + Caddy, redeployed on every release
+  docker-compose.api.yml            app stack    — api + web, redeployed on every release
   docker-compose.elasticsearch.yml  search stack — OPTIONAL; see RUNBOOK.md
-  Caddyfile                         TLS + reverse proxy for both api.* and shop.*
+  nginx/jwel.conf.template          TLS + reverse proxy — render.sh fills in
+  nginx/render.sh                   the hostnames; see RUNBOOK §12
+  Caddyfile                         unused alternative, for a host without nginx
 ```
 
 The app stack runs two images: `jwel-api` (`apps/api/Dockerfile`) and `jwel-web`
-(`apps/web/Dockerfile`, Next.js standalone build). Both need real domains —
-Caddy's automatic HTTPS cannot issue a Let's Encrypt certificate for a bare IP
-address, so you need at least two DNS A records (e.g. `api.yourdomain.com` and
-`shop.yourdomain.com`) pointed at the host before step 6 will work.
+(`apps/web/Dockerfile`, Next.js standalone build). Neither publishes a public
+port; both listen on `127.0.0.1` and the host's nginx proxies to them.
+
+Two hostnames are required — the storefront and the API are separate origins,
+and Let's Encrypt cannot issue a certificate for a bare IP address. On the
+deployed host these are the apex `whisperingorion.dev` (storefront, replacing
+the old static portfolio) and `api.whisperingorion.dev`. Both must resolve to
+the host before step 6 will work.
 
 ---
 
@@ -110,6 +116,7 @@ docker push ghcr.io/$GH_OWNER/jwel-api:$GIT_SHA
 docker build -f apps/web/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1 \
   --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.yourdomain.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://yourdomain.com \
   -t ghcr.io/$GH_OWNER/jwel-web:$GIT_SHA .
 docker push ghcr.io/$GH_OWNER/jwel-web:$GIT_SHA
 ```
@@ -142,8 +149,10 @@ docker compose -f docker-compose.api.yml logs -f api web
 
 Migrations run as a one-shot from the same image being deployed, so the schema
 always matches the code. Kept out of the API container's `CMD` so two replicas
-could never race. `up -d` starts `api`, `web`, and `caddy` together — `migrate`
-and `create-admin` are one-shot profiles and don't start with it.
+could never race. `up -d` starts `api` and `web` — `migrate` and `create-admin`
+are one-shot profiles and don't start with it. Both containers publish only to
+`127.0.0.1` (`:3000` and `:4000`); nothing is reachable from the internet until
+nginx is configured in step 6.
 
 ---
 
@@ -200,16 +209,75 @@ a file without a row is invisible but wastes disk.
 
 ---
 
-## 6. Verify
+## 6. Put nginx in front (TLS + reverse proxy)
+
+The deployed host already runs nginx with a certbot-managed certificate, so
+nginx — not Caddy — terminates TLS. `deploy/nginx/jwel.conf.template` holds the
+config; `render.sh` substitutes the two hostnames into it, because nginx has no
+variables in `server_name` or certificate paths. Changing domains later is
+RUNBOOK §12.
+
+**DNS must be in place before certbot will issue anything.** The apex record
+already exists; the API subdomain needs a new one:
+
+| Type | Name  | Value            |
+|------|-------|------------------|
+| A    | `api` | `80.225.213.151` |
+
+Add it at whatever registrar/DNS host serves `whisperingorion.dev`, then wait
+for it to propagate before continuing:
 
 ```bash
-curl -fsS https://api.yourdomain.com/health            # {"status":"ok",…}
-curl -fsS https://api.yourdomain.com/health/ready      # {"status":"ok","database":"ok"}
-curl -s -o /dev/null -w '%{http_code}\n' https://api.yourdomain.com/docs   # 404 in prod
-curl -s -o /dev/null -w '%{http_code}\n' https://shop.yourdomain.com/      # 200
+dig +short api.whisperingorion.dev        # must print 80.225.213.151
 ```
 
-Then log into `https://shop.yourdomain.com/admin` with the account from step 4,
+Certbot fails with "DNS problem: NXDOMAIN" if you run it early. That failure is
+counted against Let's Encrypt's rate limit of 5 per hostname per hour, so check
+`dig` first rather than retrying blind.
+
+```bash
+# 1. issue the api.* certificate FIRST. The apex cert already exists and is
+#    untouched. --webroot uses the portfolio vhost's :80 block, which is still
+#    live at this point, so nothing needs editing twice.
+sudo certbot certonly --webroot -w /var/www/html -d api.whisperingorion.dev
+
+# 2. render the config for these two hostnames
+cd ~/jwel/deploy
+./nginx/render.sh whisperingorion.dev api.whisperingorion.dev > /tmp/jwel.conf
+
+# 3. install it (the old portfolio vhost is also called `main` — back it up)
+sudo cp /etc/nginx/sites-available/main /etc/nginx/sites-available/main.portfolio.bak
+sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
+
+# 4. validate and reload — never `restart` a config you have not tested
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Order matters: nginx refuses to load a config naming a certificate file that
+does not exist, so issuing the `api.*` cert before installing the config avoids
+a chicken-and-egg. Do not reach for `certbot --nginx` here — it wants to edit
+the config it finds, which is the rendered output rather than the template.
+
+Rollback is `sudo cp /etc/nginx/sites-available/main.portfolio.bak
+/etc/nginx/sites-available/main && sudo nginx -t && sudo systemctl reload
+nginx`, which restores the portfolio in seconds. The portfolio files under
+`/home/ubuntu/portfolio` are never moved or modified — the new config also
+keeps serving them at `https://whisperingorion.dev/portfolio/`.
+
+---
+
+## 7. Verify
+
+```bash
+curl -fsS https://api.whisperingorion.dev/health         # {"status":"ok",…}
+curl -fsS https://api.whisperingorion.dev/health/ready   # {"status":"ok","database":"ok"}
+curl -s -o /dev/null -w '%{http_code}\n' https://api.whisperingorion.dev/docs      # 404 in prod
+curl -s -o /dev/null -w '%{http_code}\n' https://whisperingorion.dev/              # 200 storefront
+curl -s -o /dev/null -w '%{http_code}\n' https://whisperingorion.dev/portfolio/    # 200 portfolio
+curl -s -o /dev/null -w '%{http_code}\n' https://whisperingorion.dev/portfolio     # 301
+```
+
+Then log into `https://whisperingorion.dev/admin` with the account from step 4,
 open a product, and confirm its photos render — that exercises the web
 container, the API container, Postgres, and the uploads volume all at once.
 

@@ -118,4 +118,31 @@ describe('validateEnv', () => {
       );
     });
   });
+
+  // A near-miss here would be read as "payments are simulated" by whoever set
+  // it, while PaymentsModule silently kept the real gateway path. Fail loudly
+  // rather than ignore the value. See RUNBOOK §13.
+  describe('PAYMENTS_MODE', () => {
+    it('accepts the exact value the payments module tests for', () => {
+      expect(() => validateEnv({ ...PROD_BASE, PAYMENTS_MODE: 'simulated' })).not.toThrow();
+    });
+
+    it('accepts absence — the live-shop default', () => {
+      expect(() => validateEnv({ ...PROD_BASE })).not.toThrow();
+    });
+
+    it.each(['Simulated', 'true', 'mock', 'yes', '1'])('rejects %p', (value) => {
+      expect(() => validateEnv({ ...PROD_BASE, PAYMENTS_MODE: value })).toThrow(/PAYMENTS_MODE/);
+    });
+
+    it('is validated outside production too, so staging typos surface locally', () => {
+      expect(() =>
+        validateEnv({
+          DATABASE_URL: 'postgresql://localhost/jwel',
+          JWT_SECRET: 'short-dev-secret',
+          PAYMENTS_MODE: 'mocked',
+        }),
+      ).toThrow(/PAYMENTS_MODE/);
+    });
+  });
 });

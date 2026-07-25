@@ -142,8 +142,13 @@ docker build -f apps/api/Dockerfile -t ghcr.io/local/jwel-api:$GIT_SHA .
 docker build -f apps/web/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1 \
   --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.yourdomain.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://yourdomain.com \
+  --build-arg NEXT_PUBLIC_DEMO_MODE=true \
   -t ghcr.io/local/jwel-web:$GIT_SHA .
 ```
+
+Drop `NEXT_PUBLIC_DEMO_MODE` once payments are live — see §13. While it is set,
+the storefront shows a "no payment is taken" banner and returns `noindex`.
 
 The `ghcr.io/local/...` naming is arbitrary here — it just has to match
 `GH_OWNER=local` and `API_TAG=$GIT_SHA` / `WEB_TAG=$GIT_SHA` in
@@ -306,6 +311,256 @@ ls -lh backups/ && gzip -t backups/db-*.sql.gz && echo 'dump is readable'
 ```
 
 A backup nobody has restored is a hypothesis, not a backup.
+
+---
+
+## 12. Changing the domain
+
+Expected at least once: the staging deployment runs on a domain you already
+own, and the shop later moves to the domain the client buys. Nothing here is
+hard, but the hostname lives in several places and missing one produces
+failures that don't name the domain as the cause.
+
+### What survives a domain change
+
+**Uploaded product images are safe.** The database stores only a storage
+reference (`local:products/<uuid>.jpg`); the absolute URL is built at request
+time from `PUBLIC_BASE_URL` in `filesystem-storage.provider.ts`. So the
+usual worst case here — every image 404ing after the move — does not apply.
+Orders, accounts and the catalogue are equally unaffected. Admin passwords
+carry over; the client does not need a new account.
+
+### Every place the hostname appears
+
+| # | Location | Which host | Needs |
+|---|----------|-----------|-------|
+| 1 | DNS A record, apex | new apex | registrar |
+| 2 | DNS A record, `api.` | new api | registrar |
+| 3 | Let's Encrypt cert | both | `certbot` |
+| 4 | `/etc/nginx/sites-available/main` | both | render + reload |
+| 5 | `.env.production` → `PUBLIC_BASE_URL` | api | API restart |
+| 6 | `.env.production` → `FRONTEND_URL` | apex | API restart |
+| 7 | `.env.production` → `CORS_ALLOWED_ORIGINS` | apex | API restart |
+| 8 | build arg `NEXT_PUBLIC_API_URL` | api | **web image rebuild** |
+| 9 | build arg `NEXT_PUBLIC_API_ORIGIN` | api | **web image rebuild** |
+| 10 | build arg `NEXT_PUBLIC_SITE_URL` | apex | **web image rebuild** |
+| 11 | Google OAuth redirect URI | api | Google Cloud console |
+| 12 | Stripe webhook endpoint URL | api | Stripe dashboard |
+
+Rows 8–10 are the ones that catch people. `NEXT_PUBLIC_*` values are inlined
+into the JavaScript bundle at build time — they are **not** read from the
+environment when the container starts. Editing `.env.production` and running
+`up -d` changes rows 5–7 and leaves the browser still calling the old API
+hostname. The web image must be rebuilt.
+
+Rows 11–12 only apply once those integrations are live. Until then the OAuth
+routes return a 503 explaining they are unconfigured, which is intended
+behaviour, not a symptom of the move.
+
+### The procedure
+
+```bash
+# 1. DNS first — both records, and WAIT for them before touching certbot.
+dig +short newdomain.com          # must print this server's IP
+dig +short api.newdomain.com      # must print this server's IP
+```
+
+Certbot failures count against Let's Encrypt's rate limit of 5 per hostname
+per hour, so confirm `dig` before running it, not after.
+
+```bash
+# 2. Certificates for the new names. The old certs stay in place — nothing is
+#    revoked, so the old domain keeps working during the switch.
+sudo certbot certonly --webroot -w /var/www/html \
+  -d newdomain.com -d www.newdomain.com
+sudo certbot certonly --webroot -w /var/www/html -d api.newdomain.com
+
+# 3. Rebuild the web image with the new build args. NEW git sha or a suffix —
+#    reusing the old tag means no rollback target.
+cd ~/jwel
+GIT_SHA=$(git rev-parse --short HEAD)
+docker build -f apps/web/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.newdomain.com/api/v1 \
+  --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.newdomain.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://newdomain.com \
+  -t ghcr.io/local/jwel-web:$GIT_SHA-newdomain .
+
+# 4. Confirm the new hostname actually made it into the bundle BEFORE deploying.
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA-newdomain \
+  sh -c 'grep -rl "api.newdomain.com" .next/static | head -1'
+```
+
+That must print a chunk filename. Empty output means the build args didn't
+take and you are about to deploy a bundle pointing at the old domain.
+
+```bash
+# 5. Update the three API vars and the image tag.
+cd deploy
+#   .env.production:  PUBLIC_BASE_URL=https://api.newdomain.com
+#                     FRONTEND_URL=https://newdomain.com
+#                     CORS_ALLOWED_ORIGINS=https://newdomain.com
+#   .env:             WEB_TAG=<the new tag from step 3>
+
+# 6. Render and install the nginx config.
+./nginx/render.sh newdomain.com api.newdomain.com > /tmp/jwel.conf
+sudo cp /etc/nginx/sites-available/main /etc/nginx/sites-available/main.bak
+sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
+sudo nginx -t && sudo systemctl reload nginx
+
+# 7. Restart the app stack.
+docker compose -f docker-compose.api.yml up -d
+```
+
+### Verify
+
+```bash
+curl -fsS https://api.newdomain.com/health/ready     # {"status":"ok","database":"ok"}
+curl -s -o /dev/null -w '%{http_code}\n' https://newdomain.com/     # 200
+```
+
+Then open the storefront in a real browser with devtools on the Network tab
+and confirm the XHR calls go to `api.newdomain.com`. A CORS error in the
+console means `CORS_ALLOWED_ORIGINS` still lists the old apex, or the API
+wasn't restarted after editing it. Load a product page and confirm its images
+render — that proves `PUBLIC_BASE_URL` took effect.
+
+### Rolling back
+
+```bash
+sudo cp /etc/nginx/sites-available/main.bak /etc/nginx/sites-available/main
+sudo nginx -t && sudo systemctl reload nginx
+# revert WEB_TAG in .env, then:
+docker compose -f docker-compose.api.yml up -d
+```
+
+The old certificates and DNS records are untouched throughout, which is what
+makes the rollback fast. Keep the old domain registered and pointing at the
+server for a few weeks after the move — DNS caches, bookmarks and any links
+already shared will keep arriving on the old hostname.
+
+---
+
+## 13. Running without a payment gateway, and going live later
+
+For client UAT before a gateway account exists — Stripe India is invite-only,
+Razorpay onboarding takes days — the deployment can run with **simulated
+payments**. Checkout completes through `MockPaymentProvider`, orders reach
+`CONFIRMED`, the confirmation notification fires, and the order appears in the
+admin panel. No money moves and nothing is charged.
+
+This is deliberately not the default and cannot be reached by accident: it
+requires two settings, in two different places, both of which have to be
+removed before go-live.
+
+### Turning it on
+
+**API** — in `deploy/.env.production`:
+
+```ini
+PAYMENTS_MODE=simulated
+```
+
+Exactly that string; anything else is rejected at boot by `env.validation.ts`
+rather than silently ignored. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`
+stay unset — the flag replaces the requirement for them.
+
+**Web** — a build arg, because `NEXT_PUBLIC_*` is inlined at build time:
+
+```bash
+--build-arg NEXT_PUBLIC_DEMO_MODE=true
+```
+
+That shows a banner above the header on every page ("Demo store — orders are
+for preview only. No payment is taken and nothing will be shipped.") and
+switches `robots.txt` to disallow-all plus a `noindex` meta directive.
+
+Confirm it took effect after `up -d`:
+
+```bash
+docker compose -f docker-compose.api.yml logs api | grep 'PAYMENTS_MODE'
+# ERROR ... PAYMENTS_MODE=simulated — CHECKOUT IS SIMULATED ...
+curl -s https://yourdomain.com/robots.txt          # Disallow: /
+```
+
+The API logs that line at **error** level on every boot. That is intentional
+noise — a production process confirming orders without taking money should be
+impossible to overlook in a log tail.
+
+### Why not comment the payments module out
+
+Because the code that would be commented out is the guard at
+`payments.module.ts` that *refuses to boot* in production without gateway
+credentials. That guard exists precisely so a live shop can never fall back to
+the mock and mark real orders paid. Deleting it for staging makes go-live
+depend on remembering to restore a safety mechanism correctly, and commented
+code is neither type-checked nor covered by tests in the weeks it sits there.
+The flag inverts that: the dangerous state requires an explicit, loud,
+single-line opt-in, and go-live is a deletion rather than a restoration.
+
+For the same reason, do **not** set placeholder Stripe keys to get past the
+boot check. The app starts, but the webhook signature check then fails on
+every callback and orders sit at `PENDING` forever — a far more confusing
+failure than not booting at all.
+
+### Going live: the checklist
+
+Work top to bottom; the storefront should never be reachable in a state where
+it takes real card details while still displaying the demo banner.
+
+1. **Gateway account.** Created and activated by the **client**, in their
+   legal entity's name — payouts, tax and chargeback liability follow the
+   account holder. Get restricted API keys, or ask to be added as a developer
+   so you never hold their live secret key.
+2. **Webhook endpoint** in the gateway dashboard, pointing at
+   `https://<api-domain>/payments/webhook/stripe`, subscribed to
+   `payment_intent.succeeded` and `payment_intent.payment_failed` — the only
+   two events `stripe-payment.provider.ts` acts on. Copy the signing secret.
+3. **`deploy/.env.production`**: delete the `PAYMENTS_MODE` line, add
+   `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+4. **Rebuild the web image** *without* `--build-arg NEXT_PUBLIC_DEMO_MODE`,
+   with a new tag. This is not optional — the banner and the `noindex` are
+   baked into the bundle and no restart will clear them.
+5. **Verify the bundle** before deploying it:
+   ```bash
+   docker run --rm ghcr.io/local/jwel-web:<newtag> \
+     sh -c 'grep -rl "Demo store" .next/static | head -1'
+   ```
+   That must print **nothing**. Output means the banner is still compiled in.
+6. **Deploy**: update `WEB_TAG` in `.env`, then
+   `docker compose -f docker-compose.api.yml up -d`.
+7. **Confirm the flag is gone** — this must print no match:
+   ```bash
+   docker compose -f docker-compose.api.yml logs api | grep 'CHECKOUT IS SIMULATED'
+   ```
+8. **Re-enable indexing**: `curl -s https://yourdomain.com/robots.txt` should
+   no longer be disallow-all. If the demo was ever publicly reachable, request
+   removal of any indexed URLs in Google Search Console.
+9. **One real transaction.** Place a genuine order with a real card, for the
+   smallest-value item, and confirm: the order reaches `CONFIRMED`, the money
+   appears in the gateway dashboard, and the webhook shows a 2xx delivery.
+   Then refund it. A gateway that has never moved real money is a hypothesis,
+   the same as an unrestored backup.
+
+### Restricting access while in demo mode
+
+`noindex` keeps the demo out of search results but does not stop anyone with
+the URL. If the client is sharing it around, add HTTP basic auth in nginx —
+inside the apex `server` block, above `location /`:
+
+```nginx
+auth_basic "Staging";
+auth_basic_user_file /etc/nginx/.htpasswd;
+```
+
+```bash
+sudo apt install apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd client
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Leave `location /portfolio/` outside it (or add `auth_basic off;` inside that
+block) if the portfolio should stay public. Remove the two directives at
+go-live — step 8 above is the natural place.
 
 ---
 

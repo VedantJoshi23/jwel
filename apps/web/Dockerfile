@@ -4,6 +4,7 @@
 #   docker build -f apps/web/Dockerfile \
 #     --build-arg NEXT_PUBLIC_API_URL=https://api.example.com/api/v1 \
 #     --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.example.com \
+#     --build-arg NEXT_PUBLIC_SITE_URL=https://example.com \
 #     -t jwel-web:<git-sha> .
 #
 # NEXT_PUBLIC_* vars are inlined into the JS bundle at build time, not read
@@ -29,8 +30,18 @@ RUN npm ci
 FROM deps AS build
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_API_ORIGIN
+# Read by app/layout.tsx (metadataBase), app/sitemap.ts and app/robots.ts.
+# Omitting it does not fail the build — those files fall back to
+# http://localhost:3000, which then ships in the live sitemap and robots.txt.
+ARG NEXT_PUBLIC_SITE_URL
+# "true" shows the demo banner and forces noindex. Must be set together with
+# the API's PAYMENTS_MODE=simulated — nothing enforces that they agree, so
+# see RUNBOOK §13. Unset/absent is the live-shop default.
+ARG NEXT_PUBLIC_DEMO_MODE
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+ENV NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE}
 
 COPY apps/web apps/web
 WORKDIR /repo/apps/web

@@ -1,0 +1,138 @@
+# TEMPLATE — not a usable nginx config. Render it with ./render.sh first.
+#
+# nginx has no variables in server_name or ssl_certificate paths (its $vars are
+# request-time only), so the hostnames have to be substituted before install.
+#
+#   ./render.sh example.com api.example.com > /tmp/jwel.conf
+#
+# Placeholders: ${APEX_DOMAIN}, ${API_DOMAIN}. Both must be bare hostnames —
+# no scheme, no trailing slash.
+#
+#   apex   ${APEX_DOMAIN}           -> web container (127.0.0.1:3000)
+#   api    ${API_DOMAIN}            -> api container (127.0.0.1:4000)
+#   legacy ${APEX_DOMAIN}/portfolio/ -> /home/ubuntu/portfolio (static files)
+#
+# Install (see deploy/README §6 for full ordering — DNS and certbot come first,
+# and RUNBOOK §12 for changing domains later):
+#   sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# `nginx -t` before every reload. A config that fails to parse takes the whole
+# server down on restart, and reload silently keeps the old config on error.
+
+# ---------------------------------------------------------------- apex: shop
+server {
+    server_name ${APEX_DOMAIN} www.${APEX_DOMAIN};
+
+    # Product image uploads go through the API via this vhost's /api proxy in
+    # the admin UI. nginx's default client_max_body_size is 1m, which rejects
+    # most phone photos with a 413 *before* the request ever reaches Nest —
+    # so the API's own limit is not the one that bites first.
+    client_max_body_size 25m;
+
+    # ---- legacy portfolio, kept reachable ----
+    # `alias` (not `root`): with root, /portfolio/styles.css would resolve to
+    # /home/ubuntu/portfolio/portfolio/styles.css. The trailing slashes on both
+    # the location and the alias must match or nginx joins the paths wrong.
+    location /portfolio/ {
+        alias /home/ubuntu/portfolio/;
+        index index.html;
+        # `=404`, not a fallback to /portfolio/index.html: the portfolio is a
+        # single page with in-page anchors, so it has no client-side router
+        # that would need unknown paths rewritten to the index.
+        try_files $uri $uri/ =404;
+    }
+
+    # index.html references its assets relatively (href="styles.css"), so a
+    # visitor landing on /portfolio without the slash would resolve them
+    # against / and get the Next.js 404 page. nginx's own directory redirect
+    # can emit the container's internal port, so make it explicit.
+    location = /portfolio {
+        return 301 https://$host/portfolio/;
+    }
+
+    # ---- storefront ----
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        # Next.js reads these to build absolute URLs and to decide it is behind
+        # TLS. Without X-Forwarded-Proto it generates http:// links on an https
+        # page and browsers block them as mixed content.
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # No Upgrade/Connection headers: nothing in this app opens a WebSocket
+        # (no socket.io, no @nestjs/websockets). Adding them would need a
+        # `map $http_upgrade $connection_upgrade` in the http block, and
+        # referencing that variable without the map fails `nginx -t` outright.
+    }
+
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/${APEX_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${APEX_DOMAIN}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    server_tokens off;
+}
+
+# ----------------------------------------------------------------- api vhost
+server {
+    server_name ${API_DOMAIN};
+
+    # Same reasoning as the apex block — this is the vhost admin uploads
+    # actually POST to.
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Stripe verifies its webhook signature against the RAW body. Buffering
+        # is fine (nginx replays bytes unmodified) but any body-rewriting
+        # directive here — sub_filter, gunzip — breaks signature checks.
+        proxy_request_buffering on;
+    }
+
+    # Defence in depth: main.ts skips Swagger when NODE_ENV=production, so this
+    # should already 404. Keeps it shut if the API ever starts with the wrong
+    # NODE_ENV. Mirrors the same rule in deploy/Caddyfile.
+    location /docs {
+        return 404;
+    }
+
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/${API_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${API_DOMAIN}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    server_tokens off;
+}
+
+# ------------------------------------------------------------- :80 redirects
+# Certbot's http-01 challenge is served from here by the webroot/nginx plugin,
+# so this block must exist and answer on port 80 BEFORE you can issue the
+# api.* certificate. Do not replace it with a blanket 301 to https.
+server {
+    listen 80;
+    server_name ${APEX_DOMAIN} www.${APEX_DOMAIN} ${API_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

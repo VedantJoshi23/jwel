@@ -10,10 +10,15 @@ jest.mock('stripe', () =>
   })),
 );
 
-// The factory closes over NODE_ENV at module-evaluation time, so each case has
-// to re-import the module with the env already set.
-function loadStripeFactory(nodeEnv: string) {
+// The factory closes over NODE_ENV and PAYMENTS_MODE at module-evaluation
+// time, so each case has to re-import the module with the env already set.
+function loadStripeFactory(nodeEnv: string, paymentsMode?: string) {
   process.env.NODE_ENV = nodeEnv;
+  if (paymentsMode === undefined) {
+    delete process.env.PAYMENTS_MODE;
+  } else {
+    process.env.PAYMENTS_MODE = paymentsMode;
+  }
   let factory!: (config: ConfigService, mock: MockPaymentProvider) => unknown;
 
   jest.isolateModules(() => {
@@ -44,10 +49,16 @@ function configWith(values: Record<string, string | undefined>): ConfigService {
 
 describe('PaymentsModule — Stripe provider selection', () => {
   const originalNodeEnv = process.env.NODE_ENV;
+  const originalPaymentsMode = process.env.PAYMENTS_MODE;
   const mock = new MockPaymentProvider();
 
   afterEach(() => {
     process.env.NODE_ENV = originalNodeEnv;
+    if (originalPaymentsMode === undefined) {
+      delete process.env.PAYMENTS_MODE;
+    } else {
+      process.env.PAYMENTS_MODE = originalPaymentsMode;
+    }
   });
 
   describe('outside production', () => {
@@ -103,6 +114,53 @@ describe('PaymentsModule — Stripe provider selection', () => {
       expect(() => factory(configWith({ STRIPE_SECRET_KEY: 'sk_live_x' }), mock)).toThrow(
         /required when NODE_ENV=production/,
       );
+    });
+  });
+
+  // The staging escape hatch (RUNBOOK §13). These tests are the guard on a
+  // flag whose failure mode is a live shop confirming orders without taking
+  // money — the value must be honoured only when spelled exactly.
+  describe('PAYMENTS_MODE=simulated in production', () => {
+    it('uses the mock without credentials, instead of refusing to start', () => {
+      const factory = loadStripeFactory('production', 'simulated');
+
+      expect(factory(configWith({}), mock)).toBe(mock);
+    });
+
+    it('takes precedence over credentials that happen to be present', () => {
+      // A half-migrated .env — keys added but the flag not yet removed —
+      // must not quietly start charging real cards.
+      const factory = loadStripeFactory('production', 'simulated');
+
+      const provider = factory(
+        configWith({ STRIPE_SECRET_KEY: 'sk_live_x', STRIPE_WEBHOOK_SECRET: 'whsec_x' }),
+        mock,
+      );
+
+      expect(provider).toBe(mock);
+    });
+
+    it.each(['Simulated', 'SIMULATED', 'true', '1', 'yes', 'simulate', ' simulated'])(
+      'does NOT enable simulated payments for %p',
+      (value) => {
+        const factory = loadStripeFactory('production', value);
+
+        // Falls through to the normal production path: no credentials, so it
+        // must refuse to boot rather than silently mock.
+        expect(() => factory(configWith({}), mock)).toThrow(/required when NODE_ENV=production/);
+      },
+    );
+
+    it('is inert outside production, where the mock is already used', () => {
+      const factory = loadStripeFactory('development', 'simulated');
+
+      expect(factory(configWith({}), mock)).toBe(mock);
+    });
+
+    it('does not leak into a production deployment that never sets it', () => {
+      const factory = loadStripeFactory('production');
+
+      expect(() => factory(configWith({}), mock)).toThrow(/required when NODE_ENV=production/);
     });
   });
 });

@@ -27,7 +27,13 @@ services:
       - uploads:/app/uploads
     networks:
       - jwel-net
-    # No `ports:` — Caddy is the only thing that talks to the API.
+    # Bound to the loopback interface ONLY. The leading `127.0.0.1:` is not
+    # decoration — `4000:4000` would publish the API to the world on port 4000,
+    # bypassing nginx's TLS and its /docs block. Docker publishes ports by
+    # writing DNAT rules straight into iptables, ahead of ufw, so a bare
+    # `4000:4000` is reachable from the internet even with ufw denying 4000.
+    ports:
+      - "127.0.0.1:4000:4000"
     healthcheck:
       # /health/ready proves Prisma can actually reach Postgres, not merely
       # that the HTTP listener is up — a container with a dead DB pool must not
@@ -47,7 +53,9 @@ services:
       HOSTNAME: 0.0.0.0
     networks:
       - jwel-net
-    # No `ports:` — Caddy is the only thing that talks to the web container.
+    # Loopback only — see the note on the api service above.
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
     healthcheck:
@@ -102,26 +110,18 @@ services:
       - jwel-net
     restart: "no"
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data      # ACME certs — losing this re-issues and can hit LE rate limits
-      - caddy_config:/config
-    networks:
-      - jwel-net
-    depends_on:
-      - api
-      - web
+  # NOTE: there is no `caddy` service here. This stack assumes the HOST's nginx
+  # terminates TLS and reverse-proxies to the loopback ports published above —
+  # see nginx/jwel.conf.template and README §6. A containerised Caddy
+  # would need ports 80/443, which the host nginx already owns, and the two
+  # would fight over the ACME http-01 challenge.
+  #
+  # If you ever move to a host with no nginx, deploy/Caddyfile still describes
+  # the Caddy-as-edge alternative; re-add the service and drop the `ports:`
+  # blocks from api and web when you do.
 
 volumes:
   uploads:
-  caddy_data:
-  caddy_config:
 
 networks:
   jwel-net:

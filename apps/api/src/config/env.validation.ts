@@ -80,6 +80,19 @@ export function validateEnv(config: Record<string, unknown>): Record<string, unk
     }
   }
 
+  // PaymentsModule tests this for the exact string 'simulated'. Any other
+  // value is almost certainly an attempt to enable simulated payments that
+  // silently did nothing — reject it rather than let the deployment believe
+  // checkout is mocked when it is about to hit a real gateway (or refuse to
+  // boot for missing credentials, which is the confusing symptom).
+  const paymentsMode = get('PAYMENTS_MODE');
+  if (paymentsMode && paymentsMode !== 'simulated') {
+    errors.push(
+      `PAYMENTS_MODE must be exactly 'simulated' or unset, got: ${paymentsMode}. ` +
+        'Unset means real payment providers.',
+    );
+  }
+
   const storageProvider = get('STORAGE_PROVIDER') || 'filesystem';
   if (!['filesystem', 's3'].includes(storageProvider)) {
     errors.push(`STORAGE_PROVIDER must be "filesystem" or "s3", got: ${storageProvider}`);
