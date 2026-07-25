@@ -26,6 +26,10 @@ apps/api/scripts/*.d.ts
 # Uploaded product media. Lives in a Docker named volume in production and is
 # moved onto the VM with rsync (see deploy/RUNBOOK.md §9), never through git.
 apps/api/uploads/
+
+# Database dumps and uploads tarballs written by the backup commands in
+# deploy/README.md. Hundreds of MB, and the dumps contain live customer data.
+deploy/backups/
 .DS_Store
 .vercel/
 prisma/.env

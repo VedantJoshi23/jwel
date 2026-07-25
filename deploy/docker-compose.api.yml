@@ -4,8 +4,9 @@
 #   docker compose -f docker-compose.api.yml run --rm migrate
 #   docker compose -f docker-compose.api.yml up -d
 
-# Must match docker-compose.postgres.yml's `name:` — see the comment there for
-# why it is pinned rather than inherited from the directory name.
+# Pinned so the `uploads` volume is always `jwel_uploads` regardless of what
+# the checkout directory is called. Deliberately different from the data
+# stack's `jwel-data` — see the comment in docker-compose.postgres.yml.
 name: jwel
 
 services:
@@ -86,8 +87,15 @@ services:
       - ./.env.production
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-jwel}?schema=public
-      ADMIN_EMAIL: ${ADMIN_EMAIL:?set ADMIN_EMAIL for this invocation}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD for this invocation}
+      # Plain `:-` rather than `:?`. Compose interpolates and validates the
+      # WHOLE file before running any service, so a `:?` here made every other
+      # command in this file — including `run --rm migrate` — fail with
+      # "required variable ADMIN_PASSWORD is missing" unless the admin vars
+      # happened to be set. scripts/create-admin.ts already rejects a missing
+      # email or password (and enforces a 12-character minimum), so the guard
+      # was redundant as well as blocking.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NAME: ${ADMIN_NAME:-Administrator}
     command: npx ts-node --transpile-only scripts/create-admin.ts
     networks:

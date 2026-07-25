@@ -5,6 +5,15 @@ deliberate: `docker compose down` on the app stack can never touch the database,
 and the `pgdata` volume is declared only in the Postgres file so a stray
 `down -v` on the app side cannot delete it.
 
+Each file pins its own Compose project name — `jwel` for the app stack,
+`jwel-data` for the data stack. Both are required for that isolation to be
+real. Without them Compose derives one shared project name from the directory
+(`deploy`), which makes each stack see the other's containers as orphans, so a
+`down --remove-orphans` on the app side would stop the database container too.
+Pinned names also keep the volumes called `jwel_uploads` and
+`jwel-data_pgdata` no matter what the checkout directory is named — the backup
+commands below address those volumes by name.
+
 ```
 deploy/
   docker-compose.postgres.yml   data stack   — brought up once, rarely touched
@@ -27,24 +36,37 @@ docker network create jwel-net
 mkdir -p backups        # from the deploy/ directory — see RUNBOOK.md §4 and §11
 ```
 
-Create two env files next to the compose files, both `chmod 600`:
+Create two env files next to the compose files, both `chmod 600`. **The split
+between them is not cosmetic** — they are read by two different mechanisms:
 
-**`.env`** (read by the Postgres stack)
+- **`.env`** is what Compose itself reads, to substitute `${...}` in the
+  compose files. Compose only ever looks at `.env` in the project directory;
+  it does **not** read `.env.production`. Anything appearing as `${VAR}` in a
+  compose file must live here or the command fails to start at all.
+- **`.env.production`** is passed into the containers via `env_file:`. It is
+  the application's runtime configuration and is never used for substitution.
+
+Getting this backwards is the failure mode to expect: putting `API_TAG` in
+`.env.production` produces `required variable API_TAG is missing a value` on
+the very first `docker compose` command.
+
+**`.env`** — Compose substitution (Postgres stack *and* image selection)
 
 ```ini
 POSTGRES_USER=jwel
 POSTGRES_PASSWORD=<generate: openssl rand -base64 32>
 POSTGRES_DB=jwel
+
+GH_OWNER=<your github org/user, or "local" if you built on the VM>
+API_TAG=<git sha, never "latest">
+WEB_TAG=<same git sha>
 ```
 
-**`.env.production`** (read by the API stack) — see `apps/api/.env.example` for
-the annotated full list. At minimum:
+**`.env.production`** (read by the API container) — see `apps/api/.env.example`
+for the annotated full list. At minimum:
 
 ```ini
 NODE_ENV=production
-GH_OWNER=<your github org/user>
-API_TAG=<git sha, never "latest">
-WEB_TAG=<same git sha>
 
 POSTGRES_USER=jwel
 POSTGRES_PASSWORD=<same as above>
@@ -57,6 +79,13 @@ FRONTEND_URL=https://shop.example.com
 
 STORAGE_PROVIDER=filesystem
 UPLOADS_DIR=/app/uploads
+
+# Required whenever NODE_ENV=production. payments.module.ts refuses to boot
+# without both, rather than falling back to the mock provider and silently
+# marking real orders paid without money moving. Use Stripe test-mode keys
+# (sk_test_… / whsec_…) for a staging deployment.
+STRIPE_SECRET_KEY=<from the Stripe dashboard>
+STRIPE_WEBHOOK_SECRET=<from the Stripe dashboard>
 ```
 
 The API validates all of these at boot (`src/config/env.validation.ts`) and
@@ -146,6 +175,15 @@ There are ~1,046 files already in `apps/api/uploads/products/`, with matching
 ```bash
 docker compose -f docker-compose.api.yml cp \
   ../apps/api/uploads/products/. api:/app/uploads/products/
+
+# REQUIRED. `docker compose cp` writes the files with the *host* user's numeric
+# uid/gid, not the container's `node` (uid 1000). If the account you deploy
+# from is not uid 1000, the API can still read and serve these images but
+# cannot write new uploads into the directory or delete existing ones — an
+# EACCES that shows up only when someone edits a product, long after the
+# migration looked like it succeeded. Harmless to run when the uids do match.
+docker compose -f docker-compose.api.yml exec -u root api chown -R node:node /app/uploads
+
 docker compose -f docker-compose.api.yml exec api sh -c 'ls /app/uploads/products | wc -l'
 ```
 

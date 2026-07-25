@@ -108,6 +108,19 @@ openssl rand -base64 32   # for POSTGRES_PASSWORD
 openssl rand -base64 48   # for JWT_SECRET
 ```
 
+Read §0's explanation of which variable goes in which file. The short version:
+`GH_OWNER`, `API_TAG`, `WEB_TAG` and the `POSTGRES_*` values go in **`.env`**,
+because Compose substitutes them into the compose files and only ever reads
+`.env`. Everything else is application config and goes in `.env.production`.
+Put `API_TAG` in the wrong file and step 7 fails immediately with `required
+variable API_TAG is missing a value`.
+
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are also required — the API
+deliberately refuses to boot in production without them instead of quietly
+using the mock payment provider. For a staging or test deployment, use
+Stripe's test-mode keys; there is no supported way to run production mode with
+payments disabled.
+
 Use `api.yourdomain.com` / `shop.yourdomain.com` (your real domain from step
 0) everywhere the env files ask for a URL — `CORS_ALLOWED_ORIGINS`,
 `PUBLIC_BASE_URL`, `FRONTEND_URL`.
@@ -241,6 +254,16 @@ Only relevant if `apps/api/uploads/products/` on your development machine
 already has real uploaded files. Copy them to the VM first (`rsync`/`scp`),
 then follow `deploy/README.md` §5 to move them into the named volume and
 cross-check the count against `product_media` rows in the database.
+
+Do not skip the `chown -R node:node /app/uploads` in that section. `docker
+compose cp` writes files as the host uid, and if that isn't 1000 the API ends
+up able to serve the migrated images but unable to upload or delete any —
+which surfaces much later as a broken admin edit, not as a failed migration.
+
+The count cross-check only means something when the database already has the
+matching `product_media` rows. On a freshly migrated, unseeded database that
+table is empty, so expect 1046 files against 0 rows until you restore or
+import real data.
 
 ---
 
