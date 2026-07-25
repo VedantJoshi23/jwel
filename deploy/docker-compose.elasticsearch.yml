@@ -1,0 +1,54 @@
+# OPTIONAL search stack. The API runs fine without it — SearchController falls
+# back to Postgres-backed catalog search, verified working — so bring this up
+# only when you want fuzzy matching, autocomplete and facets.
+#
+#   docker compose -f docker-compose.elasticsearch.yml up -d
+#
+# Read RUNBOOK.md's "Optional: Elasticsearch" section before you do. Start
+# order matters: the API only creates its index at boot, so an API that starts
+# before Elasticsearch leaves the index to be auto-created with Elasticsearch's
+# default dynamic mapping instead of the intended one — and a reindex does not
+# repair that.
+
+# Own project, like the data stack, so its lifecycle is independent of both.
+name: jwel-search
+
+services:
+  elasticsearch:
+    # 7.x is required, not a preference: apps/api depends on
+    # @elastic/elasticsearch ^7.17.0, and a 7.x client rejects an 8.x server's
+    # response media type. Upgrading the server means upgrading the client.
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.24
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      # Safe only because there are no published ports below — this container
+      # is reachable solely from other containers on jwel-net. Never add a
+      # `ports:` mapping here without turning security back on.
+      xpack.security.enabled: "false"
+      # Half of RUNBOOK §1's "+2GB for Elasticsearch" budget; the JVM wants
+      # roughly as much again outside the heap. Raise both together.
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    volumes:
+      # Not strictly required — the index is fully rebuildable from Postgres
+      # with the admin reindex endpoint — but without it every restart costs a
+      # full reindex, and a large catalogue makes that a visible outage.
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - jwel-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      # Cold JVM start; 40s avoids marking it unhealthy while it is still fine.
+      start_period: 40s
+
+volumes:
+  esdata:
+
+networks:
+  jwel-net:
+    external: true

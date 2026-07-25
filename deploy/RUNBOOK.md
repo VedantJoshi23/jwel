@@ -309,6 +309,66 @@ A backup nobody has restored is a hypothesis, not a backup.
 
 ---
 
+## Optional: Elasticsearch
+
+Entirely optional. Without it the API logs `Elasticsearch unavailable at
+startup` once and serves search from Postgres instead — verified working, so
+there is no urgency here. Turning it on adds fuzzy/typo-tolerant matching,
+autocomplete, and facet counts. Budget the extra RAM from step 1 first.
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml up -d
+docker compose -f docker-compose.elasticsearch.yml ps    # wait for "healthy"
+```
+
+Then point the API at it by adding to `deploy/.env.production` and restarting:
+
+```ini
+ELASTICSEARCH_NODE=http://elasticsearch:9200
+```
+
+**Start Elasticsearch before the API, and restart the API afterwards.** The
+API creates its index only in `SearchService.onModuleInit`. If the API is
+already running when Elasticsearch appears, the index instead gets created
+implicitly by the first product edit — using Elasticsearch's *default dynamic
+mapping* rather than the `search_as_you_type` mapping the queries are written
+for. Nothing errors when this happens, and the admin reindex endpoint does
+**not** repair it: `ensureIndex` only checks whether the index exists, not
+whether its mapping is right. Confirm which one you got:
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml exec elasticsearch \
+  curl -s localhost:9200/jwel_products/_mapping | grep -o 'search_as_you_type'
+```
+
+That must print `search_as_you_type`. If it prints nothing, delete the index,
+restart the API so it recreates it properly, and reindex:
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml exec elasticsearch \
+  curl -s -X DELETE localhost:9200/jwel_products
+docker compose -f docker-compose.api.yml restart api
+```
+
+Finally, index the existing catalogue — enabling Elasticsearch does not
+backfill it, and only `PUBLISHED` products are ever indexed:
+
+```bash
+curl -X POST https://api.yourdomain.com/api/v1/admin/search/reindex \
+  -H "Authorization: Bearer <admin JWT>"     # -> {"indexed":N}
+```
+
+After that, ongoing edits sync themselves through the event bus; the reindex
+endpoint is for backfills and repairs. Note the sync is asynchronous — the
+catalogue edit returns before the index write lands, deliberately, so a slow
+or dead Elasticsearch can never fail a product save.
+
+To turn it back off, drop `ELASTICSEARCH_NODE`, restart the API, and
+`docker compose -f docker-compose.elasticsearch.yml down`. Search returns to
+the Postgres path.
+
+---
+
 ## Launching without a domain yet
 
 If you want to confirm the containers work before DNS is ready, you can

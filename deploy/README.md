@@ -16,9 +16,10 @@ commands below address those volumes by name.
 
 ```
 deploy/
-  docker-compose.postgres.yml   data stack   — brought up once, rarely touched
-  docker-compose.api.yml        app stack    — api + web + Caddy, redeployed on every release
-  Caddyfile                     TLS + reverse proxy for both api.* and shop.*
+  docker-compose.postgres.yml       data stack   — brought up once, rarely touched
+  docker-compose.api.yml            app stack    — api + web + Caddy, redeployed on every release
+  docker-compose.elasticsearch.yml  search stack — OPTIONAL; see RUNBOOK.md
+  Caddyfile                         TLS + reverse proxy for both api.* and shop.*
 ```
 
 The app stack runs two images: `jwel-api` (`apps/api/Dockerfile`) and `jwel-web`
