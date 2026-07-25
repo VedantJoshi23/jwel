@@ -8,9 +8,15 @@ and the `pgdata` volume is declared only in the Postgres file so a stray
 ```
 deploy/
   docker-compose.postgres.yml   data stack   — brought up once, rarely touched
-  docker-compose.api.yml        app stack    — redeployed on every release
-  Caddyfile                     TLS + reverse proxy
+  docker-compose.api.yml        app stack    — api + web + Caddy, redeployed on every release
+  Caddyfile                     TLS + reverse proxy for both api.* and shop.*
 ```
+
+The app stack runs two images: `jwel-api` (`apps/api/Dockerfile`) and `jwel-web`
+(`apps/web/Dockerfile`, Next.js standalone build). Both need real domains —
+Caddy's automatic HTTPS cannot issue a Let's Encrypt certificate for a bare IP
+address, so you need at least two DNS A records (e.g. `api.yourdomain.com` and
+`shop.yourdomain.com`) pointed at the host before step 6 will work.
 
 ---
 
@@ -38,6 +44,7 @@ the annotated full list. At minimum:
 NODE_ENV=production
 GH_OWNER=<your github org/user>
 API_TAG=<git sha, never "latest">
+WEB_TAG=<same git sha>
 
 POSTGRES_USER=jwel
 POSTGRES_PASSWORD=<same as above>
@@ -56,23 +63,29 @@ The API validates all of these at boot (`src/config/env.validation.ts`) and
 refuses to start if any are missing or still pointing at localhost. That is
 intentional — every one of them fails silently otherwise.
 
-Also set `NEXT_PUBLIC_API_ORIGIN=https://api.example.com` when building the
-frontend, so `next/image` allowlists the API host. Without it every product
-photo throws at render.
-
 ---
 
-## 1. Build and publish the image
+## 1. Build and publish both images
 
 ```bash
 # from the repo root
-docker build -f apps/api/Dockerfile -t ghcr.io/$GH_OWNER/jwel-api:$(git rev-parse --short HEAD) .
+GIT_SHA=$(git rev-parse --short HEAD)
 echo $GITHUB_TOKEN | docker login ghcr.io -u $GH_OWNER --password-stdin
-docker push ghcr.io/$GH_OWNER/jwel-api:$(git rev-parse --short HEAD)
+
+docker build -f apps/api/Dockerfile -t ghcr.io/$GH_OWNER/jwel-api:$GIT_SHA .
+docker push ghcr.io/$GH_OWNER/jwel-api:$GIT_SHA
+
+# NEXT_PUBLIC_* vars are baked into the JS bundle at build time, not read at
+# container start — get the domains right here or you're rebuilding the image.
+docker build -f apps/web/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1 \
+  --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.yourdomain.com \
+  -t ghcr.io/$GH_OWNER/jwel-web:$GIT_SHA .
+docker push ghcr.io/$GH_OWNER/jwel-web:$GIT_SHA
 ```
 
-Tag with the git SHA. Deploying `latest` means you cannot roll back, because the
-tag you would roll back *to* now points at the broken build.
+Tag both with the same git SHA. Deploying `latest` means you cannot roll back,
+because the tag you would roll back *to* now points at the broken build.
 
 ---
 
@@ -93,12 +106,14 @@ work, invisible to the internet.
 ```bash
 docker compose -f docker-compose.api.yml run --rm migrate
 docker compose -f docker-compose.api.yml up -d
-docker compose -f docker-compose.api.yml logs -f api
+docker compose -f docker-compose.api.yml ps           # api and web both "healthy"
+docker compose -f docker-compose.api.yml logs -f api web
 ```
 
 Migrations run as a one-shot from the same image being deployed, so the schema
 always matches the code. Kept out of the API container's `CMD` so two replicas
-could never race.
+could never race. `up -d` starts `api`, `web`, and `caddy` together — `migrate`
+and `create-admin` are one-shot profiles and don't start with it.
 
 ---
 
@@ -149,13 +164,15 @@ a file without a row is invisible but wastes disk.
 ## 6. Verify
 
 ```bash
-curl -fsS https://api.example.com/health            # {"status":"ok",…}
-curl -fsS https://api.example.com/health/ready      # {"status":"ok","database":"ok"}
-curl -s -o /dev/null -w '%{http_code}\n' https://api.example.com/docs   # 404 in prod
+curl -fsS https://api.yourdomain.com/health            # {"status":"ok",…}
+curl -fsS https://api.yourdomain.com/health/ready      # {"status":"ok","database":"ok"}
+curl -s -o /dev/null -w '%{http_code}\n' https://api.yourdomain.com/docs   # 404 in prod
+curl -s -o /dev/null -w '%{http_code}\n' https://shop.yourdomain.com/      # 200
 ```
 
-Then log into `/admin` with the account from step 4, open a product, and confirm
-its photos render.
+Then log into `https://shop.yourdomain.com/admin` with the account from step 4,
+open a product, and confirm its photos render — that exercises the web
+container, the API container, Postgres, and the uploads volume all at once.
 
 ---
 
@@ -175,7 +192,7 @@ docker run --rm -v jwel_uploads:/data -v /srv/jwel/backups:/out alpine \
 ## Rolling back
 
 ```bash
-API_TAG=<previous-sha> docker compose -f docker-compose.api.yml up -d
+API_TAG=<previous-sha> WEB_TAG=<previous-sha> docker compose -f docker-compose.api.yml up -d
 ```
 
 Note this rolls back code only. If the release included a migration, roll that
@@ -183,7 +200,10 @@ back deliberately — `prisma migrate deploy` has no automatic down path.
 
 ## Known constraints
 
-Single replica only. The rate limiter and event bus are in-process, and uploads
-live on a local volume, so running two API containers would give each its own
-rate-limit budget and its own set of images. Redis-backed throttling and either
-S3 or a shared volume are prerequisites for scaling out.
+Single replica only, for both containers. The API's rate limiter and event bus
+are in-process, and uploads live on a local volume, so running two API
+containers would give each its own rate-limit budget and its own set of
+images. Redis-backed throttling and either S3 or a shared volume are
+prerequisites for scaling out. The web container has no such constraint itself
+but was validated as a single instance behind Caddy — same recommendation
+applies until you actually need to scale.

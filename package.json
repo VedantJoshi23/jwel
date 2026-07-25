@@ -17,5 +17,16 @@
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "turbo": "^2.0.0"
+  },
+  "allowScripts": {
+    "@nestjs/core@10.4.22": true,
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "bcrypt@5.1.1": true,
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true,
+    "fsevents@2.3.2": true,
+    "prisma@5.22.0": true,
+    "sharp@0.34.5": true
   }
 }

@@ -1,4 +1,10 @@
-# Automatic HTTPS via Let's Encrypt. Replace the domain and email.
+# Automatic HTTPS via Let's Encrypt. Replace both domains and the email below.
+# Requires real domains pointed at this host (A records) — Let's Encrypt
+# cannot issue a certificate for a bare IP address.
+{
+	email admin@yourdomain.com
+}
+
 api.yourdomain.com {
 	encode gzip
 
@@ -15,6 +21,20 @@ api.yourdomain.com {
 	# even if the API is started with the wrong NODE_ENV.
 	@docs path /docs*
 	respond @docs 404
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+shop.yourdomain.com {
+	encode gzip
+
+	reverse_proxy web:3000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Real-IP {remote_host}
+	}
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
