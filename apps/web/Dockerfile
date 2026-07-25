@@ -14,15 +14,15 @@ FROM node:22-bookworm-slim AS deps
 WORKDIR /repo
 
 # Only manifests, so this layer caches until a dependency actually changes.
-# npm workspaces needs every workspace's package.json present (even ones
-# this image never uses) or `npm ci` errors that it can't find them.
+# npm workspaces needs every workspace's package.json present (even ones this
+# image never uses) or `npm ci` errors that it can't find them. The root
+# package.json globs `apps/*` and `packages/*`, but `packages/` does not exist
+# in this repo — apps/api and apps/web are the only two workspaces. Don't add
+# `COPY packages/…` lines back unless that directory actually exists; a COPY
+# of a missing path fails the build outright.
 COPY package.json package-lock.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
-COPY packages/config/package.json packages/config/package.json
-COPY packages/types/package.json packages/types/package.json
-COPY packages/ui/package.json packages/ui/package.json
-COPY packages/utils/package.json packages/utils/package.json
 RUN npm ci
 
 # ---------- build ----------

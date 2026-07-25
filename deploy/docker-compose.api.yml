@@ -4,6 +4,10 @@
 #   docker compose -f docker-compose.api.yml run --rm migrate
 #   docker compose -f docker-compose.api.yml up -d
 
+# Must match docker-compose.postgres.yml's `name:` — see the comment there for
+# why it is pinned rather than inherited from the directory name.
+name: jwel
+
 services:
   api:
     image: ghcr.io/${GH_OWNER}/jwel-api:${API_TAG:?pin a git SHA, never latest}

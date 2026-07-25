@@ -24,7 +24,7 @@ address, so you need at least two DNS A records (e.g. `api.yourdomain.com` and
 
 ```bash
 docker network create jwel-net
-mkdir -p /srv/jwel/backups
+mkdir -p backups        # from the deploy/ directory — see RUNBOOK.md §4 and §11
 ```
 
 Create two env files next to the compose files, both `chmod 600`:
@@ -181,13 +181,20 @@ container, the API container, Postgres, and the uploads volume all at once.
 Postgres and the uploads volume must be backed up **together** — restoring one
 without the other leaves dangling image references.
 
-```bash
-docker compose -f docker-compose.postgres.yml exec postgres \
-  pg_dump -U jwel jwel | gzip > /srv/jwel/backups/db-$(date +%F).sql.gz
+Both commands below are run from `deploy/` and write into `deploy/backups`
+(created in §0). RUNBOOK.md §11 schedules the first one via cron.
 
-docker run --rm -v jwel_uploads:/data -v /srv/jwel/backups:/out alpine \
+```bash
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  pg_dump -U jwel jwel | gzip > backups/db-$(date +%F).sql.gz
+
+docker run --rm -v jwel_uploads:/data -v "$PWD/backups":/out alpine \
   tar czf /out/uploads-$(date +%F).tar.gz -C /data .
 ```
+
+`exec -T` disables TTY allocation — without it the redirect above produces a
+`pg_dump` archive with CR bytes injected, which restores as a corrupt file.
+That matters most from cron, where there is no TTY at all.
 
 ## Rolling back
 

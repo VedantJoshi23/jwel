@@ -4,6 +4,14 @@
 #   docker network create jwel-net     # once, before first `up`
 #   docker compose -f docker-compose.postgres.yml up -d
 
+# Pinned explicitly. Without it Compose derives the project name from the
+# containing directory — "deploy" — so the volumes below would be created as
+# `deploy_pgdata` etc., and any command naming them directly (the uploads
+# backup in README.md's Backups section uses `-v jwel_uploads:/data`) would
+# silently address a different, empty volume. Pinning also means the names
+# don't change if the repo is cloned to a differently-named path.
+name: jwel
+
 services:
   postgres:
     image: postgres:16-bookworm

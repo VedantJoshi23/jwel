@@ -140,14 +140,48 @@ of trying to pull one. Set `GH_OWNER=local` in that file.
 (If you later want to build on a laptop and ship to multiple servers, push to
 a real registry instead — `deploy/README.md` §1 covers that path.)
 
-**This is the step most likely to surface a problem nobody has seen yet** —
-the API and web Dockerfiles were rewritten to use npm workspaces (matching
-what CI and local dev actually use) but have not been built end-to-end on
-real Docker before now. If either `docker build` fails, stop and read the
-error rather than working around it — likely causes are a missing
-`packages/*/package.json` in the build context or an npm workspace
-resolution issue. Do not `docker build --no-cache` repeatedly as a first
-troubleshooting step; read what npm/tsc/next actually printed first.
+Both of these have now been built end-to-end on real Docker (Docker 29.6.2,
+Ubuntu 24.04, `npm ci` against `package-lock.json`) and both succeed from a
+clean context. That was not previously true — two defects were fixed to get
+there, and they are worth knowing about if you ever edit the Dockerfiles:
+
+- Both Dockerfiles used to `COPY packages/config/package.json` and three
+  siblings. There is no `packages/` directory in this repo — `apps/api` and
+  `apps/web` are the only two npm workspaces — so every build failed on the
+  first `COPY`. The root `package.json` still globs `packages/*`; that glob
+  matching nothing is fine, but a `COPY` of a missing path is not.
+- The API image created `/app/apps/api/uploads`, while `UPLOADS_DIR` and the
+  compose volume both point at `/app/uploads`. Docker seeds an empty named
+  volume from the image's directory, but when the mount path doesn't exist in
+  the image it creates it `root:root` — and the container runs as `node`, so
+  the first product-image upload would have failed `EACCES`.
+
+If a build still fails, stop and read the error rather than working around
+it. Do not `docker build --no-cache` repeatedly as a first troubleshooting
+step; read what npm/tsc/next actually printed first.
+
+Sanity-check the images before deploying them — a successful build does not
+prove a working container:
+
+```bash
+docker run --rm ghcr.io/local/jwel-api:$GIT_SHA ls -la dist/main.js
+docker run --rm ghcr.io/local/jwel-api:$GIT_SHA ls -ld /app/uploads   # must be node-owned
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA sh -c 'ls .next/static >/dev/null && ls public >/dev/null && echo assets ok'
+```
+
+An empty `dist/` is the failure mode to watch for on the API image: it builds
+and tags successfully, then the container dies immediately on "Cannot find
+module dist/main". Confirm the `NEXT_PUBLIC_*` values really made it into the
+web bundle, since they are inlined at build time and a wrong one means a
+rebuild:
+
+```bash
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA \
+  sh -c 'grep -rl "api.yourdomain.com" .next/static | head -1'
+```
+
+That must print a chunk filename. If it prints nothing, the build args didn't
+take and the bundle is pointing somewhere else.
 
 ---
 
@@ -235,8 +269,20 @@ Add a daily line (adjust the path to wherever you cloned the repo):
 0 3 * * * cd /home/<user>/jwel/deploy && docker compose -f docker-compose.postgres.yml exec -T postgres pg_dump -U jwel jwel | gzip > backups/db-$(date +\%F).sql.gz
 ```
 
+The `\%` escaping is not a typo — cron treats a bare `%` as a newline and would
+truncate the command at `$(date +`.
+
 See `deploy/README.md`'s Backups section for the matching uploads-volume
-backup command — back up both together, never just one.
+backup command — back up both together, never just one. Both write into
+`deploy/backups`, the directory created in step 4.
+
+Once the first run has happened, confirm it actually produced something:
+
+```bash
+ls -lh backups/ && gzip -t backups/db-*.sql.gz && echo 'dump is readable'
+```
+
+A backup nobody has restored is a hypothesis, not a backup.
 
 ---
 

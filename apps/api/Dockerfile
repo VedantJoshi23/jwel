@@ -18,15 +18,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 WORKDIR /repo
 
 # Only manifests, so this layer caches until a dependency actually changes.
-# npm workspaces needs every workspace's package.json present (even ones
-# this image never uses) or `npm ci` errors that it can't find them.
+# npm workspaces needs every workspace's package.json present (even ones this
+# image never uses) or `npm ci` errors that it can't find them. The root
+# package.json globs `apps/*` and `packages/*`, but `packages/` does not exist
+# in this repo — apps/api and apps/web are the only two workspaces, and they
+# are all package-lock.json records. Don't add `COPY packages/…` lines back
+# unless that directory actually exists; a COPY of a missing path fails the
+# build outright.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-COPY packages/config/package.json packages/config/package.json
-COPY packages/types/package.json packages/types/package.json
-COPY packages/ui/package.json packages/ui/package.json
-COPY packages/utils/package.json packages/utils/package.json
 RUN npm ci
 
 # ---------- build ----------
@@ -62,9 +63,14 @@ COPY --from=build /repo/apps/api/tsconfig.json ./apps/api/tsconfig.json
 
 WORKDIR /app/apps/api
 
-# Uploads dir must be a mount point owned by the app user, or the filesystem
-# storage adapter fails on first write.
-RUN mkdir -p /app/apps/api/uploads && chown -R node:node /app
+# /app/uploads — matching UPLOADS_DIR and the `uploads:` volume mount in
+# deploy/docker-compose.api.yml, NOT the repo-relative apps/api/uploads. The
+# path must exist in the image before the chown: Docker seeds an empty named
+# volume from the image's directory (contents and ownership), but when the
+# mount path is absent it creates it root:root instead — and this container
+# runs as `node`, so the filesystem storage adapter's mkdir/writeFile would
+# fail EACCES on the first product image upload.
+RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node
 
 EXPOSE 4000
