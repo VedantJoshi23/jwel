@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  adminCreateProduct,
   adminGetProduct,
+  adminListCategories,
   adminListProducts,
   adminRemoveProductMedia,
   adminReorderProductMedia,
+  adminUpdateProduct,
   adminUpdateProductStatus,
   adminUploadProductMedia,
   bulkImportProducts,
@@ -14,6 +17,60 @@ describe('admin-products API', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 })));
   });
   afterEach(() => vi.unstubAllGlobals());
+
+  it('adminListCategories GETs the admin categories endpoint', async () => {
+    await adminListCategories('token-1');
+    const [url] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/categories');
+  });
+
+  it('adminListCategories opts out of caching so a new category shows immediately', async () => {
+    await adminListCategories('token-1');
+    const [, options] = (fetch as any).mock.calls[0];
+    expect(options.cache).toBe('no-store');
+  });
+
+  it('adminCreateProduct POSTs the product with its variants', async () => {
+    const input = {
+      name: 'Halo Ring',
+      slug: 'halo-ring',
+      categoryId: 'c1',
+      description: 'A halo of pavé diamonds.',
+      variants: [
+        {
+          sku: 'HR-18K-6',
+          metal: 'GOLD' as const,
+          weightGrams: 4.2,
+          basePriceMinorUnits: 8500000,
+        },
+      ],
+    };
+    await adminCreateProduct('token-1', input);
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products');
+    expect(options.method).toBe('POST');
+    // Round-tripped whole rather than field-by-field: a variant silently
+    // dropped in serialisation creates a product nobody can buy.
+    expect(JSON.parse(options.body)).toEqual(input);
+  });
+
+  it('adminUpdateProduct PATCHes the product-specific path', async () => {
+    await adminUpdateProduct('token-1', 'p1', { name: 'Renamed' });
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products/p1');
+    expect(options.method).toBe('PATCH');
+    expect(JSON.parse(options.body)).toEqual({ name: 'Renamed' });
+  });
+
+  it('adminUpdateProduct forwards variant price updates', async () => {
+    await adminUpdateProduct('token-1', 'p1', {
+      variantPriceUpdates: [{ variantId: 'v1', basePriceMinorUnits: 9000000 }],
+    });
+    const [, options] = (fetch as any).mock.calls[0];
+    expect(JSON.parse(options.body)).toEqual({
+      variantPriceUpdates: [{ variantId: 'v1', basePriceMinorUnits: 9000000 }],
+    });
+  });
 
   it('adminListProducts builds a query string from provided fields only', async () => {
     await adminListProducts('token-1', { pageSize: 50 });
