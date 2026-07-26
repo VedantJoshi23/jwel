@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/common/pagination';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminListProducts, adminUpdateProductStatus, bulkImportProducts } from '@/lib/api/admin-products';
 import { formatMinorUnits } from '@/lib/money';
@@ -17,20 +19,47 @@ const STATUS_VARIANT: Record<Product['status'], 'success' | 'warning' | 'default
   ARCHIVED: 'default',
 };
 
+// The API caps pageSize at 100 (PaginationQueryDto). 50 keeps the table
+// scannable while halving the number of pages to work through.
+const PAGE_SIZE = 50;
+
+// useSearchParams() opts the subtree into client-side rendering, and Next
+// requires a Suspense boundary around it or the build fails on this route.
+// Same shape as app/login/page.tsx.
 export default function AdminProductsPage() {
+  return (
+    <Suspense>
+      <AdminProductsPageInner />
+    </Suspense>
+  );
+}
+
+function AdminProductsPageInner() {
   const token = useAuthStore((state) => state.token);
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Page lives in the URL, not local state, so a page is linkable and the
+  // browser Back button steps through pages — which matters when working
+  // through a thousand drafts across many sittings. A junk or out-of-range
+  // ?page= falls back to 1 rather than requesting a negative offset.
+  const parsedPage = Number(searchParams.get('page'));
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
   const load = useCallback(() => {
     if (!token) return;
-    adminListProducts(token, { pageSize: 50 })
-      .then((res) => setProducts(res.items))
+    adminListProducts(token, { page, pageSize: PAGE_SIZE })
+      .then((res) => {
+        setProducts(res.items);
+        setTotal(res.total);
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load products'));
-  }, [token]);
+  }, [token, page]);
 
   useEffect(load, [load]);
 
@@ -64,7 +93,16 @@ export default function AdminProductsPage() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-3xl font-bold">Products</h1>
+        <div>
+          <h1 className="font-display text-3xl font-bold">Products</h1>
+          {total > 0 && (
+            <p className="mt-1 text-sm text-ink-secondary">
+              {total.toLocaleString()} product{total === 1 ? '' : 's'} · showing{' '}
+              {((page - 1) * PAGE_SIZE + 1).toLocaleString()}–
+              {Math.min(page * PAGE_SIZE, total).toLocaleString()}
+            </p>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Link href="/admin/products/new">
             <Button variant="secondary">New product</Button>
@@ -165,6 +203,15 @@ export default function AdminProductsPage() {
           </table>
         </CardContent>
       </Card>
+
+      {/* Renders nothing at one page, so a small catalogue is unaffected. */}
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        total={total}
+        basePath="/admin/products"
+        searchParams={{}}
+      />
     </div>
   );
 }
