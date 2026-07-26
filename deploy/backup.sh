@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# Nightly backup: database AND uploads volume, together.
+#
+# They must be taken as a pair — restoring a database without the matching
+# uploads leaves every product_media row pointing at a file that isn't there
+# (broken images); restoring uploads without the database leaves files nothing
+# references. See deploy/README.md "Backups".
+#
+# Installed in ubuntu's crontab; see `crontab -l`.
+
+set -euo pipefail
+
+DEPLOY_DIR=/home/ubuntu/jwel/deploy
+OUT="$DEPLOY_DIR/backups"
+STAMP=$(date +%F)
+RETAIN_DAYS=14
+
+cd "$DEPLOY_DIR"
+
+# -T: no TTY. Without it cron (which has no terminal) fails with
+# "the input device is not a TTY".
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+    pg_dump -U jwel jwel | gzip > "$OUT/db-$STAMP.sql.gz"
+
+# Addressed by volume name, not by container — this keeps working across a
+# redeploy that replaces the api container.
+docker run --rm -v jwel_uploads:/data -v "$OUT":/out alpine \
+    tar czf "/out/uploads-$STAMP.tar.gz" -C /data .
+
+# A zero-byte dump means pg_dump failed but gzip still produced a file, so the
+# pipeline's exit status was gzip's. Catch it here rather than discovering it
+# during a restore.
+for f in "$OUT/db-$STAMP.sql.gz" "$OUT/uploads-$STAMP.tar.gz"; do
+    if [[ ! -s $f ]]; then
+        echo "backup FAILED: $f is empty" >&2
+        exit 1
+    fi
+done
+
+find "$OUT" -name 'db-*.sql.gz' -mtime +$RETAIN_DAYS -delete
+find "$OUT" -name 'uploads-*.tar.gz' -mtime +$RETAIN_DAYS -delete
+
+echo "backup ok: $(du -h "$OUT/db-$STAMP.sql.gz" | cut -f1) db, $(du -h "$OUT/uploads-$STAMP.tar.gz" | cut -f1) uploads"
