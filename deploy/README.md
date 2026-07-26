@@ -61,7 +61,7 @@ the very first `docker compose` command.
 
 ```ini
 POSTGRES_USER=jwel
-POSTGRES_PASSWORD=<generate: openssl rand -base64 32>
+POSTGRES_PASSWORD=<generate: openssl rand -hex 32 — hex, not base64: RUNBOOK §4>
 POSTGRES_DB=jwel
 
 GH_OWNER=<your github org/user, or "local" if you built on the VM>

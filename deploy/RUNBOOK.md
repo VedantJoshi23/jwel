@@ -104,9 +104,27 @@ Create the two env files described in `deploy/README.md` §0
 secret fresh on this machine — do not reuse a value from local development:
 
 ```bash
-openssl rand -base64 32   # for POSTGRES_PASSWORD
+openssl rand -hex 32      # for POSTGRES_PASSWORD  (hex, NOT base64 — see below)
 openssl rand -base64 48   # for JWT_SECRET
 ```
+
+`POSTGRES_PASSWORD` must be **hex**. It is not used as a standalone secret —
+both compose files interpolate it into a connection URL:
+
+```
+postgresql://jwel:PASSWORD@postgres:5432/jwel?schema=public
+```
+
+`openssl rand -base64` draws from `A–Z a–z 0–9 + / =`, and three of those are
+structural in a URL. A `/` terminates the authority section outright, so the
+parser reads the text before it as a port and fails with
+`Port could not be cast to integer value as '+PN3mX3uGAAip…'` — an error that
+names a port and points nowhere near the password. The API then dies at boot.
+
+Hex costs nothing in strength: `-hex 32` and `-base64 32` both read the same
+32 bytes from the same CSPRNG (256 bits either way); base64 merely encodes
+them more compactly. You trade 20 characters of length for an alphabet that
+cannot corrupt a URL. `JWT_SECRET` never enters a URL, so base64 is fine there.
 
 Read §0's explanation of which variable goes in which file. The short version:
 `GH_OWNER`, `API_TAG`, `WEB_TAG` and the `POSTGRES_*` values go in **`.env`**,
@@ -115,11 +133,18 @@ because Compose substitutes them into the compose files and only ever reads
 Put `API_TAG` in the wrong file and step 7 fails immediately with `required
 variable API_TAG is missing a value`.
 
-`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are also required — the API
+`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are required — the API
 deliberately refuses to boot in production without them instead of quietly
-using the mock payment provider. For a staging or test deployment, use
-Stripe's test-mode keys; there is no supported way to run production mode with
-payments disabled.
+using the mock payment provider. For a staging deployment against a real
+Stripe account, use that account's test-mode keys.
+
+The one supported exception is `PAYMENTS_MODE=simulated`, for a
+production-shaped deployment that has no gateway account at all yet. Checkout
+then completes through the mock provider and orders confirm with no money
+moving. It is not Stripe test mode — Stripe is not contacted, and no Stripe
+keys are set. See §13 for how to turn it on and the checklist that removes it.
+Do **not** set placeholder Stripe keys to get past the boot check; the app
+starts and then leaves every order stuck `PENDING`.
 
 Use `api.yourdomain.com` / `shop.yourdomain.com` (your real domain from step
 0) everywhere the env files ask for a URL — `CORS_ALLOWED_ORIGINS`,
@@ -152,8 +177,13 @@ the storefront shows a "no payment is taken" banner and returns `noindex`.
 
 The `ghcr.io/local/...` naming is arbitrary here — it just has to match
 `GH_OWNER=local` and `API_TAG=$GIT_SHA` / `WEB_TAG=$GIT_SHA` in
-`deploy/.env.production`, so Compose finds the image you just built instead
-of trying to pull one. Set `GH_OWNER=local` in that file.
+**`deploy/.env`**, so Compose finds the image you just built instead of trying
+to pull one.
+
+Those three go in `.env`, *not* `.env.production` — they are Compose
+substitution variables, and Compose only ever reads `.env` (step 4 and
+README §0). Putting them in `.env.production` produces `required variable
+API_TAG is missing a value` on the very next command.
 
 (If you later want to build on a laptop and ship to multiple servers, push to
 a real registry instead — `deploy/README.md` §1 covers that path.)
@@ -210,6 +240,27 @@ cd deploy
 docker compose -f docker-compose.postgres.yml up -d
 docker compose -f docker-compose.postgres.yml ps      # wait until "healthy"
 ```
+
+If this fails with `failed to bind host port 127.0.0.1:5432/tcp: address
+already in use`, a Postgres installed directly on the host already owns the
+port — likely left over from running the app outside Docker on this machine:
+
+```bash
+sudo ss -lptn 'sport = :5432'          # confirm what holds it
+sudo systemctl stop postgresql postgresql@16-main
+sudo systemctl disable postgresql postgresql@16-main   # or it returns on reboot
+```
+
+Stopping the service does not delete anything; the cluster stays at
+`/var/lib/postgresql/16/main`. If it holds development data you still want,
+`pg_dump -Fc` each database somewhere outside the repo first.
+
+The alternative is to change this file's published port to
+`127.0.0.1:5433:5432` and leave the host's Postgres running. That is safe —
+the API reaches the database as `postgres:5432` over `jwel-net`, so the
+published port is only ever used for `psql` over an SSH tunnel — but you then
+have two Postgres instances on one box, and every future admin command needs
+`-p 5433` or it silently talks to the wrong one.
 
 ---
 
