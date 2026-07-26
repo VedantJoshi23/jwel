@@ -574,9 +574,24 @@ it takes real card details while still displaying the demo banner.
 5. **Verify the bundle** before deploying it:
    ```bash
    docker run --rm ghcr.io/local/jwel-web:<newtag> \
-     sh -c 'grep -rl "Demo store" .next/static | head -1'
+     sh -c 'grep -rl "Demo store" .next/server | head -1'
    ```
    That must print **nothing**. Output means the banner is still compiled in.
+
+   `.next/server`, **not** `.next/static` — this check used to name the latter
+   and was worthless. `demo-mode-banner.tsx` has no `'use client'`, so it is a
+   server component and its text is compiled into `.next/server/`; it never
+   appears under `.next/static` at all. Measured on two real builds:
+
+   | build | hits in `.next/static` | hits in `.next/server` |
+   |---|---|---|
+   | `NEXT_PUBLIC_DEMO_MODE=true` | 0 | 50 |
+   | flag omitted (live) | 0 | 0 |
+
+   The old command therefore printed nothing whether or not demo mode was on,
+   so step 5 "passed" for a bundle that still showed shoppers a banner saying
+   no payment would be taken. A verification step that cannot fail is worse
+   than no verification step, because it is trusted.
 6. **Deploy**: update `WEB_TAG` in `.env`, then
    `docker compose -f docker-compose.api.yml up -d`.
 7. **Confirm the flag is gone** — this must print no match:
