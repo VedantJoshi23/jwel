@@ -20,6 +20,12 @@ on:
 # Supersede an in-flight run when the same branch is pushed again: only the
 # newest commit's result is of any interest, and the E2E job holds a runner
 # for ~2.5 minutes.
+#
+# Note the side effect, which is easy to mistake for a broken runner: this
+# also cancels a *manual* re-run of an earlier commit if anything is pushed
+# to the same ref while it is going. If you are deliberately re-running a job
+# to gather evidence about an intermittent failure — which the E2E job has
+# needed — do not push until it has settled, or you will lose the result.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
