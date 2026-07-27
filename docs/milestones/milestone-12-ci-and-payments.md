@@ -74,6 +74,14 @@ been inverted to match:
     real product data; what is dropped is a dependency on the image optimizer,
     which is not what those tests are about.
 
+    Verified over **3 consecutive green runs**, each against a fresh database
+    and therefore a fresh image draw. That is deliberately more than one run,
+    given this failure was twice declared fixed off a single pass. The reason
+    to expect it holds is structural rather than statistical:
+    `domcontentloaded` does not wait on subresources at all, so a preloaded
+    image can no longer gate the navigation — the mechanism is removed, not
+    made less likely.
+
     **The optimizer hang itself is unexplained and remains open** (see Tasks
     Remaining). It does not reproduce locally, including with a cold image
     cache pinned to 2 cores, and sharp resizes the largest of these images in
