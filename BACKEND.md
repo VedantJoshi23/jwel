@@ -25,7 +25,7 @@ Milestone 7 to close gaps that milestone explicitly named as missing, Search
 | Users | `modules/users` | `/api/v1/me`, `/api/v1/me/addresses`, `/api/v1/admin/users` |
 | Products | `modules/products` | `/api/v1/products`, `/api/v1/products/:slug`, `/api/v1/admin/products` |
 | Orders | `modules/orders` | `/api/v1/orders` (checkout), `/api/v1/orders/:id`, `/api/v1/admin/orders/:id/status` |
-| Payments | `modules/payments` | `/api/v1/payments/webhook/stripe` |
+| Payments | `modules/payments` | `/api/v1/payments/webhook/stripe` (becomes `.../razorpay` in M12 — ADR-0005) |
 | Inventory | `modules/inventory` | `/api/v1/admin/inventory/:variantId`, `.../low-stock`, `.../adjust` |
 | Reviews | `modules/reviews` | `/api/v1/reviews`, `/api/v1/products/:productId/reviews`, `/api/v1/admin/reviews/...` |
 | Coupons | `modules/coupons` | `/api/v1/coupons/validate`, `/api/v1/admin/coupons` |
@@ -147,10 +147,11 @@ pattern. On reaching `REFUNDED`: inventory is restocked via
 `REFUNDED`, and a `return.refunded` event fires.
 
 **Named simplification, not silently done**: marking a `Payment` `REFUNDED`
-is bookkeeping only — this does **not** call Stripe's refund API.
+is bookkeeping only — this does **not** call the gateway's refund API.
 `PaymentProviderPort` has no `refund` method yet. A real refund must currently
-be issued through the Stripe dashboard/API directly; extending the port is a
-follow-up, tracked in §5.
+be issued through the gateway dashboard directly; extending the port is a
+follow-up, tracked in §5 and scheduled into Milestone 12 alongside the Razorpay
+adapter (ADR-0005), since there is now only one adapter to implement it on.
 
 ---
 
@@ -169,7 +170,8 @@ follow-up, tracked in §5.
 | No CMS module | **Closed in Milestone 10** — see §10.1. Homepage banners only; FR-23's full scope (category landing content, lookbook/editorial) remains open |
 | No Analytics module | **Closed in Milestone 10** as a live dashboard summary — see §10.2. No materialized views, no PostHog event forwarding (DATABASE.md §7.3's recommended path is still not built) |
 | Auth.js bridging | Still open — backend still issues its own JWT |
-| Refund API integration (Stripe) | Still open — `PaymentProviderPort` needs a `refund` method; Returns currently only updates bookkeeping (§3.11) |
+| Refund API integration | Still open — `PaymentProviderPort` needs a `refund` method; Returns currently only updates bookkeeping (§3.11). Scheduled into M12 with the Razorpay adapter (ADR-0005) |
+| Razorpay adapter not yet built | **New — ADR-0005.** The client chose Razorpay as sole provider; the code still carries the live Stripe adapter and a throwing Razorpay stub. The port's `clientSecret` return shape is Stripe-specific and changes with it. M12 scope |
 | Inventory-triggered search reindex | **New gap surfaced in Milestone 8** — stock changes don't trigger a reindex, so `inStock` in the search index can go stale between content edits (§8.3) |
 | No Recommendation/AI module (FR-14/FR-15) | **Closed in Milestone 9** — see §9. Rule-based (co-occurrence + category affinity), not a trained model — see §9.1 for why that's the right scope right now |
 | Recommendation co-occurrence backfill is manual | **New gap surfaced in Milestone 9** — `ProductCoOccurrence` only builds going forward from new orders; pre-existing order history needs one manual `POST /admin/recommendations/backfill-co-occurrence` call (§9.5/§9.6) |

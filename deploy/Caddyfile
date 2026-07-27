@@ -1,3 +1,13 @@
+# UNUSED on the current host — kept as the "no nginx" alternative.
+#
+# whisperingorion.dev already runs nginx + certbot on ports 80/443, so the
+# deployed setup terminates TLS in the host's nginx and this Caddy service is
+# not started (see the note where it used to be in docker-compose.api.yml, and
+# deploy/nginx/jwel.conf.template for the config actually in use).
+#
+# To switch back to Caddy-as-edge: stop nginx, re-add the caddy service to the
+# app stack, and remove the `ports:` blocks from api and web.
+#
 # Automatic HTTPS via Let's Encrypt. Replace both domains and the email below.
 # Requires real domains pointed at this host (A records) — Let's Encrypt
 # cannot issue a certificate for a bare IP address.

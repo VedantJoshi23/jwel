@@ -4,6 +4,23 @@
 #   docker network create jwel-net     # once, before first `up`
 #   docker compose -f docker-compose.postgres.yml up -d
 
+# Pinned, and deliberately DIFFERENT from the app stack's `jwel`.
+#
+# Without a `name:` Compose derives the project from the containing directory
+# — "deploy" — for both files. Two consequences, both bad: the volumes get
+# created as `deploy_pgdata`/`deploy_uploads`, so any command naming them
+# directly (README.md's uploads backup uses `-v jwel_uploads:/data`) silently
+# addresses a different, empty volume; and because both stacks share one
+# project, each sees the other's containers as orphans — meaning a
+# `docker compose -f docker-compose.api.yml down --remove-orphans` would take
+# this database container down with it, defeating the whole point of keeping
+# the two stacks in separate files.
+#
+# Separate project names make that impossible. The two still reach each other
+# by service name over the external `jwel-net` network, which belongs to
+# neither project.
+name: jwel-data
+
 services:
   postgres:
     image: postgres:16-bookworm

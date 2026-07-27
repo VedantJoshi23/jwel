@@ -13,6 +13,23 @@ coverage/
 !.env.example
 *.log
 *.tsbuildinfo
+
+# Compiled output from running tsc/ts-node directly over apps/api/scripts/.
+# Those scripts are meant to run from source (the create-admin one-shot in
+# deploy/docker-compose.api.yml invokes ts-node), and apps/api/Dockerfile
+# copies the whole scripts/ directory into the runtime image — so stray .js
+# next to the .ts ships to production for no reason.
+apps/api/scripts/*.js
+apps/api/scripts/*.js.map
+apps/api/scripts/*.d.ts
+
+# Uploaded product media. Lives in a Docker named volume in production and is
+# moved onto the VM with rsync (see deploy/RUNBOOK.md §9), never through git.
+apps/api/uploads/
+
+# Database dumps and uploads tarballs written by the backup commands in
+# deploy/README.md. Hundreds of MB, and the dumps contain live customer data.
+deploy/backups/
 .DS_Store
 .vercel/
 prisma/.env

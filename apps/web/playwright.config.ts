@@ -16,9 +16,18 @@ import { defineConfig, devices } from '@playwright/test';
 // mode has no such compile-on-first-request behavior at all.
 export default defineConfig({
   testDir: './e2e',
-  fullyParallel: false, // shared seeded accounts across spec files; parallel workers would race on them
+  // `fullyParallel: false` only serializes tests *within* a file — spec files
+  // still run concurrently across workers, so it never delivered what its
+  // comment claimed. The first real CI run reported "Running 12 tests using 2
+  // workers" and interleaved auth.spec with storefront.spec against the shared
+  // seeded accounts. `workers: 1` is what actually expresses the intent.
+  fullyParallel: false,
+  workers: 1, // shared seeded accounts across spec files; parallel workers race on them
   retries: 0,
-  reporter: 'list',
+  // 'list' alone writes no report directory, so CI's upload-on-failure step
+  // had nothing to collect and every failure arrived undiagnosable. The html
+  // reporter produces playwright-report/ (and embeds the traces below).
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:3000',
     trace: 'retain-on-failure',

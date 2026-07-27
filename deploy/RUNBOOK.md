@@ -104,9 +104,48 @@ Create the two env files described in `deploy/README.md` §0
 secret fresh on this machine — do not reuse a value from local development:
 
 ```bash
-openssl rand -base64 32   # for POSTGRES_PASSWORD
+openssl rand -hex 32      # for POSTGRES_PASSWORD  (hex, NOT base64 — see below)
 openssl rand -base64 48   # for JWT_SECRET
 ```
+
+`POSTGRES_PASSWORD` must be **hex**. It is not used as a standalone secret —
+both compose files interpolate it into a connection URL:
+
+```
+postgresql://jwel:PASSWORD@postgres:5432/jwel?schema=public
+```
+
+`openssl rand -base64` draws from `A–Z a–z 0–9 + / =`, and three of those are
+structural in a URL. A `/` terminates the authority section outright, so the
+parser reads the text before it as a port and fails with
+`Port could not be cast to integer value as '+PN3mX3uGAAip…'` — an error that
+names a port and points nowhere near the password. The API then dies at boot.
+
+Hex costs nothing in strength: `-hex 32` and `-base64 32` both read the same
+32 bytes from the same CSPRNG (256 bits either way); base64 merely encodes
+them more compactly. You trade 20 characters of length for an alphabet that
+cannot corrupt a URL. `JWT_SECRET` never enters a URL, so base64 is fine there.
+
+Read §0's explanation of which variable goes in which file. The short version:
+`GH_OWNER`, `API_TAG`, `WEB_TAG` and the `POSTGRES_*` values go in **`.env`**,
+because Compose substitutes them into the compose files and only ever reads
+`.env`. Everything else is application config and goes in `.env.production`.
+Put `API_TAG` in the wrong file and step 7 fails immediately with `required
+variable API_TAG is missing a value`.
+
+`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` are
+required — the API deliberately refuses to boot in production without them
+instead of quietly using the mock payment provider. For a staging deployment
+against a real Razorpay account, use that account's test-mode keys
+(`rzp_test_…`).
+
+The one supported exception is `PAYMENTS_MODE=simulated`, for a
+production-shaped deployment that has no gateway account at all yet. Checkout
+then completes through the mock provider and orders confirm with no money
+moving. It is not Razorpay test mode — Razorpay is not contacted, and no
+Razorpay keys are set. See §13 for how to turn it on and the checklist that
+removes it. Do **not** set placeholder Razorpay keys to get past the boot
+check; the app starts and then leaves every order stuck `PENDING`.
 
 Use `api.yourdomain.com` / `shop.yourdomain.com` (your real domain from step
 0) everywhere the env files ask for a URL — `CORS_ALLOWED_ORIGINS`,
@@ -129,25 +168,69 @@ docker build -f apps/api/Dockerfile -t ghcr.io/local/jwel-api:$GIT_SHA .
 docker build -f apps/web/Dockerfile \
   --build-arg NEXT_PUBLIC_API_URL=https://api.yourdomain.com/api/v1 \
   --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.yourdomain.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://yourdomain.com \
+  --build-arg NEXT_PUBLIC_DEMO_MODE=true \
   -t ghcr.io/local/jwel-web:$GIT_SHA .
 ```
 
+Drop `NEXT_PUBLIC_DEMO_MODE` once payments are live — see §13. While it is set,
+the storefront shows a "no payment is taken" banner and returns `noindex`.
+
 The `ghcr.io/local/...` naming is arbitrary here — it just has to match
 `GH_OWNER=local` and `API_TAG=$GIT_SHA` / `WEB_TAG=$GIT_SHA` in
-`deploy/.env.production`, so Compose finds the image you just built instead
-of trying to pull one. Set `GH_OWNER=local` in that file.
+**`deploy/.env`**, so Compose finds the image you just built instead of trying
+to pull one.
+
+Those three go in `.env`, *not* `.env.production` — they are Compose
+substitution variables, and Compose only ever reads `.env` (step 4 and
+README §0). Putting them in `.env.production` produces `required variable
+API_TAG is missing a value` on the very next command.
 
 (If you later want to build on a laptop and ship to multiple servers, push to
 a real registry instead — `deploy/README.md` §1 covers that path.)
 
-**This is the step most likely to surface a problem nobody has seen yet** —
-the API and web Dockerfiles were rewritten to use npm workspaces (matching
-what CI and local dev actually use) but have not been built end-to-end on
-real Docker before now. If either `docker build` fails, stop and read the
-error rather than working around it — likely causes are a missing
-`packages/*/package.json` in the build context or an npm workspace
-resolution issue. Do not `docker build --no-cache` repeatedly as a first
-troubleshooting step; read what npm/tsc/next actually printed first.
+Both of these have now been built end-to-end on real Docker (Docker 29.6.2,
+Ubuntu 24.04, `npm ci` against `package-lock.json`) and both succeed from a
+clean context. That was not previously true — two defects were fixed to get
+there, and they are worth knowing about if you ever edit the Dockerfiles:
+
+- Both Dockerfiles used to `COPY packages/config/package.json` and three
+  siblings. There is no `packages/` directory in this repo — `apps/api` and
+  `apps/web` are the only two npm workspaces — so every build failed on the
+  first `COPY`. The root `package.json` still globs `packages/*`; that glob
+  matching nothing is fine, but a `COPY` of a missing path is not.
+- The API image created `/app/apps/api/uploads`, while `UPLOADS_DIR` and the
+  compose volume both point at `/app/uploads`. Docker seeds an empty named
+  volume from the image's directory, but when the mount path doesn't exist in
+  the image it creates it `root:root` — and the container runs as `node`, so
+  the first product-image upload would have failed `EACCES`.
+
+If a build still fails, stop and read the error rather than working around
+it. Do not `docker build --no-cache` repeatedly as a first troubleshooting
+step; read what npm/tsc/next actually printed first.
+
+Sanity-check the images before deploying them — a successful build does not
+prove a working container:
+
+```bash
+docker run --rm ghcr.io/local/jwel-api:$GIT_SHA ls -la dist/main.js
+docker run --rm ghcr.io/local/jwel-api:$GIT_SHA ls -ld /app/uploads   # must be node-owned
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA sh -c 'ls .next/static >/dev/null && ls public >/dev/null && echo assets ok'
+```
+
+An empty `dist/` is the failure mode to watch for on the API image: it builds
+and tags successfully, then the container dies immediately on "Cannot find
+module dist/main". Confirm the `NEXT_PUBLIC_*` values really made it into the
+web bundle, since they are inlined at build time and a wrong one means a
+rebuild:
+
+```bash
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA \
+  sh -c 'grep -rl "api.yourdomain.com" .next/static | head -1'
+```
+
+That must print a chunk filename. If it prints nothing, the build args didn't
+take and the bundle is pointing somewhere else.
 
 ---
 
@@ -158,6 +241,27 @@ cd deploy
 docker compose -f docker-compose.postgres.yml up -d
 docker compose -f docker-compose.postgres.yml ps      # wait until "healthy"
 ```
+
+If this fails with `failed to bind host port 127.0.0.1:5432/tcp: address
+already in use`, a Postgres installed directly on the host already owns the
+port — likely left over from running the app outside Docker on this machine:
+
+```bash
+sudo ss -lptn 'sport = :5432'          # confirm what holds it
+sudo systemctl stop postgresql postgresql@16-main
+sudo systemctl disable postgresql postgresql@16-main   # or it returns on reboot
+```
+
+Stopping the service does not delete anything; the cluster stays at
+`/var/lib/postgresql/16/main`. If it holds development data you still want,
+`pg_dump -Fc` each database somewhere outside the repo first.
+
+The alternative is to change this file's published port to
+`127.0.0.1:5433:5432` and leave the host's Postgres running. That is safe —
+the API reaches the database as `postgres:5432` over `jwel-net`, so the
+published port is only ever used for `psql` over an SSH tunnel — but you then
+have two Postgres instances on one box, and every future admin command needs
+`-p 5433` or it silently talks to the wrong one.
 
 ---
 
@@ -208,6 +312,16 @@ already has real uploaded files. Copy them to the VM first (`rsync`/`scp`),
 then follow `deploy/README.md` §5 to move them into the named volume and
 cross-check the count against `product_media` rows in the database.
 
+Do not skip the `chown -R node:node /app/uploads` in that section. `docker
+compose cp` writes files as the host uid, and if that isn't 1000 the API ends
+up able to serve the migrated images but unable to upload or delete any —
+which surfaces much later as a broken admin edit, not as a failed migration.
+
+The count cross-check only means something when the database already has the
+matching `product_media` rows. On a freshly migrated, unseeded database that
+table is empty, so expect 1046 files against 0 rows until you restore or
+import real data.
+
 ---
 
 ## 10. Verify
@@ -235,8 +349,347 @@ Add a daily line (adjust the path to wherever you cloned the repo):
 0 3 * * * cd /home/<user>/jwel/deploy && docker compose -f docker-compose.postgres.yml exec -T postgres pg_dump -U jwel jwel | gzip > backups/db-$(date +\%F).sql.gz
 ```
 
+The `\%` escaping is not a typo — cron treats a bare `%` as a newline and would
+truncate the command at `$(date +`.
+
 See `deploy/README.md`'s Backups section for the matching uploads-volume
-backup command — back up both together, never just one.
+backup command — back up both together, never just one. Both write into
+`deploy/backups`, the directory created in step 4.
+
+Once the first run has happened, confirm it actually produced something:
+
+```bash
+ls -lh backups/ && gzip -t backups/db-*.sql.gz && echo 'dump is readable'
+```
+
+A backup nobody has restored is a hypothesis, not a backup.
+
+---
+
+## 12. Changing the domain
+
+Expected at least once: the staging deployment runs on a domain you already
+own, and the shop later moves to the domain the client buys. Nothing here is
+hard, but the hostname lives in several places and missing one produces
+failures that don't name the domain as the cause.
+
+### What survives a domain change
+
+**Uploaded product images are safe.** The database stores only a storage
+reference (`local:products/<uuid>.jpg`); the absolute URL is built at request
+time from `PUBLIC_BASE_URL` in `filesystem-storage.provider.ts`. So the
+usual worst case here — every image 404ing after the move — does not apply.
+Orders, accounts and the catalogue are equally unaffected. Admin passwords
+carry over; the client does not need a new account.
+
+### Every place the hostname appears
+
+| # | Location | Which host | Needs |
+|---|----------|-----------|-------|
+| 1 | DNS A record, apex | new apex | registrar |
+| 2 | DNS A record, `api.` | new api | registrar |
+| 3 | Let's Encrypt cert | both | `certbot` |
+| 4 | `/etc/nginx/sites-available/main` | both | render + reload |
+| 5 | `.env.production` → `PUBLIC_BASE_URL` | api | API restart |
+| 6 | `.env.production` → `FRONTEND_URL` | apex | API restart |
+| 7 | `.env.production` → `CORS_ALLOWED_ORIGINS` | apex | API restart |
+| 8 | build arg `NEXT_PUBLIC_API_URL` | api | **web image rebuild** |
+| 9 | build arg `NEXT_PUBLIC_API_ORIGIN` | api | **web image rebuild** |
+| 10 | build arg `NEXT_PUBLIC_SITE_URL` | apex | **web image rebuild** |
+| 11 | Google OAuth redirect URI | api | Google Cloud console |
+| 12 | Razorpay webhook endpoint URL | api | Razorpay dashboard |
+
+Rows 8–10 are the ones that catch people. `NEXT_PUBLIC_*` values are inlined
+into the JavaScript bundle at build time — they are **not** read from the
+environment when the container starts. Editing `.env.production` and running
+`up -d` changes rows 5–7 and leaves the browser still calling the old API
+hostname. The web image must be rebuilt.
+
+Rows 11–12 only apply once those integrations are live. Until then the OAuth
+routes return a 503 explaining they are unconfigured, which is intended
+behaviour, not a symptom of the move.
+
+### The procedure
+
+```bash
+# 1. DNS first — both records, and WAIT for them before touching certbot.
+dig +short newdomain.com          # must print this server's IP
+dig +short api.newdomain.com      # must print this server's IP
+```
+
+Certbot failures count against Let's Encrypt's rate limit of 5 per hostname
+per hour, so confirm `dig` before running it, not after.
+
+```bash
+# 2. Certificates for the new names. The old certs stay in place — nothing is
+#    revoked, so the old domain keeps working during the switch.
+sudo certbot certonly --webroot -w /var/www/html \
+  -d newdomain.com -d www.newdomain.com
+sudo certbot certonly --webroot -w /var/www/html -d api.newdomain.com
+
+# 3. Rebuild the web image with the new build args. NEW git sha or a suffix —
+#    reusing the old tag means no rollback target.
+cd ~/jwel
+GIT_SHA=$(git rev-parse --short HEAD)
+docker build -f apps/web/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.newdomain.com/api/v1 \
+  --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.newdomain.com \
+  --build-arg NEXT_PUBLIC_SITE_URL=https://newdomain.com \
+  -t ghcr.io/local/jwel-web:$GIT_SHA-newdomain .
+
+# 4. Confirm the new hostname actually made it into the bundle BEFORE deploying.
+docker run --rm ghcr.io/local/jwel-web:$GIT_SHA-newdomain \
+  sh -c 'grep -rl "api.newdomain.com" .next/static | head -1'
+```
+
+That must print a chunk filename. Empty output means the build args didn't
+take and you are about to deploy a bundle pointing at the old domain.
+
+```bash
+# 5. Update the three API vars and the image tag.
+cd deploy
+#   .env.production:  PUBLIC_BASE_URL=https://api.newdomain.com
+#                     FRONTEND_URL=https://newdomain.com
+#                     CORS_ALLOWED_ORIGINS=https://newdomain.com
+#   .env:             WEB_TAG=<the new tag from step 3>
+
+# 6. Render and install the nginx config.
+./nginx/render.sh newdomain.com api.newdomain.com > /tmp/jwel.conf
+sudo cp /etc/nginx/sites-available/main /etc/nginx/sites-available/main.bak
+sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
+sudo nginx -t && sudo systemctl reload nginx
+
+# 7. Restart the app stack.
+docker compose -f docker-compose.api.yml up -d
+```
+
+### Verify
+
+```bash
+curl -fsS https://api.newdomain.com/health/ready     # {"status":"ok","database":"ok"}
+curl -s -o /dev/null -w '%{http_code}\n' https://newdomain.com/     # 200
+```
+
+Then open the storefront in a real browser with devtools on the Network tab
+and confirm the XHR calls go to `api.newdomain.com`. A CORS error in the
+console means `CORS_ALLOWED_ORIGINS` still lists the old apex, or the API
+wasn't restarted after editing it. Load a product page and confirm its images
+render — that proves `PUBLIC_BASE_URL` took effect.
+
+### Rolling back
+
+```bash
+sudo cp /etc/nginx/sites-available/main.bak /etc/nginx/sites-available/main
+sudo nginx -t && sudo systemctl reload nginx
+# revert WEB_TAG in .env, then:
+docker compose -f docker-compose.api.yml up -d
+```
+
+The old certificates and DNS records are untouched throughout, which is what
+makes the rollback fast. Keep the old domain registered and pointing at the
+server for a few weeks after the move — DNS caches, bookmarks and any links
+already shared will keep arriving on the old hostname.
+
+---
+
+## 13. Running without a payment gateway, and going live later
+
+For client UAT before a gateway account exists — Razorpay onboarding takes
+days and needs the client's business documents — the deployment can run with **simulated
+payments**. Checkout completes through `MockPaymentProvider`, orders reach
+`CONFIRMED`, the confirmation notification fires, and the order appears in the
+admin panel. No money moves and nothing is charged.
+
+This is deliberately not the default and cannot be reached by accident: it
+requires two settings, in two different places, both of which have to be
+removed before go-live.
+
+### Turning it on
+
+**API** — in `deploy/.env.production`:
+
+```ini
+PAYMENTS_MODE=simulated
+```
+
+Exactly that string; anything else is rejected at boot by `env.validation.ts`
+rather than silently ignored. The `RAZORPAY_*` keys stay unset — the flag
+replaces the requirement for them.
+
+**Web** — a build arg, because `NEXT_PUBLIC_*` is inlined at build time:
+
+```bash
+--build-arg NEXT_PUBLIC_DEMO_MODE=true
+```
+
+That shows a banner above the header on every page ("Demo store — orders are
+for preview only. No payment is taken and nothing will be shipped.") and
+switches `robots.txt` to disallow-all plus a `noindex` meta directive.
+
+Confirm it took effect after `up -d`:
+
+```bash
+docker compose -f docker-compose.api.yml logs api | grep 'PAYMENTS_MODE'
+# ERROR ... PAYMENTS_MODE=simulated — CHECKOUT IS SIMULATED ...
+curl -s https://yourdomain.com/robots.txt          # Disallow: /
+```
+
+The API logs that line at **error** level on every boot. That is intentional
+noise — a production process confirming orders without taking money should be
+impossible to overlook in a log tail.
+
+### Why not comment the payments module out
+
+Because the code that would be commented out is the guard at
+`payments.module.ts` that *refuses to boot* in production without gateway
+credentials. That guard exists precisely so a live shop can never fall back to
+the mock and mark real orders paid. Deleting it for staging makes go-live
+depend on remembering to restore a safety mechanism correctly, and commented
+code is neither type-checked nor covered by tests in the weeks it sits there.
+The flag inverts that: the dangerous state requires an explicit, loud,
+single-line opt-in, and go-live is a deletion rather than a restoration.
+
+For the same reason, do **not** set placeholder Razorpay keys to get past the
+boot check. The app starts, but the webhook signature check then fails on
+every callback and orders sit at `PENDING` forever — a far more confusing
+failure than not booting at all.
+
+### Going live: the checklist
+
+Work top to bottom; the storefront should never be reachable in a state where
+it takes real card details while still displaying the demo banner.
+
+1. **Gateway account.** Created and activated by the **client**, in their
+   legal entity's name — payouts, tax and chargeback liability follow the
+   account holder. Get restricted API keys, or ask to be added as a developer
+   so you never hold their live secret key.
+2. **Webhook endpoint** in the Razorpay dashboard (Settings → Webhooks),
+   pointing at `https://<api-domain>/api/v1/payments/webhook/razorpay`,
+   subscribed to `payment.captured` and `payment.failed` — the only two events
+   `razorpay-payment.provider.ts` acts on. **You set the webhook secret
+   yourself when creating the webhook, and Razorpay never shows it again** —
+   record it before saving, unlike Stripe's re-viewable signing secret.
+3. **`deploy/.env.production`**: delete the `PAYMENTS_MODE` line, add
+   `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET`.
+4. **Rebuild the web image** *without* `--build-arg NEXT_PUBLIC_DEMO_MODE`,
+   with a new tag. This is not optional — the banner and the `noindex` are
+   baked into the bundle and no restart will clear them.
+5. **Verify the bundle** before deploying it:
+   ```bash
+   docker run --rm ghcr.io/local/jwel-web:<newtag> \
+     sh -c 'grep -rl "Demo store" .next/server | head -1'
+   ```
+   That must print **nothing**. Output means the banner is still compiled in.
+
+   `.next/server`, **not** `.next/static` — this check used to name the latter
+   and was worthless. `demo-mode-banner.tsx` has no `'use client'`, so it is a
+   server component and its text is compiled into `.next/server/`; it never
+   appears under `.next/static` at all. Measured on two real builds:
+
+   | build | hits in `.next/static` | hits in `.next/server` |
+   |---|---|---|
+   | `NEXT_PUBLIC_DEMO_MODE=true` | 0 | 50 |
+   | flag omitted (live) | 0 | 0 |
+
+   The old command therefore printed nothing whether or not demo mode was on,
+   so step 5 "passed" for a bundle that still showed shoppers a banner saying
+   no payment would be taken. A verification step that cannot fail is worse
+   than no verification step, because it is trusted.
+6. **Deploy**: update `WEB_TAG` in `.env`, then
+   `docker compose -f docker-compose.api.yml up -d`.
+7. **Confirm the flag is gone** — this must print no match:
+   ```bash
+   docker compose -f docker-compose.api.yml logs api | grep 'CHECKOUT IS SIMULATED'
+   ```
+8. **Re-enable indexing**: `curl -s https://yourdomain.com/robots.txt` should
+   no longer be disallow-all. If the demo was ever publicly reachable, request
+   removal of any indexed URLs in Google Search Console.
+9. **One real transaction.** Place a genuine order with a real card, for the
+   smallest-value item, and confirm: the order reaches `CONFIRMED`, the money
+   appears in the gateway dashboard, and the webhook shows a 2xx delivery.
+   Then refund it. A gateway that has never moved real money is a hypothesis,
+   the same as an unrestored backup.
+
+### Restricting access while in demo mode
+
+`noindex` keeps the demo out of search results but does not stop anyone with
+the URL. If the client is sharing it around, add HTTP basic auth in nginx —
+inside the apex `server` block, above `location /`:
+
+```nginx
+auth_basic "Staging";
+auth_basic_user_file /etc/nginx/.htpasswd;
+```
+
+```bash
+sudo apt install apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd client
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Leave `location /portfolio/` outside it (or add `auth_basic off;` inside that
+block) if the portfolio should stay public. Remove the two directives at
+go-live — step 8 above is the natural place.
+
+---
+
+## Optional: Elasticsearch
+
+Entirely optional. Without it the API logs `Elasticsearch unavailable at
+startup` once and serves search from Postgres instead — verified working, so
+there is no urgency here. Turning it on adds fuzzy/typo-tolerant matching,
+autocomplete, and facet counts. Budget the extra RAM from step 1 first.
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml up -d
+docker compose -f docker-compose.elasticsearch.yml ps    # wait for "healthy"
+```
+
+Then point the API at it by adding to `deploy/.env.production` and restarting:
+
+```ini
+ELASTICSEARCH_NODE=http://elasticsearch:9200
+```
+
+**Start Elasticsearch before the API, and restart the API afterwards.** The
+API creates its index only in `SearchService.onModuleInit`. If the API is
+already running when Elasticsearch appears, the index instead gets created
+implicitly by the first product edit — using Elasticsearch's *default dynamic
+mapping* rather than the `search_as_you_type` mapping the queries are written
+for. Nothing errors when this happens, and the admin reindex endpoint does
+**not** repair it: `ensureIndex` only checks whether the index exists, not
+whether its mapping is right. Confirm which one you got:
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml exec elasticsearch \
+  curl -s localhost:9200/jwel_products/_mapping | grep -o 'search_as_you_type'
+```
+
+That must print `search_as_you_type`. If it prints nothing, delete the index,
+restart the API so it recreates it properly, and reindex:
+
+```bash
+docker compose -f docker-compose.elasticsearch.yml exec elasticsearch \
+  curl -s -X DELETE localhost:9200/jwel_products
+docker compose -f docker-compose.api.yml restart api
+```
+
+Finally, index the existing catalogue — enabling Elasticsearch does not
+backfill it, and only `PUBLISHED` products are ever indexed:
+
+```bash
+curl -X POST https://api.yourdomain.com/api/v1/admin/search/reindex \
+  -H "Authorization: Bearer <admin JWT>"     # -> {"indexed":N}
+```
+
+After that, ongoing edits sync themselves through the event bus; the reindex
+endpoint is for backfills and repairs. Note the sync is asynchronous — the
+catalogue edit returns before the index write lands, deliberately, so a slow
+or dead Elasticsearch can never fail a product save.
+
+To turn it back off, drop `ELASTICSEARCH_NODE`, restart the API, and
+`docker compose -f docker-compose.elasticsearch.yml down`. Search returns to
+the Postgres path.
 
 ---
 

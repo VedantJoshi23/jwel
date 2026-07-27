@@ -140,7 +140,7 @@ settled (same gap `FEAT-SHIPPING` already named).
 | STD-API | Yes | New endpoints follow the existing `api/v1` envelope/versioning convention; no deviation. |
 | STD-OBSERVABILITY | Yes | Per-channel send success/failure should be one of the metrics `STD-OBSERVABILITY` requires (a `notification_send_total{channel,status}` counter) — this feature is a natural first real consumer of that Standard once both exist. |
 | STD-TESTING | Yes | Fallback-ordering and opt-in-gate logic (Edge Cases 2–4) need real test coverage, not just a happy-path WhatsApp-succeeds test — this is exactly the kind of branching logic this codebase's testing discipline already treats as a first-class concern (e.g. the Payments idempotency tests). |
-| Security | Yes | WhatsApp/MSG91 webhook endpoints (delivery status callbacks) must be signature/token-verified before being trusted, same posture as the Stripe and (planned) Shiprocket webhooks — never trust an unauthenticated callback claiming a message was delivered or failed. |
+| Security | Yes | WhatsApp/MSG91 webhook endpoints (delivery status callbacks) must be signature/token-verified before being trusted, same posture as the payments and (planned) Shiprocket webhooks — never trust an unauthenticated callback claiming a message was delivered or failed. |
 | Accessibility | Not applicable | This feature has no new customer-facing UI beyond a simple preference toggle, which reuses existing form components; no new accessibility pattern introduced. |
 | Data Portability (NFR-9-equivalent) | Yes | Same reasoning as Storage/Payment — `NotificationChannelPort` keeps Resend/Meta/MSG91 swappable without touching the domain logic that decides *when* to send, only *how*. |
 

@@ -82,12 +82,21 @@ FRONTEND.md §8 carry the actual detail; this doc is the milestone summary.
 10. Milestone 9 — Recommendation Engine ✅
 11. Milestone 10 — Admin Portal ✅
 12. **Milestone 11 — Testing ✅ (this milestone)**
-13. Milestone 12 — Prove CI on a real Actions runner; admin CRUD E2E
-    coverage; seed-data step for CI's database
-14. Milestone 13 — Payments hardening (real Stripe credentials, refund API,
-    checkout E2E), Redis caching, materialized views for Analytics
-15. Milestone 14 — Observability & Hardening, Auth.js bridge
-16. Milestone 15 — Deployment
+13. **Milestone 12 — CI proven on a real Actions runner ✅; Razorpay swap
+    (ADR-0005)** — see
+    [`milestone-12-ci-and-payments.md`](milestone-12-ci-and-payments.md)
+14. Milestone 13 — Hybrid admin (ADR-0006): AdminJS for CRUD, Metabase for
+    reporting, headless CMS spike. Supersedes materialized views for Analytics
+15. Milestone 14 — Observability & Hardening (ADR-0002), Auth.js bridge
+16. Milestone 15 — Deployment / go-live
+17. Milestone 16+ — Shipping, WhatsApp/SMS, Fraud/Risk
+
+> **Superseded since this milestone.** The two items above about Stripe
+> credentials and the CI seed-data step are both resolved: Stripe was dropped
+> for Razorpay (ADR-0005), and a seed step now exists in `ci.yml`. The
+> "CI has not yet run on a real GitHub Actions runner" gap named at the top of
+> this section is closed — it ran, and found three real defects. Details in the
+> Milestone 12 doc.
 
 ## Risks and Mitigations
 | Risk | Mitigation |

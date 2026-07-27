@@ -8,8 +8,15 @@ coverage
 **/coverage
 .turbo
 .git
+# Both the bare and `**/` forms are needed: .dockerignore patterns are matched
+# against the path relative to the context root, so `.env` alone matches only
+# a root-level file and would let apps/api/.env — which holds real local
+# secrets — into the build context. The multi-stage builds happen not to copy
+# it into any final image, but nothing enforces that.
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
 !**/.env.example
 *.log

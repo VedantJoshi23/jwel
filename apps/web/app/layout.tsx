@@ -12,6 +12,12 @@ const fontDisplay = Fraunces({ subsets: ['latin'], variable: '--font-display', w
 const fontSans = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const fontMono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['500', '600'] });
 
+// robots.txt is advisory — crawlers that ignore it still honour a noindex
+// directive, and a URL already known to Google is re-crawled regardless of
+// what robots.txt says. Both are needed to keep a demo deployment out of
+// search results. Same build-time flag as DemoModeBanner and robots.ts.
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
 export const metadata: Metadata = {
   title: {
     default: brand.seo.defaultTitle,
@@ -19,6 +25,7 @@ export const metadata: Metadata = {
   },
   description: brand.seo.defaultDescription,
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+  ...(isDemoMode && { robots: { index: false, follow: false, nocache: true } }),
   openGraph: {
     type: 'website',
     siteName: brand.seo.siteName,

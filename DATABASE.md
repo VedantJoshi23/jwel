@@ -298,9 +298,11 @@ erDiagram
   exactly what was charged, regardless of later price changes.
 
 ### `payments`
-- `provider` enum: `STRIPE | RAZORPAY`. Razorpay rows will not be created in MVP
-  (stub only) but the enum and table exist so activating it later is a config
-  change, not a schema migration.
+- `provider` enum: `STRIPE | RAZORPAY`. Razorpay is the sole live provider
+  (ADR-0005); every row carries `RAZORPAY`. `STRIPE` is deliberately retained
+  as an unused enum member — no rows have ever referenced it, and dropping an
+  enum value costs a migration for no benefit. Adding a second provider later
+  is a config change, not a schema migration.
 - No card/bank data ever stored — `providerRef` is the only link to the
   provider-side transaction.
 

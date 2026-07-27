@@ -48,9 +48,9 @@ Jwel/
   revisions are config changes, not rewrites.
 - **API contracts**: `packages/types` is the single source of truth for DTOs shared
   between `apps/web` and `apps/api`, preventing drift.
-- **Payments**: Stripe is the live integration target; Razorpay is wired as a
-  dummy/stub provider behind a common `PaymentProvider` interface — not activated
-  this phase.
+- **Payments**: Razorpay is the sole provider (ADR-0005), behind a common
+  `PaymentProvider` interface. Stripe was the original target and was dropped
+  before activation; the port stays because it is what made that swap cheap.
 
 ## 4. Tech Stack (confirmed)
 
@@ -63,7 +63,7 @@ Jwel/
 | Search | Elasticsearch |
 | Storage | AWS S3 (behind swappable `StorageProvider` port) |
 | Auth | Auth.js |
-| Payments | Stripe (live), Razorpay (stub) |
+| Payments | Razorpay (sole provider) |
 | Email | Resend |
 | Analytics | PostHog |
 | Infra | Docker, GitHub Actions, AWS ECS |

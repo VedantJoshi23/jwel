@@ -8,8 +8,27 @@ name: CI
 
 on:
   push:
-    branches: [main, Phase-II]
+    # `main` only. `Phase-II` used to be listed here and has never existed on
+    # the remote, so the push trigger only ever fired for `main` anyway.
+    # Briefly adding `testing` here made every push to an open PR's branch run
+    # the whole workflow twice — once for `push`, once for `pull_request` —
+    # which is what the unrestricted `pull_request` trigger below already
+    # covers. Feature branches get their CI from the PR.
+    branches: [main]
   pull_request:
+
+# Supersede an in-flight run when the same branch is pushed again: only the
+# newest commit's result is of any interest, and the E2E job holds a runner
+# for ~2.5 minutes.
+#
+# Note the side effect, which is easy to mistake for a broken runner: this
+# also cancels a *manual* re-run of an earlier commit if anything is pushed
+# to the same ref while it is going. If you are deliberately re-running a job
+# to gather evidence about an intermittent failure — which the E2E job has
+# needed — do not push until it has settled, or you will lose the result.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Was '20' — actions/setup-node@v4 no longer supports it on this runner
@@ -204,24 +223,53 @@ jobs:
       # per-test timeout on this runner, causing intermittent
       # `/product/[slug]` navigation timeouts; a production build has no
       # such compile-on-first-request cost at all.
+      # NODE_ENV is forced to production for this step ONLY, overriding the
+      # job-level `development`. `next build` under NODE_ENV=development fails
+      # while prerendering Next's own auto-generated /404 and /500 pages with
+      # "<Html> should not be imported outside of pages/_document" — Next pulls
+      # its dev-mode error-page machinery into the production export path and
+      # the export aborts. Reproduced locally on this exact tree: the build
+      # fails with NODE_ENV=development and succeeds with it unset.
+      #
+      # This is what actually broke the first real Actions run. The
+      # NODE_VERSION comment at the top of this file blames the same error on
+      # a silent Node-version fallback; that hypothesis was wrong — the run
+      # below is pinned to Node 22 and still failed until NODE_ENV was fixed.
+      # The job keeps `development` at job level because the API needs a
+      # non-production NODE_ENV to resolve MockPaymentProvider
+      # (payments.module.ts), and `npm install` needs devDependencies.
       - name: Build the web app
         working-directory: apps/web
+        env:
+          NODE_ENV: production
         run: npm run build
 
       - name: Install Playwright browsers
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
+      # Same override: playwright.config.ts's webServer runs `next start`
+      # against the production build made above, so it must not be told the
+      # environment is development either.
       - name: Run E2E tests
         working-directory: apps/web
+        env:
+          NODE_ENV: production
         run: npx playwright test
 
-      - name: Upload Playwright report on failure
+      # test-results/ as well as playwright-report/: the raw traces and
+      # error-context.md snapshots live there, and they are what actually
+      # diagnose a `page.goto` that never fires `load`. Uploading only the
+      # report meant the first real failing run produced no artifact at all,
+      # because the reporter was 'list' and wrote no report directory.
+      - name: Upload Playwright report and traces on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: apps/web/playwright-report/
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
           retention-days: 7
 
       - name: Upload API log on failure

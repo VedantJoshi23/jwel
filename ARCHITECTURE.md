@@ -51,7 +51,7 @@ graph TB
         PRICEM["Pricing Module<br/>(gold-rate-linked pricing engine)"]
         CARTM["Cart Module"]
         ORDERM["Order Module"]
-        PAYM["Payment Module<br/>(Stripe live / Razorpay stub, behind PaymentProvider port)"]
+        PAYM["Payment Module<br/>(Razorpay live, behind PaymentProvider port)"]
         COUPONM["Coupon/Discount Module"]
         REVIEWM["Review Module"]
         WISHM["Wishlist Module"]
@@ -74,8 +74,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        STRIPE["Stripe"]
-        RAZORPAY["Razorpay (stub, inactive)"]
+        RAZORPAY["Razorpay"]
         RESEND["Resend (email)"]
         POSTHOG["PostHog (analytics)"]
         AUTHJS["Auth.js providers"]
@@ -103,8 +102,7 @@ graph TB
     CARTM --> REDIS
     CARTM --> PG
     ORDERM --> PG
-    PAYM --> STRIPE
-    PAYM -.->|stubbed, not live| RAZORPAY
+    PAYM --> RAZORPAY
     COUPONM --> PG
     REVIEWM --> PG
     WISHM --> PG
@@ -147,7 +145,7 @@ microservice extraction cheap.
 | **Cart** | Cart line items, gift-wrap/notes (pre-order) | Payment, stock decrement | FR-7 |
 | **Coupon/Discount** | Coupon rules, validation, campaigns | Cart contents | FR-8, FR-22 |
 | **Order** | Order lifecycle, status timeline | Payment processing, shipping carrier integration | FR-9, FR-10, FR-19 |
-| **Payment** | Payment provider abstraction (Stripe live, Razorpay stub) | Order state (listens via events) | FR-9 |
+| **Payment** | Payment provider abstraction (Razorpay live, sole provider — ADR-0005) | Order state (listens via events) | FR-9 |
 | **Shipping** — **added, was a named gap since Milestone 2**: Order's own row above always said it does not own "shipping carrier integration," but no context ever claimed it; see the revision note below the table. | Shipment creation/cancellation, carrier tracking state (AWB, courier status), serviceability (pincode + COD eligibility) lookup, COD remittance ledger | Order lifecycle/status itself (only ever requests a transition via events — never writes `orders.status` directly, same Law 1 boundary Payment already respects) | FR-9, FR-10, FR-19 |
 | **Returns** | Return/exchange requests, refund status | Original order mutation | FR-11 |
 | **Review** | Ratings, review content, moderation queue | Purchase verification logic (asks Order context) | FR-5 |
@@ -378,7 +376,7 @@ sequenceDiagram
     participant Coupon as Coupon Module
     participant Order as Order Module
     participant Payment as Payment Module
-    participant Stripe
+    participant Razorpay
     participant Inventory as Inventory Module
     participant Notify as Notification Module
     participant Analytics as Analytics Module
@@ -390,11 +388,13 @@ sequenceDiagram
     Order->>Inventory: reserveStock(items)
     Inventory-->>Order: reservation confirmed
     Order->>Payment: initiateCharge(amount)
-    Payment->>Stripe: create PaymentIntent
-    Stripe-->>Payment: client_secret
-    Payment-->>Web: client_secret (for confirmation)
-    Web->>Stripe: confirm payment (client-side)
-    Stripe-->>Payment: webhook PaymentSucceeded
+    Payment->>Razorpay: create Order (amount in paise)
+    Razorpay-->>Payment: order_id
+    Payment-->>Web: order_id + public key_id
+    Web->>Razorpay: Standard Checkout modal (client-side)
+    Razorpay-->>Web: payment_id + order_id + signature
+    Web->>Payment: verify(signature)
+    Razorpay-->>Payment: webhook payment.captured
     Payment->>Order: markPaid(orderId)
     Order-->>Order: emit OrderPlaced
     Order->>Inventory: commitStock(items)
@@ -543,7 +543,7 @@ Full detail in [`SECURITY.md`](SECURITY.md). Summary of architectural controls:
   through an `AuthGuard` + `RolesGuard` (NestJS guards) before reaching module
   controllers.
 - **Payment data never touches Jwel's database** — PCI scope is delegated entirely
-  to Stripe (live) / Razorpay (stub); only provider references/IDs are persisted.
+  to Razorpay; only provider references/IDs are persisted.
 - **Defense in depth at the Gateway layer**: rate-limiting, input validation
   (class-validator DTOs), CORS allowlist, Helmet headers, CSRF protection for
   cookie-based admin sessions.
@@ -552,7 +552,7 @@ Full detail in [`SECURITY.md`](SECURITY.md). Summary of architectural controls:
   methods, preventing one compromised module from arbitrarily querying another's
   tables in code review terms (defense against accidental over-fetching, not a
   runtime sandbox).
-- **Secrets**: all provider keys (Stripe, Resend, AWS, DB) injected via environment
+- **Secrets**: all provider keys (Razorpay, Resend, AWS, DB) injected via environment
   variables from AWS Secrets Manager/ECS task definitions — never committed.
 
 ---
@@ -619,7 +619,7 @@ Jwel/
 │       │   │   ├── order/
 │       │   │   ├── payment/
 │       │   │   │   ├── domain/ports/payment-provider.port.ts
-│       │   │   │   └── infrastructure/{stripe,razorpay}/
+│       │   │   │   └── infrastructure/razorpay/
 │       │   │   ├── shipping/
 │       │   │   │   ├── domain/ports/shipping-provider.port.ts
 │       │   │   │   └── infrastructure/shiprocket/
@@ -708,8 +708,8 @@ Request: { "variantId": "uuid", "quantity": 1, "giftWrap": false }
 
 ### `POST /api/v1/cart/checkout`
 ```
-Request: { "cartId": "uuid", "couponCode": "SHINE75"?, "shippingAddressId": "uuid", "paymentProvider": "stripe" }
-200 Response: { "orderId": "uuid", "clientSecret": "...", "amountDue": 2599 }
+Request: { "cartId": "uuid", "couponCode": "SHINE75"?, "shippingAddressId": "uuid", "paymentProvider": "razorpay" }
+200 Response: { "orderId": "uuid", "checkoutOrderId": "order_...", "keyId": "rzp_...", "amountDue": 2599 }
 ```
 
 ### `GET /api/v1/orders/{id}`
