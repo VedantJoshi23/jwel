@@ -55,15 +55,18 @@ just a single carrier's API.
 ## Decision
 
 Shiprocket is the shipping provider, integrated behind a
-`ShippingProviderPort` (mirrors `PaymentProviderPort`'s Stripe/Razorpay
-split — see `BACKEND.md` §... and `SECURITY.md` §4). No Shiprocket-specific
-type or API shape may leak outside the `infrastructure/shiprocket/`
-adapter; `ShippingService` only ever depends on the port.
+`ShippingProviderPort` (mirrors `PaymentProviderPort` — see `BACKEND.md` §...
+and `SECURITY.md` §4). No Shiprocket-specific type or API shape may leak
+outside the `infrastructure/shiprocket/` adapter; `ShippingService` only ever
+depends on the port.
 
-Unlike Payment's live/stub split (Stripe active, Razorpay stubbed but
-present), only one Shipping adapter exists at launch — a second
-aggregator or direct-carrier adapter is future work if Shiprocket's
-serviceability or pricing proves insufficient, not built speculatively now.
+Only one Shipping adapter exists at launch — a second aggregator or
+direct-carrier adapter is future work if Shiprocket's serviceability or
+pricing proves insufficient, not built speculatively now. Payment ended up in
+the same single-adapter shape: this ADR originally contrasted Shipping against
+Payment's live/stub split, but ADR-0005 dropped Stripe and left Razorpay as the
+sole implementation behind its port. The port still earns its place — it is
+what made that swap cheap.
 
 ## Consequences
 

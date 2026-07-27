@@ -159,10 +159,10 @@ the M8 audit) — jwel does not yet have these formalized in its own
 
 | Standard | Relevant? | Notes |
 | --- | --- | --- |
-| STD-API | Yes | New endpoints follow the same versioned-prefix, envelope-error convention as every other `api/v1` route; webhook route follows the Stripe webhook's `@Public()` + raw-body + signature-verification pattern exactly. |
+| STD-API | Yes | New endpoints follow the same versioned-prefix, envelope-error convention as every other `api/v1` route; webhook route follows the payments webhook's `@Public()` + raw-body + signature-verification pattern exactly. |
 | STD-DATABASE (corrected) | Yes | `shipments.orderId` is a cross-context read FK — fine under the corrected rule; no cross-context *write* anywhere in this feature (Invariant 1). |
 | STD-TESTING | Yes | Webhook idempotency and the NDR COD/prepaid branching (Edge Cases 2–3) are exactly the kind of case that needs a real test, not just a happy-path one — this codebase's existing 90%+ coverage gate applies unchanged. |
-| Security (SECURITY.md §4-equivalent) | Yes | Shiprocket webhook must be signature-verified before trusting its payload, same posture as the Stripe webhook — never trust an unverified `POST` claiming a shipment was delivered. |
+| Security (SECURITY.md §4-equivalent) | Yes | Shiprocket webhook must be signature-verified before trusting its payload, same posture as the payments webhook — never trust an unverified `POST` claiming a shipment was delivered. |
 | Accessibility | Partial | The serviceability/pincode input and tracking status timeline are the only UI surfaces this feature adds — both need the same keyboard/screen-reader treatment as existing form inputs and the order status timeline already on the order detail page; no new accessibility pattern is introduced. |
 | Observability | Not applicable — not yet implemented at all for jwel (a pre-existing gap named in the M8 audit, not something this feature should silently take on). Webhook failures should at minimum log loudly (matching `EventBusService`'s existing "log, don't swallow" handler-failure pattern) until real observability infra exists. |
 

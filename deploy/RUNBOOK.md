@@ -133,18 +133,19 @@ because Compose substitutes them into the compose files and only ever reads
 Put `API_TAG` in the wrong file and step 7 fails immediately with `required
 variable API_TAG is missing a value`.
 
-`STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are required — the API
-deliberately refuses to boot in production without them instead of quietly
-using the mock payment provider. For a staging deployment against a real
-Stripe account, use that account's test-mode keys.
+`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` are
+required — the API deliberately refuses to boot in production without them
+instead of quietly using the mock payment provider. For a staging deployment
+against a real Razorpay account, use that account's test-mode keys
+(`rzp_test_…`).
 
 The one supported exception is `PAYMENTS_MODE=simulated`, for a
 production-shaped deployment that has no gateway account at all yet. Checkout
 then completes through the mock provider and orders confirm with no money
-moving. It is not Stripe test mode — Stripe is not contacted, and no Stripe
-keys are set. See §13 for how to turn it on and the checklist that removes it.
-Do **not** set placeholder Stripe keys to get past the boot check; the app
-starts and then leaves every order stuck `PENDING`.
+moving. It is not Razorpay test mode — Razorpay is not contacted, and no
+Razorpay keys are set. See §13 for how to turn it on and the checklist that
+removes it. Do **not** set placeholder Razorpay keys to get past the boot
+check; the app starts and then leaves every order stuck `PENDING`.
 
 Use `api.yourdomain.com` / `shop.yourdomain.com` (your real domain from step
 0) everywhere the env files ask for a URL — `CORS_ALLOWED_ORIGINS`,
@@ -396,7 +397,7 @@ carry over; the client does not need a new account.
 | 9 | build arg `NEXT_PUBLIC_API_ORIGIN` | api | **web image rebuild** |
 | 10 | build arg `NEXT_PUBLIC_SITE_URL` | apex | **web image rebuild** |
 | 11 | Google OAuth redirect URI | api | Google Cloud console |
-| 12 | Stripe webhook endpoint URL | api | Stripe dashboard |
+| 12 | Razorpay webhook endpoint URL | api | Razorpay dashboard |
 
 Rows 8–10 are the ones that catch people. `NEXT_PUBLIC_*` values are inlined
 into the JavaScript bundle at build time — they are **not** read from the
@@ -493,8 +494,8 @@ already shared will keep arriving on the old hostname.
 
 ## 13. Running without a payment gateway, and going live later
 
-For client UAT before a gateway account exists — Stripe India is invite-only,
-Razorpay onboarding takes days — the deployment can run with **simulated
+For client UAT before a gateway account exists — Razorpay onboarding takes
+days and needs the client's business documents — the deployment can run with **simulated
 payments**. Checkout completes through `MockPaymentProvider`, orders reach
 `CONFIRMED`, the confirmation notification fires, and the order appears in the
 admin panel. No money moves and nothing is charged.
@@ -512,8 +513,8 @@ PAYMENTS_MODE=simulated
 ```
 
 Exactly that string; anything else is rejected at boot by `env.validation.ts`
-rather than silently ignored. `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`
-stay unset — the flag replaces the requirement for them.
+rather than silently ignored. The `RAZORPAY_*` keys stay unset — the flag
+replaces the requirement for them.
 
 **Web** — a build arg, because `NEXT_PUBLIC_*` is inlined at build time:
 
@@ -548,7 +549,7 @@ code is neither type-checked nor covered by tests in the weeks it sits there.
 The flag inverts that: the dangerous state requires an explicit, loud,
 single-line opt-in, and go-live is a deletion rather than a restoration.
 
-For the same reason, do **not** set placeholder Stripe keys to get past the
+For the same reason, do **not** set placeholder Razorpay keys to get past the
 boot check. The app starts, but the webhook signature check then fails on
 every callback and orders sit at `PENDING` forever — a far more confusing
 failure than not booting at all.
@@ -562,12 +563,14 @@ it takes real card details while still displaying the demo banner.
    legal entity's name — payouts, tax and chargeback liability follow the
    account holder. Get restricted API keys, or ask to be added as a developer
    so you never hold their live secret key.
-2. **Webhook endpoint** in the gateway dashboard, pointing at
-   `https://<api-domain>/payments/webhook/stripe`, subscribed to
-   `payment_intent.succeeded` and `payment_intent.payment_failed` — the only
-   two events `stripe-payment.provider.ts` acts on. Copy the signing secret.
+2. **Webhook endpoint** in the Razorpay dashboard (Settings → Webhooks),
+   pointing at `https://<api-domain>/api/v1/payments/webhook/razorpay`,
+   subscribed to `payment.captured` and `payment.failed` — the only two events
+   `razorpay-payment.provider.ts` acts on. **You set the webhook secret
+   yourself when creating the webhook, and Razorpay never shows it again** —
+   record it before saving, unlike Stripe's re-viewable signing secret.
 3. **`deploy/.env.production`**: delete the `PAYMENTS_MODE` line, add
-   `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+   `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET`.
 4. **Rebuild the web image** *without* `--build-arg NEXT_PUBLIC_DEMO_MODE`,
    with a new tag. This is not optional — the banner and the `noindex` are
    baked into the bundle and no restart will clear them.

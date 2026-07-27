@@ -8,7 +8,11 @@ name: CI
 
 on:
   push:
-    branches: [main, Phase-II]
+    # `Phase-II` was listed here and has never existed on the remote, so the
+    # push trigger only ever fired for `main` — which is also the one branch
+    # nobody pushes to directly. Every run to date has come from the
+    # unrestricted `pull_request` trigger below.
+    branches: [main, testing]
   pull_request:
 
 env:

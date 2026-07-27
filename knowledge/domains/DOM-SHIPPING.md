@@ -139,7 +139,8 @@ which doesn't exist yet.
   `GET /api/v1/orders/:id` surface or as its own endpoint (implementation
   choice for `FEAT-SHIPPING` §4, not fixed here).
 - `POST /api/v1/shipping/webhooks/shiprocket` — signed server-to-server
-  callback (same pattern as `POST /api/v1/payments/webhook/stripe`), not
+  callback (same pattern as the payments webhook, `POST
+  /api/v1/payments/webhook/:provider`), not
   part of the public API surface.
 - `GET /api/v1/admin/shipments` / `GET /api/v1/admin/shipments/:id` —
   admin shipment list/detail, including NDR queue.
@@ -230,7 +231,7 @@ event source in its own (Notification's, Payment's) domain spec instead.
   transitions must be idempotent and monotonic (e.g. a `PICKED_UP`
   webhook arriving after `DELIVERED` was already recorded is a no-op, not
   a regression) — same idempotency discipline `PaymentsService.markSucceeded`
-  already uses for Stripe webhook replay.
+  already uses for payment-webhook replay.
 - **NDR raised on a COD order vs. a prepaid order.** A COD NDR
   (customer refused/unavailable) has no refund implication; a prepaid NDR
   resolving to RTO requires Order to eventually cancel and Returns/Payment

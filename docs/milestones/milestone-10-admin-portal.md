@@ -57,8 +57,10 @@ original sketch's URLs would have collided with the storefront's own
       `fetch`/`FormData` was not observed. Named explicitly rather than
       assumed — see FRONTEND.md §7.5 for the exact boundary of what was and
       wasn't checked.
-- [ ] No product create/edit form in the Admin Portal beyond status
-      transitions and bulk CSV import
+- [x] ~~No product create/edit form in the Admin Portal beyond status
+      transitions and bulk CSV import~~ — **closed since this milestone**:
+      `components/admin/product-form.tsx` plus the `admin/products/new` and
+      `admin/products/[id]/edit` pages now exist
 - [ ] No audit log of admin actions
 - [ ] Inventory table shows variant ids, not product names (the low-stock
       endpoint doesn't join product data)

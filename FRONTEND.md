@@ -104,12 +104,18 @@ integration is open work for a future milestone, not a stylistic choice.
 
 ## 4. Explicitly Deferred / Simplified (Not Implemented This Milestone)
 
-- **No Stripe Elements card-collection UI.** Checkout calls `POST /orders`,
-  which creates the order and a Stripe `clientSecret` server-side (per
-  BACKEND.md), but the frontend does not render Stripe's card-entry widget or
-  call `confirmCardPayment` — the checkout form says so explicitly to the user
-  rather than silently pretending payment is complete. The confirmation page
-  shows the order as placed, not as paid.
+- **No payment step at all.** Checkout calls `POST /orders`, which creates the
+  order and initiates payment server-side, but the frontend *discards* what the
+  API returns and routes straight to the confirmation page. There is no
+  `lib/api/payments.ts`, no gateway script, and no verification call — the
+  checkout form says so explicitly to the user rather than silently pretending
+  payment is complete. The confirmation page shows the order as placed, not as
+  paid.
+
+  Worth stating precisely, because "Stripe Elements is deferred" (how this
+  entry read until ADR-0005) understated it: wiring Razorpay is not swapping
+  one card widget for another, it is building the client half of checkout for
+  the first time. See ADR-0005 and the Milestone 12 doc.
 - **No Wishlist, Order Tracking, or Admin Dashboard pages.** Not in this
   milestone's 7-page list (Homepage, Search, Collections, Product Details,
   Cart, Checkout, Profile) — DESIGN.md spec'd these but they're not built here.
@@ -320,10 +326,9 @@ fails below 90% on any metric, same enforcement mechanism as the backend.
   publishing a product, or importing a CSV through the real admin UI in a
   real browser has not been exercised end-to-end. Named explicitly, not
   silently implied by the RBAC tests passing.
-- **No checkout E2E test** — Stripe's placeholder key (a standing gap since
-  Milestone 7) makes a real checkout-to-payment-intent round trip
-  unexercisable without live credentials; add-to-cart and the cart page are
-  E2E-tested, the payment step is not.
+- **No checkout E2E test** — a standing gap since Milestone 7, now blocked on
+  real Razorpay test-mode credentials rather than Stripe ones; add-to-cart and
+  the cart page are E2E-tested, the payment step is not.
 - **No visual regression testing** — component tests assert DOM structure/
   text/attributes, not pixel output.
 - **CI hasn't run Playwright against a from-scratch CI database** — see

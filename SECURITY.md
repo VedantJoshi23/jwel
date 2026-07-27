@@ -10,7 +10,7 @@
 ## 1. Threat Model Summary
 
 Jwel handles three categories of sensitive data: **PII** (addresses, contact info),
-**payment references** (never raw card data — delegated to Stripe/Razorpay), and
+**payment references** (never raw card data — delegated to Razorpay), and
 **high-value transactional data** (orders for luxury goods, attractive to fraud).
 Primary threat actors: opportunistic credential-stuffing attackers, scrapers/bots
 targeting catalog and pricing data, payment/coupon-abuse fraudsters, and
@@ -23,15 +23,15 @@ account-takeover attempts on customer accounts holding saved addresses.
 | # | Risk | Jwel Control |
 |---|---|---|
 | **A01** Broken Access Control | `AuthGuard` + `RolesGuard` on every NestJS route; admin routes require `role: ADMIN|STAFF` claim; object-level authorization checks (e.g. a user can only view their own Order/Return) enforced in application-service layer, not just route-level; no direct object reference exposure (UUIDs, not sequential IDs) |
-| **A02** Cryptographic Failures | TLS everywhere (enforced at ALB/CDN); PII encrypted at rest (Postgres column-level encryption or RDS storage encryption); no card data stored (PCI scope delegated to Stripe/Razorpay); password hashing via Auth.js-managed adapter (bcrypt/argon2, never custom crypto) |
+| **A02** Cryptographic Failures | TLS everywhere (enforced at ALB/CDN); PII encrypted at rest (Postgres column-level encryption or RDS storage encryption); no card data stored (PCI scope delegated to Razorpay); password hashing via Auth.js-managed adapter (bcrypt/argon2, never custom crypto) |
 | **A03** Injection | Prisma parameterized queries exclusively — no raw SQL string concatenation; class-validator DTO validation at every controller boundary; Elasticsearch queries built via query-DSL builders, not string interpolation |
 | **A04** Insecure Design | Threat modeling done per-module at design time (this document); rate-limiting and stock-reservation locking designed in from the start (ARCHITECTURE.md §7) rather than retrofitted; coupon abuse prevented by append-only `coupon_redemptions` ledger with per-user/global limits enforced server-side |
 | **A05** Security Misconfiguration | Helmet middleware (security headers) on all API responses; CORS allowlist restricted to known frontend origins; environment-specific configs via AWS Secrets Manager, never hardcoded; default-deny on admin routes (explicit role grant required) |
 | **A06** Vulnerable & Outdated Components | Dependabot/Renovate on the monorepo (GitHub Actions integration, configured at CI milestone); pinned dependency versions; `pnpm audit` gate in CI pipeline |
 | **A07** Identification & Authentication Failures | Auth.js handles session/token lifecycle (no custom auth code to get wrong); rate-limited login/password-reset endpoints; account lockout/backoff on repeated failed logins; MFA hook point reserved in Auth.js config for future enablement |
-| **A08** Software & Data Integrity Failures | CI pipeline validates lockfile integrity; signed/verified Docker base images; webhook signature verification mandatory for Stripe/Razorpay callbacks (reject unsigned/invalid-signature webhook payloads) |
+| **A08** Software & Data Integrity Failures | CI pipeline validates lockfile integrity; signed/verified Docker base images; webhook signature verification mandatory for Razorpay callbacks (reject unsigned/invalid-signature webhook payloads) |
 | **A09** Security Logging & Monitoring Failures | All auth events, payment state transitions, and admin mutations logged with correlation IDs; Prometheus alerts on auth failure-rate spikes and checkout error-rate spikes; Grafana dashboards reviewed as part of Milestone 9 (Observability) |
-| **A10** Server-Side Request Forgery (SSRF) | No user-supplied URLs are fetched server-side without an allowlist (e.g. gold-rate provider, Stripe, Resend endpoints are the only outbound destinations, all hardcoded by config, never user-influenced) |
+| **A10** Server-Side Request Forgery (SSRF) | No user-supplied URLs are fetched server-side without an allowlist (e.g. gold-rate provider, Razorpay, Resend endpoints are the only outbound destinations, all hardcoded by config, never user-influenced) |
 
 ---
 
@@ -76,14 +76,22 @@ sequenceDiagram
 ## 4. Payment Security
 
 - **PCI DSS scope minimization**: Jwel never receives, transmits, or stores raw
-  cardholder data. Stripe Elements / Stripe-hosted payment flows handle card entry
-  client-side; Jwel's backend only ever sees a `PaymentIntent`/`clientSecret` and a
-  `providerRef`. This keeps Jwel in **PCI DSS SAQ A** scope, not full PCI compliance.
-- **Razorpay stub**: wired behind the same `PaymentProvider` port but not connected
-  to live credentials; no Razorpay secret keys exist in any environment until
-  explicitly activated in a future milestone.
-- **Webhook integrity**: All payment-provider webhooks (Stripe `payment_intent.
-  succeeded`, etc.) must pass signature verification before being processed; replay
+  cardholder data. Razorpay Standard Checkout renders the payment form in
+  Razorpay's own hosted modal, so card entry never touches a Jwel origin; Jwel's
+  backend only ever sees a Razorpay `order_id` and a `providerRef`. This keeps
+  Jwel in **PCI DSS SAQ A** scope, not full PCI compliance.
+- **Public vs. secret keys**: `RAZORPAY_KEY_ID` is public by design — it is
+  handed to the browser to open the Checkout modal. `RAZORPAY_KEY_SECRET` and
+  `RAZORPAY_WEBHOOK_SECRET` are server-only and must never reach a
+  `NEXT_PUBLIC_*` variable, which Next.js inlines into the client bundle.
+- **Handler response is not proof of payment**: the `razorpay_signature` the
+  Checkout modal returns is verified server-side (HMAC-SHA256 over
+  `order_id|payment_id` with the key secret) before any order is marked paid.
+  The authoritative confirmation is still the signed webhook — a client-side
+  handler result alone is attacker-controllable.
+- **Webhook integrity**: All payment-provider webhooks (Razorpay
+  `payment.captured`, `payment.failed`) must pass `X-Razorpay-Signature`
+  verification before being processed; replay
   protection via idempotency keys on order state transitions (`OrderPlaced` etc. are
   idempotent on `providerRef`).
 - **Amount integrity**: order total is recomputed server-side from `order_items` at

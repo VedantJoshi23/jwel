@@ -119,7 +119,7 @@ CaratLane (see Sources at bottom).
 5. Returns days later (logged in) → wishlist persisted → compares 2–3 sets using
    Product Comparison.
 6. Adds to cart → applies EMI option at checkout → completes purchase with
-   Razorpay/Stripe (stubbed) → receives order confirmation + certification docs.
+   Razorpay → receives order confirmation + certification docs.
 7. Tracks order via Order Tracking; eventually may initiate a Return if sizing
    is wrong.
 
@@ -188,7 +188,7 @@ CaratLane (see Sources at bottom).
 - **FR-8 Coupon System**: Apply/validate coupon codes, rule-based discounts
   (percentage, flat, category-specific, first-order).
 - **FR-9 Checkout**: Address management, shipping method selection, payment via
-  Stripe (live) / Razorpay (stub, inactive), order summary, EMI option placeholder.
+  Razorpay Standard Checkout (ADR-0005), order summary, EMI option placeholder.
 - **FR-10 Order Tracking**: Order status timeline (placed → processing → shipped →
   delivered), shipment tracking reference.
 - **FR-11 Returns**: Initiate return/exchange request, reason capture, return status
@@ -231,7 +231,7 @@ CaratLane (see Sources at bottom).
   catalog/category data in Redis to absorb festive-season traffic spikes
   (Diwali/wedding season is the Indian jewellery peak).
 - **NFR-4 Security**: OWASP Top 10 compliance, PCI-DSS-aligned handling of payment
-  data (delegated to Stripe/Razorpay, no raw card data stored), encrypted PII at
+  data (delegated to Razorpay, no raw card data stored), encrypted PII at
   rest, rate-limiting on auth/search endpoints.
 - **NFR-5 Accessibility**: WCAG 2.1 AA across storefront (keyboard navigation, alt
   text for product imagery, color-contrast compliant on luxury dark/gold palette).
@@ -242,8 +242,9 @@ CaratLane (see Sources at bottom).
 - **NFR-8 Observability**: Centralized metrics/logging via Prometheus/Grafana;
   business analytics via PostHog; alerting on checkout funnel error rates.
 - **NFR-9 Data Portability**: Storage and payment provider abstractions ensure no
-  hard vendor lock-in (S3 → standalone storage; Razorpay stub → swap-in without
-  domain changes).
+  hard vendor lock-in (S3 → standalone storage; Razorpay sits behind
+  `PaymentProviderPort` so a future gateway swaps in without domain changes —
+  the abstraction that made dropping Stripe cheap, see ADR-0005).
 - **NFR-10 Internationalization-readiness**: Currency/locale formatting centralized
   even though India is the only region in MVP, to avoid rework if US/UAE expansion
   is requested later (CaratLane and Tanishq both already operate in the US).
@@ -258,7 +259,7 @@ loop, plus one visible AI differentiator, within the first shippable release.**
 Included in MVP:
 - Auth (FR-1), Catalog browsing + Filters (FR-2), Search (FR-3), PDP (FR-4),
   Reviews (FR-5, display only — moderation can be manual), Wishlist (FR-6),
-  Cart (FR-7), Coupons (FR-8), Checkout with Stripe live + Razorpay stub (FR-9),
+  Cart (FR-7), Coupons (FR-8), Checkout with Razorpay (FR-9),
   Order Tracking (FR-10), Returns (FR-11).
 - Admin: Product Management (FR-17), Inventory Management (FR-18), Order
   Management (FR-19), basic Analytics Dashboard (FR-21), Discount Management (FR-22).

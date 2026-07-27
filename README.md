@@ -10,8 +10,23 @@ recommendation engine.
 **Phase 1 (MVP development) is complete — Milestones 0 through 10.** The
 platform has been run end-to-end against a real local PostgreSQL +
 Elasticsearch stack, with real seeded catalog/order data driving search,
-recommendations, and the admin dashboard. **Phase 2 (testing + DevOps) is
-next.**
+recommendations, and the admin dashboard.
+
+**Phase 2 (testing + DevOps) is under way.** Milestone 11 built the test suite
+(backend Jest unit + integration, frontend Vitest, Playwright E2E) and the CI
+workflow; `deploy/` carries a full self-hosted Docker/nginx deployment and
+runbook. Milestone 12 is in progress — see
+[`docs/milestones/milestone-12-ci-and-payments.md`](docs/milestones/milestone-12-ci-and-payments.md).
+
+Three client decisions now shape the roadmap:
+
+- **Razorpay is the sole payment provider; Stripe is dropped**
+  ([ADR-0005](knowledge/decisions/ADR-0005-razorpay-as-sole-payment-provider.md))
+- **Admin is a hybrid** — custom for workflows, AdminJS for CRUD, Metabase for
+  reporting, a headless CMS for content
+  ([ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md))
+- **CI now runs on GitHub Actions**, so the Milestone 11 workflow is finally
+  being proven on a real runner rather than only locally
 
 | Milestone | Scope | Doc |
 |---|---|---|
@@ -43,7 +58,7 @@ verified. That gap is squarely Phase 2's job to close.
   React Query
 - **Backend** (`apps/api`): NestJS, Prisma, PostgreSQL
 - **Search**: Elasticsearch (with a documented Postgres fallback if it's down)
-- **Payments**: Stripe (live), Razorpay (stub)
+- **Payments**: Razorpay (sole provider, behind `PaymentProviderPort` — ADR-0005)
 - **Email**: Resend
 
 ## Repository layout

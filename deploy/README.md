@@ -69,6 +69,13 @@ API_TAG=<git sha, never "latest">
 WEB_TAG=<same git sha>
 ```
 
+> **Payment provider status.** Razorpay is the decided sole provider
+> (ADR-0005), and the variables below name it. The **adapter itself ships in
+> Milestone 12** — until that lands, the code still carries the Stripe adapter
+> and a Razorpay stub that throws when invoked. Deploying before M12 means
+> running with `PAYMENTS_MODE=simulated` (§13 of RUNBOOK.md), not with the
+> Razorpay keys below.
+
 **`.env.production`** (read by the API container) — see `apps/api/.env.example`
 for the annotated full list. At minimum:
 
@@ -88,11 +95,15 @@ STORAGE_PROVIDER=filesystem
 UPLOADS_DIR=/app/uploads
 
 # Required whenever NODE_ENV=production. payments.module.ts refuses to boot
-# without both, rather than falling back to the mock provider and silently
-# marking real orders paid without money moving. Use Stripe test-mode keys
-# (sk_test_… / whsec_…) for a staging deployment.
-STRIPE_SECRET_KEY=<from the Stripe dashboard>
-STRIPE_WEBHOOK_SECRET=<from the Stripe dashboard>
+# without all three, rather than falling back to the mock provider and silently
+# marking real orders paid without money moving. Use Razorpay test-mode keys
+# (rzp_test_…) for a staging deployment.
+#
+# KEY_ID is public — it is handed to the browser to open the Checkout modal.
+# The other two are server-only and must never become NEXT_PUBLIC_* vars.
+RAZORPAY_KEY_ID=<from the Razorpay dashboard>
+RAZORPAY_KEY_SECRET=<from the Razorpay dashboard>
+RAZORPAY_WEBHOOK_SECRET=<set when creating the webhook, not shown again>
 ```
 
 The API validates all of these at boot (`src/config/env.validation.ts`) and
