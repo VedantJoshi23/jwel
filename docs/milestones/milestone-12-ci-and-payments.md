@@ -59,10 +59,15 @@ been inverted to match:
 
     Which image is requested depends on the product's UUID —
     `getProductStockImage` hashes it — and CI creates a fresh database each
-    run, so the UUID and therefore the image differ every time. That is why
-    this failed on 3 of the first 4 runs and passed on the fourth: a 1-in-5
-    lottery, not a regression, and the reason it was briefly mistaken for
-    a `workers` problem.
+    run, so the UUID and therefore the image differ every time. Two of the
+    five images in the pool are large (403 KB and 384 KB, both 1400×2100);
+    the other three are 273 KB or less. **It failed 3 of the 5 runs that
+    reached the E2E step**, which is about what a ~2-in-5 draw predicts.
+
+    That alternating pass/fail is why it was twice mistaken for fixed — once
+    credited to `workers: 1`, and once reported as a green docs commit that
+    had in fact failed its PR run. A single green run is not evidence about
+    an intermittent failure.
 
     Mitigated by navigating with `waitUntil: 'domcontentloaded'` in the two
     affected tests. The assertions are unchanged and still prove SSR served
@@ -173,5 +178,5 @@ Elasticsearch index aliasing; inventory table joining product names.
 | The port reshape is a breaking change to `POST /api/v1/orders`' response | Only one consumer exists (`checkout/page.tsx`) and it currently discards that field entirely, so the blast radius is smaller than the API-contract change implies |
 | Standard Checkout returns a signature to the *browser*, and a browser-supplied result is attacker-controllable | Called out as its own consequence in ADR-0005 and as a rule in `SECURITY.md` §4: verify server-side, and treat the signed webhook — not the handler result — as authoritative |
 | `workers: 1` makes the E2E job slower as the suite grows | Accepted for now: correctness over speed while the suite is 12 tests and runs in 10s. Revisit with per-worker isolated accounts rather than by re-enabling cross-file parallelism against shared state |
-| One green run proves the workflow, not its stability | Demonstrated the hard way: a run passed, was declared green, and the very next commit — a README-only change — failed on the same two tests. Treat intermittent E2E failures as real signal, not noise |
+| One green run proves the workflow, not its stability | Demonstrated the hard way, twice. A run passed and was declared green; the next commit — a README-only change — failed on the same two tests. Separately, a commit was reported green by misreading `gh pr checks`, which interleaves results from several runs, when its own PR run had failed. Read the run, not the aggregated check list, and treat intermittent E2E failures as signal |
 | An unexplained hang was mitigated at the test layer, which could hide a real production defect | Called out explicitly rather than closed: the `waitUntil` change is scoped to two navigations and keeps every assertion, and the underlying `/_next/image` hang is filed in Tasks Remaining as a production concern with concrete next steps, not marked resolved |
