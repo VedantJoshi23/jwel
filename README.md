@@ -41,16 +41,19 @@ Three client decisions now shape the roadmap:
 | 8 | Search (Elasticsearch) | [`BACKEND.md`](BACKEND.md) §8 |
 | 9 | Recommendation engine (rule-based: FBT, recently viewed, trending, personalized) | [`BACKEND.md`](BACKEND.md) §9 |
 | 10 | Admin Portal (CMS, Analytics, bulk import, RBAC) | [`BACKEND.md`](BACKEND.md) §10, [`FRONTEND.md`](FRONTEND.md) §7 |
+| 11 | Testing (Jest unit + integration, Vitest, Playwright E2E, CI workflow) | [`docs/milestones/milestone-11-testing.md`](docs/milestones/milestone-11-testing.md) |
+| 12 | CI proven on a real Actions runner; Razorpay swap | [`docs/milestones/milestone-12-ci-and-payments.md`](docs/milestones/milestone-12-ci-and-payments.md) |
 
 `docs/milestones/` has the full per-milestone breakdown of what was built,
 what was validated against a real running stack (not just written), and
 what's explicitly deferred.
 
-**Known gap going into Phase 2**: most milestones were validated against
-the real backend/database/search index via direct API calls, but
-interactive browser testing of the frontend (storefront and admin portal)
-has been limited — see `FRONTEND.md` §7.5 for exactly what was and wasn't
-verified. That gap is squarely Phase 2's job to close.
+**Standing gap**: Milestones 0–10 were validated against the real
+backend/database/search index via direct API calls, but interactive browser
+testing of the frontend was limited — see `FRONTEND.md` §7.5 for exactly what
+was and wasn't verified. Milestone 11's Playwright suite closed part of this
+(storefront browsing, auth, admin RBAC, all running in CI against a real
+stack); admin CRUD flows and checkout are still not covered end to end.
 
 ## Stack
 
@@ -111,11 +114,29 @@ See `BACKEND.md` §11 and `FRONTEND.md` §6 for the full run instructions,
 including the environment-specific fixes Elasticsearch needed locally
 (Java, X-Pack ML, disk watermark — `BACKEND.md` §8.6).
 
-## Next: Phase 2 — Testing & DevOps
+## What's next
 
-- Automated test suite (unit + integration + e2e) — the largest standing
-  gap; every milestone since 7 has found real bugs only by actually
-  running the code, never by static review alone
-- Interactive browser/E2E validation of the storefront and admin portal
-- CI/CD pipeline
-- Deployment, observability, and hardening
+Full detail and the reasoning behind the ordering is in
+[`docs/milestones/milestone-12-ci-and-payments.md`](docs/milestones/milestone-12-ci-and-payments.md).
+
+1. **Finish Milestone 12 — Razorpay.** The docs and ADR-0005 name Razorpay as
+   the provider, but the adapter is not built yet: the code still carries the
+   Stripe adapter and a Razorpay stub that throws. Includes the port reshape
+   off Stripe's `clientSecret`, the `refund()` method open since M7, and
+   building the frontend payment step, which has never existed. Deployments
+   before this lands use `PAYMENTS_MODE=simulated` (`deploy/RUNBOOK.md` §13).
+2. **Milestone 13 — Hybrid admin** per
+   [ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md): AdminJS
+   for CRUD, Metabase on a read-only user for reporting, a headless CMS spike
+   for content. Admin audit log lands here.
+3. **Milestone 14 — Observability** per
+   [ADR-0002](knowledge/decisions/ADR-0002-observability-stack.md): Prometheus
+   `/metrics`, Grafana, Sentry. Entirely unbuilt today.
+4. **Milestone 15 — Deployment / go-live.** `deploy/` is written and
+   reasoned-through but has never been executed end to end.
+5. **Milestone 16+** — Shipping, WhatsApp/SMS, Fraud/Risk (all specified in
+   `knowledge/`, none implemented).
+
+Still open across the board: the frontend is not wired to the Search (M8) or
+Recommendations (M9) endpoints; Auth.js bridge; Redis caching; Elasticsearch
+index aliasing.
