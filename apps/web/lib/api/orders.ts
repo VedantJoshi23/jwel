@@ -13,7 +13,8 @@ export interface CreateOrderInput {
     country?: string;
   };
   couponCode?: string;
-  paymentProvider?: 'STRIPE' | 'RAZORPAY';
+  /** Razorpay is the only provider with an adapter (ADR-0005); the API defaults to it. */
+  paymentProvider?: 'RAZORPAY';
 }
 
 export function createOrder(token: string, input: CreateOrderInput) {

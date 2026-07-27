@@ -66,10 +66,12 @@ jobs:
       JWT_ACCESS_TOKEN_TTL: 900s
       JWT_REFRESH_TOKEN_TTL: 30d
       CORS_ALLOWED_ORIGINS: http://localhost:3000
-      STRIPE_SECRET_KEY: sk_test_ci_placeholder
-      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
-      RAZORPAY_KEY_ID: ''
-      RAZORPAY_KEY_SECRET: ''
+      # Placeholders only. NODE_ENV is never 'production' in CI, so
+      # payments.module.ts resolves MockPaymentProvider and these are never
+      # used to authenticate against Razorpay.
+      RAZORPAY_KEY_ID: rzp_test_ci_placeholder
+      RAZORPAY_KEY_SECRET: ci_placeholder_secret
+      RAZORPAY_WEBHOOK_SECRET: ci_placeholder_webhook_secret
       RESEND_API_KEY: ''
       # Deliberately unreachable — exercises the documented Postgres-fallback
       # path (BACKEND.md §8.4) instead of requiring a real Elasticsearch
@@ -170,8 +172,12 @@ jobs:
       JWT_ACCESS_TOKEN_TTL: 900s
       JWT_REFRESH_TOKEN_TTL: 30d
       CORS_ALLOWED_ORIGINS: http://localhost:3000
-      STRIPE_SECRET_KEY: sk_test_ci_placeholder
-      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      # Placeholders only. NODE_ENV is never 'production' in CI, so
+      # payments.module.ts resolves MockPaymentProvider and these are never
+      # used to authenticate against Razorpay.
+      RAZORPAY_KEY_ID: rzp_test_ci_placeholder
+      RAZORPAY_KEY_SECRET: ci_placeholder_secret
+      RAZORPAY_WEBHOOK_SECRET: ci_placeholder_webhook_secret
       RESEND_API_KEY: ''
       ELASTICSEARCH_NODE: http://localhost:9201
       E2E_BASE_URL: http://localhost:3000

@@ -99,6 +99,44 @@ been inverted to match:
       when `components/admin/product-form.tsx` and the `new`/`edit` pages
       exist; `README.md` still said Phase 2 was "next" after M11 and the whole
       `deploy/` stack had landed.
+- [x] **Razorpay implemented end to end (ADR-0005).** Stripe is gone from the
+      codebase — adapter, spec, and the `stripe` dependency all deleted.
+  - `PaymentProviderPort` reshaped off Stripe's `clientSecret`. It now returns
+    `{ providerRef, checkout: { keyId, orderId, simulated } }` and gained
+    `verifyCheckoutResult` and `refund`. This is a breaking change to
+    `POST /api/v1/orders`' response, with exactly one consumer.
+  - `RazorpayPaymentProvider`: Orders API in paise (no conversion — Razorpay's
+    unit is already this codebase's `*MinorUnits`), `X-Razorpay-Signature`
+    verification over the raw body, and refunds resolved via
+    `orders.fetchPayments` since Razorpay refunds a *payment* id while the
+    `Payment` row stores the *order* id. Signature comparison uses
+    `crypto.timingSafeEqual`; Razorpay's own SDK helper compares with `===`,
+    which leaks timing, and lives behind an undocumented deep import.
+  - `refund()` wired into Returns, closing the M7 bookkeeping-only gap. Money
+    moves before the row is marked `REFUNDED`, and Returns refunds before
+    restocking — both orderings chosen so a gateway failure leaves nothing
+    behind to reconcile.
+  - Frontend payment step built from nothing: `lib/razorpay-checkout.ts`
+    (on-demand script load, modal, dismiss/failure handling) and
+    `lib/api/payments.ts`.
+  - `payments.module.ts`'s `isProduction`/`isSimulatedPayments` guards kept
+    verbatim — that logic is provider-independent and is what stops a live shop
+    marking orders paid without money moving.
+- [x] **Found and fixed a bug in this milestone's own design before it
+      shipped.** The first cut gated the client's "skip the payment modal"
+      branch on `NODE_ENV`, mirroring the server. That is wrong for the one
+      deployment that most needs it: `PAYMENTS_MODE=simulated` (RUNBOOK §13)
+      serves a *production* web bundle against a mocked API, so the client
+      would have concluded payments were real and opened a Razorpay modal with
+      the mock's fake key — breaking the client's UAT deployment. Fixed by
+      having the server declare it per-order on `checkout.simulated`.
+- [x] **Validated in a real browser**, not just by tests: a production web
+      build against a simulated-payments API, register → add to bag → checkout
+      → confirmation, order reaching `CONFIRMED` with `provider=RAZORPAY` and
+      zero page errors. Also verified by hand that `paymentProvider: "STRIPE"`
+      is rejected with the order compensated (stock released, order
+      `CANCELLED`), that `webhook/stripe` is now a 404, and that both the
+      webhook and verify endpoints reject unsigned/forged payloads.
 
 ### One thing worth stating plainly
 
@@ -111,32 +149,10 @@ recorded, arriving through a new door.
 
 ## Tasks Remaining
 
-- [ ] **The Razorpay adapter itself is not built.** The docs and ADR-0005 now
-      describe Razorpay as the provider, but the code still carries
-      `StripePaymentProvider` (live) and `RazorpayPaymentProviderStub` (throws).
-      `deploy/README.md` carries an explicit banner saying so. Scope:
-  - Reshape `CreatePaymentIntentResult` off Stripe's `clientSecret` to
-    `{ providerRef, checkoutOrderId, keyId }` — the load-bearing change; every
-    caller moves with it, and it is a breaking change to `POST /api/v1/orders`
-  - Implement `RazorpayPaymentProvider` (`X-Razorpay-Signature`, HMAC-SHA256
-    over the raw body — `rawBody: true` is already set in `main.ts`)
-  - `payments.controller.ts`: `webhook/stripe` → `webhook/razorpay`
-  - Delete `stripe-payment.provider.ts` + spec, drop `PAYMENT_PROVIDER_STRIPE`,
-    collapse `payments.module.ts`'s lazy factory — **keeping** its
-    `isProduction`/`isSimulatedPayments` guards verbatim
-  - `orders.service.ts`'s `?? PaymentProvider.STRIPE` default → `RAZORPAY`
-  - Add `refund()` to the port (Razorpay Refunds API) and wire it into
-    `returns.service.ts`, closing the M7 bookkeeping-only gap
-  - Swap `STRIPE_*` → `RAZORPAY_*` in `.env.example` and `ci.yml`
-- [ ] **Build the frontend payment step — it has never existed.** There is no
-      `apps/web/lib/api/payments.ts`; `checkout/page.tsx` calls `createOrder`
-      and routes straight to the confirmation page, discarding what the API
-      returns. Load `checkout.js`, open the Standard Checkout modal, verify
-      server-side, then confirm. CSP must allow `checkout.razorpay.com`.
-      Preserve the `IS_DEV_MODE` branch that keeps the mock demo flow working.
-- [ ] Checkout E2E test — blocked since M7, unblocked once real Razorpay
-      test-mode credentials exist. Would be the first end-to-end proof that
-      checkout works at all.
+- [ ] Checkout E2E test in the committed suite — the flow was driven
+      end-to-end in a real browser during this milestone (see Tasks Completed)
+      but against the mock provider, and that run was manual. A committed spec
+      against a real gateway still needs Razorpay test-mode credentials.
 - [ ] Admin CRUD E2E coverage (creating a coupon, publishing a product, a bulk
       import) through a real browser — only RBAC redirects are E2E-tested.
 - [ ] **`/_next/image` intermittently never responds on the CI runner** —
@@ -155,13 +171,29 @@ recorded, arriving through a new door.
       race-safety path under concurrent checkout.
 - [ ] `apps/web/test-results/` is committed to git — Playwright's scratch
       output directory should not be tracked.
+- [ ] **The storefront serves no Content-Security-Policy at all.** The plan for
+      this milestone assumed one existed and needed `checkout.razorpay.com`
+      allowed; checking rather than assuming showed there is none anywhere in
+      `apps/web` — helmet is applied only to the API. So nothing blocked the
+      Checkout script, and nothing else is constrained either. Adding a CSP is
+      a real hardening win but a change with genuine breakage risk (Next.js
+      inline scripts need nonces), and doing it inside a payments change with
+      no way to test it properly would have been reckless. Belongs with the
+      Milestone 14 hardening pass.
+- [ ] **No Razorpay account or test-mode credentials yet.** Everything above is
+      verified against the mock provider, unit tests, and hand-checked
+      signature logic — not against Razorpay itself. The webhook endpoint has
+      never received a real delivery. This is the single biggest gap between
+      "implemented" and "known to work", and it is the client's action: the
+      account must be in their legal entity's name (RUNBOOK §13, step 1).
 
 ## Updated Roadmap
 
 1. Milestones 0–10 — MVP ✅
 2. Milestone 11 — Testing ✅
-3. **Milestone 12 — CI proven on Actions ✅ (this milestone); Razorpay swap in
-   progress**
+3. **Milestone 12 — CI proven on Actions ✅; Razorpay implemented ✅ (this
+   milestone).** Remaining before it can take real money: Razorpay credentials
+   from the client, then one real transaction end to end (RUNBOOK §13, step 9).
 4. Milestone 13 — Hybrid admin per ADR-0006: AdminJS for CRUD, Metabase on a
    read-only user, spike Directus vs Payload for the CMS module. Supersedes
    M10's materialized-views follow-up. Admin audit log lands here.
@@ -182,7 +214,8 @@ Elasticsearch index aliasing; inventory table joining product names.
 
 | Risk | Mitigation |
 |---|---|
-| Docs now say "Razorpay" while the code still says "Stripe" — a reader could deploy against the documented env vars and get a boot failure | Named explicitly in `deploy/README.md` (a banner above the env block), `BACKEND.md`'s gap table, and this doc's Tasks Remaining. Pre-M12-completion deployments use `PAYMENTS_MODE=simulated`, which is provider-independent and unaffected |
+| Payments are "implemented" but have never touched Razorpay | Stated plainly in Tasks Remaining rather than implied away. The adapter is covered by unit tests including forged/replayed/wrong-secret signatures, and the flow was driven in a real browser — but against the mock. A gateway that has never moved real money is a hypothesis, the same as an unrestored backup (RUNBOOK §13's own words) |
+| Refunds now move real money, so a bug here costs the client directly | Ordering is the mitigation and is tested: gateway first, bookkeeping second, and Returns refunds before restocking. A gateway failure therefore leaves the row and the stock untouched and the return retryable. The adapter refuses outright when no captured payment exists rather than reporting a success |
 | The port reshape is a breaking change to `POST /api/v1/orders`' response | Only one consumer exists (`checkout/page.tsx`) and it currently discards that field entirely, so the blast radius is smaller than the API-contract change implies |
 | Standard Checkout returns a signature to the *browser*, and a browser-supplied result is attacker-controllable | Called out as its own consequence in ADR-0005 and as a rule in `SECURITY.md` §4: verify server-side, and treat the signed webhook — not the handler result — as authoritative |
 | `workers: 1` makes the E2E job slower as the suite grows | Accepted for now: correctness over speed while the suite is 12 tests and runs in 10s. Revisit with per-worker isolated accounts rather than by re-enabling cross-file parallelism against shared state |

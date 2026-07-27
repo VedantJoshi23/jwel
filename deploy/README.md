@@ -69,13 +69,6 @@ API_TAG=<git sha, never "latest">
 WEB_TAG=<same git sha>
 ```
 
-> **Payment provider status.** Razorpay is the decided sole provider
-> (ADR-0005), and the variables below name it. The **adapter itself ships in
-> Milestone 12** — until that lands, the code still carries the Stripe adapter
-> and a Razorpay stub that throws when invoked. Deploying before M12 means
-> running with `PAYMENTS_MODE=simulated` (§13 of RUNBOOK.md), not with the
-> Razorpay keys below.
-
 **`.env.production`** (read by the API container) — see `apps/api/.env.example`
 for the annotated full list. At minimum:
 

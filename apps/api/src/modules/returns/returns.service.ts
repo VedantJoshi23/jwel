@@ -143,12 +143,22 @@ export class ReturnsService {
 
     if (nextStatus === ReturnStatus.REFUNDED) {
       const { variantId, quantity } = returnRequest.orderItem;
-      await this.inventoryService.restock(variantId, quantity);
 
-      // Payments owns the `payment` table (Law 1) — Returns calls its
-      // service method rather than writing that row itself. See
-      // PaymentsService.markRefunded for the Stripe-refund-API caveat.
-      await this.paymentsService.markRefunded(returnRequest.orderItem.orderId);
+      // Money first, stock second, status third. This used to restock before
+      // touching Payments, which was harmless while the refund was pure
+      // bookkeeping that could not fail. Now that it calls a real gateway
+      // (ADR-0005), a failure at this step must leave nothing behind: restock
+      // first would credit inventory for a refund that never happened, and
+      // the return would still read as un-refunded, so a retry would restock
+      // the same unit twice.
+      //
+      // Payments owns the `payment` table (Law 1) — Returns calls its service
+      // method rather than writing that row itself.
+      await this.paymentsService.refundForOrder(
+        returnRequest.orderItem.orderId,
+        refundAmountMinorUnits,
+      );
+      await this.inventoryService.restock(variantId, quantity);
     }
 
     const updated = await this.prisma.returnRequest.update({

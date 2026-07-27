@@ -101,7 +101,7 @@ describe('OrdersService', () => {
     it('reserves stock for every line item inside the transaction', async () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 1000)]);
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockResolvedValue({ clientSecret: 'secret' });
+      payments.initiateForOrder.mockResolvedValue({ checkout: { keyId: 'rzp_test_key', orderId: 'order_rzp1', simulated: false } });
 
       await service.create('u1', { items: [{ variantId: 'v1', quantity: 3 }], shippingAddress: {} } as any);
 
@@ -111,7 +111,7 @@ describe('OrdersService', () => {
     it('computes the subtotal as the sum of variant price × quantity', async () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 1000), fakeVariant('v2', 2000)]);
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockResolvedValue({ clientSecret: 'secret' });
+      payments.initiateForOrder.mockResolvedValue({ checkout: { keyId: 'rzp_test_key', orderId: 'order_rzp1', simulated: false } });
 
       await service.create('u1', {
         items: [{ variantId: 'v1', quantity: 2 }, { variantId: 'v2', quantity: 1 }],
@@ -127,7 +127,7 @@ describe('OrdersService', () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 10000)]);
       coupons.validate.mockResolvedValue({ discountMinorUnits: 1000, coupon: { id: 'coupon-1' } });
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockResolvedValue({ clientSecret: 'secret' });
+      payments.initiateForOrder.mockResolvedValue({ checkout: { keyId: 'rzp_test_key', orderId: 'order_rzp1', simulated: false } });
 
       await service.create('u1', {
         items: [{ variantId: 'v1', quantity: 1 }],
@@ -139,10 +139,10 @@ describe('OrdersService', () => {
       expect(coupons.redeem).toHaveBeenCalledWith('coupon-1', 'o1', 'u1', tx);
     });
 
-    it('initiates payment with the requested provider and returns the client secret', async () => {
+    it('initiates payment and returns the client-safe checkout handle', async () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 1000)]);
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockResolvedValue({ clientSecret: 'secret_abc' });
+      payments.initiateForOrder.mockResolvedValue({ checkout: { keyId: 'rzp_test_key', orderId: 'order_abc', simulated: false } });
 
       const result = await service.create('u1', {
         items: [{ variantId: 'v1', quantity: 1 }],
@@ -151,28 +151,32 @@ describe('OrdersService', () => {
       } as any);
 
       expect(payments.initiateForOrder).toHaveBeenCalledWith('o1', 1000, PaymentProvider.RAZORPAY);
-      expect(result).toEqual({ orderId: 'o1', totalMinorUnits: 1000, clientSecret: 'secret_abc' });
+      expect(result).toEqual({
+        orderId: 'o1',
+        totalMinorUnits: 1000,
+        checkout: { keyId: 'rzp_test_key', orderId: 'order_abc', simulated: false },
+      });
     });
 
-    it('defaults to STRIPE when no payment provider is specified', async () => {
+    it('defaults to RAZORPAY when no payment provider is specified', async () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 1000)]);
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockResolvedValue({ clientSecret: 'secret' });
+      payments.initiateForOrder.mockResolvedValue({ checkout: { keyId: 'rzp_test_key', orderId: 'order_rzp1', simulated: false } });
 
       await service.create('u1', { items: [{ variantId: 'v1', quantity: 1 }], shippingAddress: {} } as any);
 
-      expect(payments.initiateForOrder).toHaveBeenCalledWith('o1', 1000, PaymentProvider.STRIPE);
+      expect(payments.initiateForOrder).toHaveBeenCalledWith('o1', 1000, PaymentProvider.RAZORPAY);
     });
 
     it('compensates (releases stock, cancels the order) and rethrows when payment initiation fails', async () => {
       prisma.productVariant.findMany.mockResolvedValue([fakeVariant('v1', 1000)]);
       tx.order.create.mockResolvedValue({ id: 'o1', items: [] });
-      payments.initiateForOrder.mockRejectedValue(new Error('Stripe is down'));
+      payments.initiateForOrder.mockRejectedValue(new Error('Razorpay is down'));
       prisma.order.update.mockResolvedValue({});
 
       await expect(
         service.create('u1', { items: [{ variantId: 'v1', quantity: 2 }], shippingAddress: {} } as any),
-      ).rejects.toThrow('Stripe is down');
+      ).rejects.toThrow('Razorpay is down');
 
       expect(inventory.release).toHaveBeenCalledWith('v1', 2);
       expect(prisma.order.update).toHaveBeenCalledWith({

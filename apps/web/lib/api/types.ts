@@ -134,10 +134,27 @@ export interface Order {
   createdAt: string;
 }
 
+/**
+ * Everything the browser needs to open Razorpay Checkout. Mirrors the API's
+ * `CheckoutHandle` (payment-provider.port.ts) — only client-safe values:
+ * `keyId` is a public key by design, and no secret is ever sent here.
+ */
+export interface CheckoutHandle {
+  keyId: string;
+  orderId: string;
+  /**
+   * True when no real gateway is behind this checkout, so the payment modal
+   * must be skipped. The server decides this — see the note on the API's own
+   * `CheckoutHandle`: a `PAYMENTS_MODE=simulated` deployment runs a production
+   * web bundle against a mocked API, so no client-side check can tell.
+   */
+  simulated: boolean;
+}
+
 export interface CreateOrderResponse {
   orderId: string;
   totalMinorUnits: number;
-  clientSecret: string;
+  checkout: CheckoutHandle;
 }
 
 export interface CouponValidationResult {
