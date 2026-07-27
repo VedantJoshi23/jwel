@@ -41,18 +41,38 @@ been inverted to match:
     interleaved `auth.spec` with `storefront.spec` against the shared seeded
     accounts the comment said it was protecting. Fixed with `workers: 1`.
 
-    This also turned out to be the cause of a 30s `page.goto` timeout on
-    `/product/diamond-halo-ring` that did **not** reproduce locally under a
-    matched production build, matched worker count, or matched seed data —
-    two workers plus `next start` plus the API on a 2-core runner starved the
-    heaviest page (sharp image optimization) past the per-test timeout. The
-    same test now runs in 339ms. The commit that introduced `workers: 1`
-    explicitly predicted it was *not* the fix; that prediction was wrong.
+    This is a real defect on its own terms. It was **wrongly** credited with
+    also fixing the `/product/[slug]` timeout described below — the run after
+    it passed, and that was luck. See the next item.
   - **CI uploaded no artifact on E2E failure.** The reporter was `list`, which
     writes no report directory, while the upload step collected only
     `playwright-report/`. So the first failing run produced nothing to debug
     with. Fixed by adding the `html` reporter and widening the upload to
-    include `test-results/`, where traces and `error-context.md` live.
+    include `test-results/`, where traces and `error-context.md` live. This
+    fix is what made the next item diagnosable at all.
+  - **`page.goto('/product/diamond-halo-ring')` intermittently hangs for 30s.**
+    The PDP hero image uses next/image `priority`, so it is preloaded and the
+    `load` event blocks on it. A trace from a failing run shows the optimizer
+    request `/_next/image?url=%2Fimages%2Fjewellery%2Fnewarrival-bracelet.jpg&w=640&q=75`
+    as the **single outstanding request, status -1**, with all 33 other
+    resources at 200 and the page fully rendered in the snapshot.
+
+    Which image is requested depends on the product's UUID —
+    `getProductStockImage` hashes it — and CI creates a fresh database each
+    run, so the UUID and therefore the image differ every time. That is why
+    this failed on 3 of the first 4 runs and passed on the fourth: a 1-in-5
+    lottery, not a regression, and the reason it was briefly mistaken for
+    a `workers` problem.
+
+    Mitigated by navigating with `waitUntil: 'domcontentloaded'` in the two
+    affected tests. The assertions are unchanged and still prove SSR served
+    real product data; what is dropped is a dependency on the image optimizer,
+    which is not what those tests are about.
+
+    **The optimizer hang itself is unexplained and remains open** (see Tasks
+    Remaining). It does not reproduce locally, including with a cold image
+    cache pinned to 2 cores, and sharp resizes the largest of these images in
+    ~150ms — so plain CPU slowness does not account for a 30s hang.
 - [x] **Fixed the dead push trigger** — `on.push.branches` listed `Phase-II`,
       which has never existed on the remote, so pushes never triggered CI and
       every run came from the `pull_request` trigger.
@@ -106,6 +126,15 @@ recorded, arriving through a new door.
       checkout works at all.
 - [ ] Admin CRUD E2E coverage (creating a coupon, publishing a product, a bulk
       import) through a real browser — only RBAC redirects are E2E-tested.
+- [ ] **`/_next/image` intermittently never responds on the CI runner** —
+      root cause unknown, and it is a production concern, not only a test one:
+      the same optimizer runs in the deployed app, so a first-time visitor to a
+      product page would stall the same way. Evidence is in the trace described
+      above. Worth investigating alongside Milestone 14's observability work,
+      when there is instrumentation to see it. Two cheap things to try first:
+      pre-resize the demo stock images (currently 1400×2100 / up to 403 KB, for
+      something that never renders above 640px), and confirm `.next/cache/images`
+      is writable in the deployed container.
 - [ ] `e2e/admin.spec.ts` hardcodes `http://localhost:3000` in a `toHaveURL`
       assertion instead of using the configured `baseURL`, so it fails against
       any other port. Surfaced while reproducing the CI failure locally.
@@ -144,4 +173,5 @@ Elasticsearch index aliasing; inventory table joining product names.
 | The port reshape is a breaking change to `POST /api/v1/orders`' response | Only one consumer exists (`checkout/page.tsx`) and it currently discards that field entirely, so the blast radius is smaller than the API-contract change implies |
 | Standard Checkout returns a signature to the *browser*, and a browser-supplied result is attacker-controllable | Called out as its own consequence in ADR-0005 and as a rule in `SECURITY.md` §4: verify server-side, and treat the signed webhook — not the handler result — as authoritative |
 | `workers: 1` makes the E2E job slower as the suite grows | Accepted for now: correctness over speed while the suite is 12 tests and runs in 10s. Revisit with per-worker isolated accounts rather than by re-enabling cross-file parallelism against shared state |
-| One green run proves the workflow, not its stability | True, and worth saying: the first run failed twice for reasons no local run reproduced. Flakiness under runner contention is exactly the failure mode found here, so treat intermittent E2E failures as real signal, not noise |
+| One green run proves the workflow, not its stability | Demonstrated the hard way: a run passed, was declared green, and the very next commit — a README-only change — failed on the same two tests. Treat intermittent E2E failures as real signal, not noise |
+| An unexplained hang was mitigated at the test layer, which could hide a real production defect | Called out explicitly rather than closed: the `waitUntil` change is scoped to two navigations and keeps every assertion, and the underlying `/_next/image` hang is filed in Tasks Remaining as a production concern with concrete next steps, not marked resolved |

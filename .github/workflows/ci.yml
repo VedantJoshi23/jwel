@@ -8,12 +8,21 @@ name: CI
 
 on:
   push:
-    # `Phase-II` was listed here and has never existed on the remote, so the
-    # push trigger only ever fired for `main` — which is also the one branch
-    # nobody pushes to directly. Every run to date has come from the
-    # unrestricted `pull_request` trigger below.
-    branches: [main, testing]
+    # `main` only. `Phase-II` used to be listed here and has never existed on
+    # the remote, so the push trigger only ever fired for `main` anyway.
+    # Briefly adding `testing` here made every push to an open PR's branch run
+    # the whole workflow twice — once for `push`, once for `pull_request` —
+    # which is what the unrestricted `pull_request` trigger below already
+    # covers. Feature branches get their CI from the PR.
+    branches: [main]
   pull_request:
+
+# Supersede an in-flight run when the same branch is pushed again: only the
+# newest commit's result is of any interest, and the E2E job holds a runner
+# for ~2.5 minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Was '20' — actions/setup-node@v4 no longer supports it on this runner
