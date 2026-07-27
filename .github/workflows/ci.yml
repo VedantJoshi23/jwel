@@ -204,16 +204,38 @@ jobs:
       # per-test timeout on this runner, causing intermittent
       # `/product/[slug]` navigation timeouts; a production build has no
       # such compile-on-first-request cost at all.
+      # NODE_ENV is forced to production for this step ONLY, overriding the
+      # job-level `development`. `next build` under NODE_ENV=development fails
+      # while prerendering Next's own auto-generated /404 and /500 pages with
+      # "<Html> should not be imported outside of pages/_document" — Next pulls
+      # its dev-mode error-page machinery into the production export path and
+      # the export aborts. Reproduced locally on this exact tree: the build
+      # fails with NODE_ENV=development and succeeds with it unset.
+      #
+      # This is what actually broke the first real Actions run. The
+      # NODE_VERSION comment at the top of this file blames the same error on
+      # a silent Node-version fallback; that hypothesis was wrong — the run
+      # below is pinned to Node 22 and still failed until NODE_ENV was fixed.
+      # The job keeps `development` at job level because the API needs a
+      # non-production NODE_ENV to resolve MockPaymentProvider
+      # (payments.module.ts), and `npm install` needs devDependencies.
       - name: Build the web app
         working-directory: apps/web
+        env:
+          NODE_ENV: production
         run: npm run build
 
       - name: Install Playwright browsers
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
+      # Same override: playwright.config.ts's webServer runs `next start`
+      # against the production build made above, so it must not be told the
+      # environment is development either.
       - name: Run E2E tests
         working-directory: apps/web
+        env:
+          NODE_ENV: production
         run: npx playwright test
 
       - name: Upload Playwright report on failure
