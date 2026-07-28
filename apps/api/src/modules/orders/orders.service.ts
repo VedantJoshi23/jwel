@@ -6,7 +6,8 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
-import { OrderStatus, PaymentProvider, Prisma, ProductStatus } from '@prisma/client';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { OrderStatus, PaymentProvider, PaymentStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsService } from '../coupons/coupons.service';
@@ -15,6 +16,11 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Role } from '../../common/enums/role.enum';
+
+// How long an unpaid checkout may hold its reserved stock. Comfortably
+// longer than Razorpay's ~12-minute modal session, so a slow bank redirect
+// or an app-switch to complete UPI is never cut short.
+const ORDER_PAYMENT_TTL_MS = 30 * 60 * 1000;
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PLACED]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
@@ -47,6 +53,29 @@ export class OrdersService implements OnModuleInit {
   }
 
   private async confirmPayment(orderId: string, amountMinorUnits: number): Promise<void> {
+    // A payment can legitimately succeed for an order the expiry sweep has
+    // already cancelled: the shopper opened the modal, sat past the TTL, then
+    // paid. Auto-confirming would be wrong — the sweep released that stock and
+    // it may since have been sold, so CONFIRMED would promise goods that no
+    // longer exist.
+    //
+    // The money did arrive, and Payments has already recorded that. What is
+    // left is a human decision (refund, or re-source the item), so this fails
+    // loudly rather than quietly resurrecting the order.
+    const existing = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { status: true },
+    });
+
+    if (existing?.status === OrderStatus.CANCELLED) {
+      this.logger.error(
+        `Payment succeeded for order ${orderId}, which was already CANCELLED (likely expired ` +
+          `before payment completed). Stock was released and has NOT been re-reserved. The ` +
+          `customer has been charged — this needs a manual refund or fulfilment decision.`,
+      );
+      return;
+    }
+
     const order = await this.prisma.order.update({
       where: { id: orderId },
       data: {
@@ -61,6 +90,79 @@ export class OrdersService implements OnModuleInit {
       userEmail: order.user.email,
       totalMinorUnits: amountMinorUnits,
     });
+  }
+
+  /**
+   * Releases stock held by checkouts that were never paid for.
+   *
+   * Checkout reserves inventory inside the same transaction that creates the
+   * order, so a shopper cannot lose the item while the payment modal is open.
+   * The cost is that an abandoned modal holds that stock — and until now
+   * nothing ever released it. Four abandoned checkouts made a 5-unit item
+   * unbuyable during Milestone 12's live validation; on a single-unit piece,
+   * one is enough.
+   *
+   * Safety properties, in order of importance:
+   *
+   * 1. **A paid order is never cancelled.** Only orders whose Payment is still
+   *    PENDING are eligible, and the transition is a conditional `updateMany`
+   *    on `status: PLACED`. If a webhook confirms the order between the query
+   *    and the write, the update matches zero rows and this skips it.
+   * 2. **Stock is released only if that transition actually won.** Releasing
+   *    first would corrupt `quantity_reserved` for an order that turned out to
+   *    be confirmed — dropping a reservation the order still depends on.
+   * 3. **The TTL is generous.** Razorpay's modal session is ~12 minutes; 30
+   *    leaves room for a slow bank redirect or a shopper switching apps to
+   *    complete a UPI payment.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async expireStalePendingOrders(): Promise<number> {
+    const cutoff = new Date(Date.now() - ORDER_PAYMENT_TTL_MS);
+
+    const stale = await this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.PLACED,
+        createdAt: { lt: cutoff },
+        // An order with no Payment row at all (initiation failed and
+        // compensation already ran) is not this sweep's business.
+        payment: { is: { status: PaymentStatus.PENDING } },
+      },
+      select: { id: true, items: { select: { variantId: true, quantity: true } } },
+    });
+
+    let expired = 0;
+
+    for (const order of stale) {
+      const { count } = await this.prisma.order.updateMany({
+        where: { id: order.id, status: OrderStatus.PLACED },
+        data: { status: OrderStatus.CANCELLED },
+      });
+
+      if (count === 0) {
+        this.logger.log(`Order ${order.id} was confirmed while expiring; leaving it alone.`);
+        continue;
+      }
+
+      await this.prisma.orderStatusHistory.create({
+        data: {
+          orderId: order.id,
+          status: OrderStatus.CANCELLED,
+          note: 'Payment not completed within the allowed window',
+        },
+      });
+
+      for (const item of order.items) {
+        await this.inventoryService.release(item.variantId, item.quantity);
+      }
+
+      expired += 1;
+      this.logger.log(`Expired unpaid order ${order.id} and released its reserved stock.`);
+    }
+
+    if (expired > 0) {
+      this.logger.log(`Expiry sweep cancelled ${expired} unpaid order(s).`);
+    }
+    return expired;
   }
 
   /**

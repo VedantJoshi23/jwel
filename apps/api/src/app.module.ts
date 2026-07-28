@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { EventBusModule } from './common/event-bus/event-bus.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -32,6 +33,16 @@ import { HealthModule } from './modules/health/health.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    // Without this the @Cron decorators are inert — the methods exist and
+    // are unit-testable, but nothing ever calls them. Currently drives
+    // OrdersService.expireStalePendingOrders (releases stock held by
+    // abandoned checkouts).
+    //
+    // Single-replica only, like the rest of this deployment: two API
+    // containers would each run the sweep. It is idempotent and
+    // conditionally guarded, so a duplicate run is harmless rather than
+    // double-releasing stock — but see deploy/README.md 'Known constraints'.
+    ScheduleModule.forRoot(),
     EventBusModule,
     PrismaModule,
     AuthModule,

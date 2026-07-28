@@ -147,6 +147,65 @@ the setting does not implement. Confident prose next to a setting is not
 evidence the setting works. This is the same lesson every milestone since 7 has
 recorded, arriving through a new door.
 
+## Live validation against real Razorpay (2026-07-28)
+
+Deployed to the client's host in **test mode**, with `PAYMENTS_MODE` removed
+but `NEXT_PUBLIC_DEMO_MODE=true` retained and `robots.txt` still disallow-all —
+so real payments ran against a storefront that was still honestly labelled a
+demo. That separation was deliberate: test-mode keys decline every real card,
+so a shop that *looks* live while only accepting test cards is a worse public
+state than one that says it is a demo.
+
+**Confirmed working end to end**, none of which the mock provider could have
+established:
+
+- Order creation against the real Orders API; credentials valid.
+- Checkout modal opens with the live `rzp_test_` key and the server-created
+  order id, correct amount, email prefilled.
+- **Payment failure handling** — an international test card was declined by
+  Razorpay ("International cards are not supported"), the gateway's own reason
+  reached the shopper, and the order was preserved rather than lost.
+- **Payment success** — signature verified, payment `SUCCEEDED`, order
+  `CONFIRMED`, `order.confirmed` notification fired.
+- **Webhook signature verification in production** — a correctly-signed event
+  accepted, a forged one rejected `400`.
+- **The webhook/verify race, observed live.** The webhook landed at 14:06:58
+  and confirmed the order; `/payments/verify` arrived 14 seconds later and
+  emitted nothing. `markSucceeded`'s idempotency guard held. This was
+  unit-tested but had never been seen against a real gateway.
+
+### Three defects the live run exposed
+
+1. **The webhook URL in the Razorpay dashboard was wrong**, so no delivery ever
+   arrived. Everything still *looked* fine because `/payments/verify` confirmed
+   the order from the browser. That is the dangerous shape of this bug: the
+   convenience path masks the authoritative one, and the failure only shows up
+   for a shopper who closes the tab after paying — money taken, order stuck
+   `PENDING`. Worth an explicit check at go-live, not an assumption.
+
+2. **The admin Inventory page crashed with a blank screen.**
+   `InventoryService.listLowStock` uses `$queryRaw`, which bypasses Prisma's
+   `@map` translation, so `SELECT *` returned snake_case columns while the page
+   read `item.variantId`. Broken since M10 and invisible until now, because the
+   page only breaks once at least one inventory row exists. Fixed by aliasing
+   the columns; guarded by an *integration* test, since a mocked Prisma returns
+   whatever the mock says and cannot catch this class of bug.
+
+3. **Stock reservations never expired.** Checkout reserves inventory inside the
+   order transaction so a shopper cannot lose the item while paying — but
+   nothing released it if they abandoned the modal. Four abandoned test
+   checkouts made a 5-unit item unbuyable. On a single-unit piece, one is
+   enough. Fixed (see below).
+
+### Also worth recording
+
+- **Publishing a product does not give it stock.** A product created through
+  the admin form is `PUBLISHED` and visible but unbuyable until someone visits
+  the separate Inventory page. Easy to miss; a stock field on the product form,
+  or a warning on publish, would be the fix. Not addressed here.
+- The failed-stock path is clean: `409`, no order row, no payment row, no
+  wasted gateway call. The check runs before the order transaction.
+
 ## Tasks Remaining
 
 - [ ] Checkout E2E test in the committed suite — the flow was driven
@@ -164,13 +223,15 @@ recorded, arriving through a new door.
       pre-resize the demo stock images (currently 1400×2100 / up to 403 KB, for
       something that never renders above 640px), and confirm `.next/cache/images`
       is writable in the deployed container.
-- [ ] `e2e/admin.spec.ts` hardcodes `http://localhost:3000` in a `toHaveURL`
-      assertion instead of using the configured `baseURL`, so it fails against
-      any other port. Surfaced while reproducing the CI failure locally.
+- [x] ~~`e2e/admin.spec.ts` hardcodes `http://localhost:3000`~~ — fixed; uses a
+      relative URL so `E2E_BASE_URL` actually works. `storefront.spec.ts` had a
+      related fault: a bare `getByRole('status')` that is a strict-mode
+      violation against a demo deployment, because the demo banner carries the
+      same role. Both surfaced by running the suite somewhere other than CI.
 - [ ] No mutation testing; no load/performance testing of the inventory
       race-safety path under concurrent checkout.
-- [ ] `apps/web/test-results/` is committed to git — Playwright's scratch
-      output directory should not be tracked.
+- [x] ~~`apps/web/test-results/` is committed to git~~ — untracked and
+      gitignored, along with `playwright-report/`.
 - [ ] **The storefront serves no Content-Security-Policy at all.** The plan for
       this milestone assumed one existed and needed `checkout.razorpay.com`
       allowed; checking rather than assuming showed there is none anywhere in
@@ -186,6 +247,16 @@ recorded, arriving through a new door.
       never received a real delivery. This is the single biggest gap between
       "implemented" and "known to work", and it is the client's action: the
       account must be in their legal entity's name (RUNBOOK §13, step 1).
+
+- [ ] **Refunds have never run against a real gateway.** `refundForOrder` now
+      moves real money, but every test of it is against a mock. The path most
+      worth exercising before go-live, and the one with the worst failure mode.
+- [ ] **A stock field on the admin product form**, or a warning on publish —
+      publishing currently yields a visible but unbuyable product.
+- [ ] Razorpay **live** credentials, and the RUNBOOK §13 go-live sequence
+      (rebuild web without `NEXT_PUBLIC_DEMO_MODE`, re-enable indexing, one
+      real transaction then refunded). Test mode proves the integration; it
+      does not prove the shop can take money.
 
 ## Updated Roadmap
 
@@ -215,6 +286,9 @@ Elasticsearch index aliasing; inventory table joining product names.
 | Risk | Mitigation |
 |---|---|
 | Payments are "implemented" but have never touched Razorpay | Stated plainly in Tasks Remaining rather than implied away. The adapter is covered by unit tests including forged/replayed/wrong-secret signatures, and the flow was driven in a real browser — but against the mock. A gateway that has never moved real money is a hypothesis, the same as an unrestored backup (RUNBOOK §13's own words) |
+| An unpaid checkout can hold stock indefinitely | Fixed in this milestone: a 5-minutely sweep cancels `PLACED` orders whose payment is still `PENDING` after 30 minutes and releases their reservations. The two safety properties are tested explicitly — a paid order is never cancelled (conditional `updateMany` on `status: PLACED`), and stock is released only if that transition actually won, since releasing first would corrupt `quantity_reserved` for an order that turned out to be confirmed |
+| The expiry sweep could cancel an order the shopper is about to pay for | TTL is 30 minutes against Razorpay's ~12-minute modal session. If a payment still lands late, `confirmPayment` refuses to resurrect a `CANCELLED` order — the stock was released and may have been resold, so promising it would be worse. It logs at error level naming a manual refund, because the money did arrive and that is a human decision, not one to automate |
+| The scheduled sweep assumes a single API replica | True, and consistent with the rest of this deployment (`deploy/README.md` "Known constraints"). Two replicas would each run it; the sweep is idempotent and conditionally guarded, so a duplicate run is harmless rather than double-releasing stock. A distributed lock belongs with the Redis work, not before it |
 | Refunds now move real money, so a bug here costs the client directly | Ordering is the mitigation and is tested: gateway first, bookkeeping second, and Returns refunds before restocking. A gateway failure therefore leaves the row and the stock untouched and the return retryable. The adapter refuses outright when no captured payment exists rather than reporting a success |
 | The port reshape is a breaking change to `POST /api/v1/orders`' response | Only one consumer exists (`checkout/page.tsx`) and it currently discards that field entirely, so the blast radius is smaller than the API-contract change implies |
 | Standard Checkout returns a signature to the *browser*, and a browser-supplied result is attacker-controllable | Called out as its own consequence in ADR-0005 and as a rule in `SECURITY.md` §4: verify server-side, and treat the signed webhook — not the handler result — as authoritative |

@@ -1,5 +1,5 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentProvider, ProductStatus } from '@prisma/client';
+import { BadRequestException, ForbiddenException, Logger, NotFoundException } from '@nestjs/common';
+import { OrderStatus, PaymentProvider, PaymentStatus, ProductStatus } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
@@ -9,7 +9,14 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
 
 type MockPrisma = {
-  order: { findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+  order: {
+    findUnique: jest.Mock;
+    update: jest.Mock;
+    updateMany: jest.Mock;
+    findMany: jest.Mock;
+    count: jest.Mock;
+  };
+  orderStatusHistory: { create: jest.Mock };
   productVariant: { findMany: jest.Mock };
   $transaction: jest.Mock;
 };
@@ -38,7 +45,14 @@ describe('OrdersService', () => {
   beforeEach(() => {
     tx = { order: { create: jest.fn(), update: jest.fn() } };
     prisma = {
-      order: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+      order: {
+        findUnique: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
+      },
+      orderStatusHistory: { create: jest.fn() },
       productVariant: { findMany: jest.fn() },
       $transaction: jest.fn((arg) => (typeof arg === 'function' ? arg(tx) : Promise.all(arg))),
     };
@@ -297,6 +311,109 @@ describe('OrdersService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('expireStalePendingOrders', () => {
+    const staleOrder = {
+      id: 'o-stale',
+      items: [{ variantId: 'v1', quantity: 2 }],
+    };
+
+    it('cancels an unpaid order past the TTL and releases its reserved stock', async () => {
+      prisma.order.findMany.mockResolvedValue([staleOrder]);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      const expired = await service.expireStalePendingOrders();
+
+      expect(expired).toBe(1);
+      expect(inventory.release).toHaveBeenCalledWith('v1', 2);
+      expect(prisma.orderStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 'o-stale',
+          status: OrderStatus.CANCELLED,
+          note: 'Payment not completed within the allowed window',
+        },
+      });
+    });
+
+    // Only PENDING payments are eligible — the query, not the loop, is what
+    // keeps a paid order out of this sweep entirely.
+    it('only considers PLACED orders whose payment is still PENDING', async () => {
+      prisma.order.findMany.mockResolvedValue([]);
+
+      await service.expireStalePendingOrders();
+
+      const where = prisma.order.findMany.mock.calls[0][0].where;
+      expect(where.status).toBe(OrderStatus.PLACED);
+      expect(where.payment).toEqual({ is: { status: PaymentStatus.PENDING } });
+      expect(where.createdAt.lt).toBeInstanceOf(Date);
+    });
+
+    // THE critical property. If a webhook confirms the order between the
+    // findMany and the updateMany, the conditional update matches nothing and
+    // the sweep must not touch the stock.
+    it('never releases stock for an order that got confirmed mid-sweep', async () => {
+      prisma.order.findMany.mockResolvedValue([staleOrder]);
+      prisma.order.updateMany.mockResolvedValue({ count: 0 });
+
+      const expired = await service.expireStalePendingOrders();
+
+      expect(expired).toBe(0);
+      expect(inventory.release).not.toHaveBeenCalled();
+      expect(prisma.orderStatusHistory.create).not.toHaveBeenCalled();
+    });
+
+    // Guards the ordering: the transition is conditional on still being
+    // PLACED, which is what makes the race above safe.
+    it('transitions conditionally on the order still being PLACED', async () => {
+      prisma.order.findMany.mockResolvedValue([staleOrder]);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.expireStalePendingOrders();
+
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'o-stale', status: OrderStatus.PLACED },
+        data: { status: OrderStatus.CANCELLED },
+      });
+    });
+
+    it('returns 0 and touches nothing when there is nothing stale', async () => {
+      prisma.order.findMany.mockResolvedValue([]);
+
+      expect(await service.expireStalePendingOrders()).toBe(0);
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+      expect(inventory.release).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('confirmPayment when the order was already cancelled', () => {
+    // A shopper who pays after the expiry sweep ran. Auto-confirming would
+    // promise stock that was released and possibly resold, so this must refuse
+    // and escalate rather than quietly resurrect the order.
+    it('refuses to resurrect a CANCELLED order, and says so loudly', async () => {
+      service.onModuleInit();
+      const handler = eventBus.on.mock.calls[0][1];
+      prisma.order.findUnique.mockResolvedValue({ status: OrderStatus.CANCELLED });
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+      await handler({ orderId: 'o-cancelled', amountMinorUnits: 5000 });
+
+      expect(prisma.order.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('manual refund'));
+      errorSpy.mockRestore();
+    });
+
+    it('still confirms an order that is not cancelled', async () => {
+      service.onModuleInit();
+      const handler = eventBus.on.mock.calls[0][1];
+      prisma.order.findUnique.mockResolvedValue({ status: OrderStatus.PLACED });
+      prisma.order.update.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
+
+      await handler({ orderId: 'o1', amountMinorUnits: 5000 });
+
+      expect(eventBus.emit).toHaveBeenCalledWith('order.confirmed', expect.objectContaining({ orderId: 'o1' }));
     });
   });
 });

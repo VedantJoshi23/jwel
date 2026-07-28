@@ -34,3 +34,7 @@ deploy/backups/
 .vercel/
 prisma/.env
 .pnpm-store/
+
+# Playwright scratch output — was committed by mistake; regenerated every run.
+apps/web/test-results/
+apps/web/playwright-report/
