@@ -128,6 +128,16 @@ docker push ghcr.io/$GH_OWNER/jwel-web:$GIT_SHA
 Tag both with the same git SHA. Deploying `latest` means you cannot roll back,
 because the tag you would roll back *to* now points at the broken build.
 
+**Optional — error tracking (ADR-0002).** Add `SENTRY_DSN=` to
+`.env.production` and `--build-arg NEXT_PUBLIC_SENTRY_DSN=<dsn>` to the web
+build above once a Sentry project exists for this client. Neither is required:
+absent, `Sentry.init` never runs and error reporting is a complete no-op — the
+same "inert without secrets" pattern as the Razorpay keys above, just without
+a hard boot-time requirement, since losing error tracking isn't the same class
+of failure as silently not charging a customer. Source-map upload
+(`SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT`) is deliberately not wired
+into this build command yet — see `apps/web/next.config.mjs` for why.
+
 ---
 
 ## 2. Bring up the database

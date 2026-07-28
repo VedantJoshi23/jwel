@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withSentryConfig } from '@sentry/nextjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -56,4 +57,29 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// `withSentryConfig` uploads source maps at build time, which needs
+// SENTRY_AUTH_TOKEN (an org-scoped API token, not the DSN — see
+// instrumentation-client.ts for the DSN). No Sentry project exists for this
+// client yet, so there is no token to set.
+//
+// Only wrapping when the token is present means an unconfigured build is
+// byte-for-byte the config that existed before Sentry was added — no plugin
+// runs, no network call is attempted, no build-time behavior changes. Same
+// "inert without secrets" principle as apps/api/src/instrument.ts. Error
+// *reporting* (instrumentation-client.ts, instrumentation.ts) works
+// regardless of this — only the source-map upload depends on the token, and
+// without it stack traces in Sentry are just less readable, not absent.
+export default process.env.SENTRY_AUTH_TOKEN
+  ? withSentryConfig(nextConfig, {
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: true,
+      widenClientFileUpload: true,
+      // Uploaded maps are for Sentry's stack-trace resolution only; deleting
+      // them after upload keeps them out of the served bundle and out of the
+      // image layer.
+      sourcemaps: { deleteSourcemapsAfterUpload: true },
+      disableLogger: true,
+    })
+  : nextConfig;

@@ -1,3 +1,6 @@
+// Must be the first import in the entire process — see instrument.ts for why.
+import './instrument';
+
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { Logger, ValidationPipe } from '@nestjs/common';
