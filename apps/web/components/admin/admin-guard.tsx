@@ -5,7 +5,7 @@
 // (RolesGuard, see BACKEND.md §9.4-style identity handling), which is what
 // actually enforces access. This just keeps a CUSTOMER from ever rendering
 // admin UI or seeing a flash of admin data before a 403 comes back.
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth-store';
 
@@ -16,7 +16,24 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((state) => state.user);
   const token = useAuthStore((state) => state.token);
 
+  // zustand/persist rehydrates from localStorage asynchronously, after this
+  // component's first render — so on a hard navigation (a bookmarked
+  // /admin/* URL, a full page reload) `token`/`user` are still their
+  // pre-hydration `null` on mount, even for an already-authenticated admin.
+  // Deciding to redirect before rehydration finishes bounced a legitimately
+  // logged-in admin to /login; caught by testing the new Returns page with a
+  // fresh browser navigation, then confirmed as pre-existing by reproducing
+  // the same failure on the unmodified Orders page — not something specific
+  // to one page's code.
+  const [hasHydrated, setHasHydrated] = useState(useAuthStore.persist.hasHydrated());
+
   useEffect(() => {
+    if (hasHydrated) return;
+    return useAuthStore.persist.onFinishHydration(() => setHasHydrated(true));
+  }, [hasHydrated]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
     if (!token || !user) {
       router.replace('/login?next=/admin');
       return;
@@ -24,9 +41,9 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
     if (!ADMIN_ROLES.includes(user.role)) {
       router.replace('/');
     }
-  }, [token, user, router]);
+  }, [hasHydrated, token, user, router]);
 
-  if (!token || !user || !ADMIN_ROLES.includes(user.role)) {
+  if (!hasHydrated || !token || !user || !ADMIN_ROLES.includes(user.role)) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-sm text-ink-muted">
         Checking access…

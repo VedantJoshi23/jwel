@@ -58,6 +58,24 @@ describe('AdminGuard', () => {
     expect(screen.getByText('secret admin content')).toBeInTheDocument();
   });
 
+  // The actual bug: zustand/persist rehydrates from localStorage
+  // asynchronously, so on a hard navigation an already-authenticated admin's
+  // token/user are briefly null before rehydration finishes. Deciding to
+  // redirect during that window bounced a real admin to /login — reproduced
+  // against a live browser on both the new Returns page and the pre-existing
+  // Orders page before this fix.
+  it('does not redirect while rehydration is still in flight', () => {
+    const hasHydratedSpy = vi.spyOn(useAuthStore.persist, 'hasHydrated').mockReturnValue(false);
+    render(
+      <AdminGuard>
+        <p>secret admin content</p>
+      </AdminGuard>,
+    );
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.getByText('Checking access…')).toBeInTheDocument();
+    hasHydratedSpy.mockRestore();
+  });
+
   it('renders children for a logged-in STAFF user', () => {
     useAuthStore.getState().setSession('token', { id: 'u1', email: 'a@b.com', name: null, role: 'STAFF' });
     render(
