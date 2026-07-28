@@ -12,6 +12,18 @@ type Client = PrismaService | Prisma.TransactionClient;
  * statement, not as a separate SELECT followed by an UPDATE — see
  * ARCHITECTURE.md §7 (Scalability Strategy, checkout correctness under load).
  */
+/**
+ * Shape returned by `listLowStock`. Declared explicitly because `$queryRaw`
+ * has no generated model type behind it — the aliases in the SQL and this
+ * interface are the only thing keeping the API contract camelCase.
+ */
+export interface LowStockItem {
+  variantId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  lowStockThreshold: number;
+}
+
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
@@ -85,9 +97,26 @@ export class InventoryService {
     return this.getByVariant(variantId);
   }
 
-  listLowStock() {
-    return this.prisma.$queryRaw`
-      SELECT * FROM inventory_items
+  /**
+   * Raw SQL because the predicate compares two columns to each other, which
+   * Prisma's `where` cannot express.
+   *
+   * The columns MUST be aliased. `$queryRaw` bypasses Prisma's `@map`
+   * translation entirely, so `SELECT *` returns the physical snake_case names
+   * (`variant_id`, `quantity_on_hand`, …) rather than the camelCase fields
+   * every other endpoint returns. The admin Inventory page consumed
+   * `item.variantId`, got `undefined`, and crashed the whole page on
+   * `.slice()` — a white screen, not a missing column. It went unnoticed
+   * because the page only breaks once at least one inventory row exists.
+   */
+  listLowStock(): Promise<LowStockItem[]> {
+    return this.prisma.$queryRaw<LowStockItem[]>`
+      SELECT
+        variant_id          AS "variantId",
+        quantity_on_hand    AS "quantityOnHand",
+        quantity_reserved   AS "quantityReserved",
+        low_stock_threshold AS "lowStockThreshold"
+      FROM inventory_items
       WHERE (quantity_on_hand - quantity_reserved) <= low_stock_threshold
       ORDER BY (quantity_on_hand - quantity_reserved) ASC
     `;
