@@ -18,6 +18,7 @@ describe('PaymentsService', () => {
     refund: jest.Mock;
   };
   let eventBus: { emit: jest.Mock };
+  let metrics: { paymentEventsTotal: { inc: jest.Mock } };
   let service: PaymentsService;
 
   beforeEach(() => {
@@ -31,10 +32,12 @@ describe('PaymentsService', () => {
       refund: jest.fn(),
     };
     eventBus = { emit: jest.fn() };
+    metrics = { paymentEventsTotal: { inc: jest.fn() } };
     service = new PaymentsService(
       prisma as unknown as PrismaService,
       provider as any,
       eventBus as unknown as EventBusService,
+      metrics as any,
     );
   });
 
@@ -120,6 +123,7 @@ describe('PaymentsService', () => {
         orderId: 'o1',
         amountMinorUnits: 5000,
       });
+      expect(metrics.paymentEventsTotal.inc).toHaveBeenCalledWith({ outcome: 'succeeded' });
     });
 
     it('is idempotent — a webhook replay for an already-SUCCEEDED payment does nothing', async () => {
@@ -129,6 +133,9 @@ describe('PaymentsService', () => {
       await service.handleWebhook(Buffer.from(''), 'sig');
 
       expect(eventBus.emit).not.toHaveBeenCalled();
+      // The idempotency guard must suppress the metric too — a duplicated
+      // delivery of the same real-world event must not be double-counted.
+      expect(metrics.paymentEventsTotal.inc).not.toHaveBeenCalled();
     });
 
     it('marks the payment FAILED for payment.failed', async () => {
@@ -141,6 +148,7 @@ describe('PaymentsService', () => {
         where: { id: 'pay_1' },
         data: { status: PaymentStatus.FAILED },
       });
+      expect(metrics.paymentEventsTotal.inc).toHaveBeenCalledWith({ outcome: 'failed' });
     });
 
     it('does nothing for an unrecognized event type', async () => {
@@ -187,6 +195,7 @@ describe('PaymentsService', () => {
         orderId: 'o1',
         amountMinorUnits: 5000,
       });
+      expect(metrics.paymentEventsTotal.inc).toHaveBeenCalledWith({ outcome: 'succeeded' });
     });
 
     // The payload comes from a browser and is attacker-controllable. A forged
@@ -211,6 +220,7 @@ describe('PaymentsService', () => {
 
       expect(prisma.payment.update).not.toHaveBeenCalled();
       expect(eventBus.emit).not.toHaveBeenCalled();
+      expect(metrics.paymentEventsTotal.inc).not.toHaveBeenCalled();
     });
 
     it('marks the payment FAILED when the adapter reports a failed outcome', async () => {
@@ -223,6 +233,7 @@ describe('PaymentsService', () => {
         where: { id: 'pay_1' },
         data: { status: PaymentStatus.FAILED },
       });
+      expect(metrics.paymentEventsTotal.inc).toHaveBeenCalledWith({ outcome: 'failed' });
     });
 
     it('does nothing for an ignored outcome', async () => {
@@ -347,6 +358,7 @@ describe('PaymentsService', () => {
         prisma as unknown as PrismaService,
         mock as any,
         eventBus as unknown as EventBusService,
+        metrics as any,
       );
       prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
       prisma.payment.findUnique.mockResolvedValue({

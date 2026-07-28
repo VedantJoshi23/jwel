@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
 import { PaymentProvider, PaymentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
+import { MetricsService } from '../metrics/metrics.service';
 import {
   CheckoutResult,
   PAYMENT_PROVIDER_RAZORPAY,
@@ -19,6 +20,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_PROVIDER_RAZORPAY) private readonly provider: PaymentProviderPort,
     private readonly eventBus: EventBusService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async initiateForOrder(
@@ -114,6 +116,10 @@ export class PaymentsService {
       return;
     }
     await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.SUCCEEDED } });
+    // After the real state transition, not at function entry — a duplicate
+    // webhook delivery that hits the idempotency guard above must not
+    // double-count a payment that only actually succeeded once.
+    this.metrics.paymentEventsTotal.inc({ outcome: 'succeeded' });
 
     this.eventBus.emit('payment.succeeded', {
       orderId: payment.orderId,
@@ -127,6 +133,7 @@ export class PaymentsService {
       return;
     }
     await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.FAILED } });
+    this.metrics.paymentEventsTotal.inc({ outcome: 'failed' });
   }
 
   /**

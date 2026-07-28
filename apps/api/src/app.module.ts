@@ -8,6 +8,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { EventBusModule } from './common/event-bus/event-bus.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { MetricsInterceptor } from './common/interceptors/metrics.interceptor';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -28,6 +29,7 @@ import { RecommendationsModule } from './modules/recommendations/recommendations
 import { CmsModule } from './modules/cms/cms.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -44,6 +46,7 @@ import { HealthModule } from './modules/health/health.module';
     // double-releasing stock — but see deploy/README.md 'Known constraints'.
     ScheduleModule.forRoot(),
     EventBusModule,
+    MetricsModule,
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -66,6 +69,7 @@ import { HealthModule } from './modules/health/health.module';
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
