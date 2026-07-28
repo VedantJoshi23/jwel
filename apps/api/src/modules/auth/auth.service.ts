@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Role } from '../../common/enums/role.enum';
 import { OAuthValidatedProfile } from './oauth/oauth-profile';
+import { MetricsService } from '../metrics/metrics.service';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -15,6 +16,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -40,11 +42,17 @@ export class AuthService {
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user || !user.passwordHash || user.deletedAt) {
+      // Same counter, same generic message, for both branches below — an
+      // unknown email and a wrong password must be indistinguishable to
+      // whatever is watching this metric, same as they already are to the
+      // caller (SECURITY.md's user-enumeration posture extends to metrics).
+      this.metrics.authFailuresTotal.inc();
       throw new UnauthorizedException('Invalid email or password');
     }
 
     const passwordMatches = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordMatches) {
+      this.metrics.authFailuresTotal.inc();
       throw new UnauthorizedException('Invalid email or password');
     }
 

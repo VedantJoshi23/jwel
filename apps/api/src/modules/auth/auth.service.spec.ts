@@ -16,6 +16,7 @@ type MockPrisma = {
 describe('AuthService', () => {
   let prisma: MockPrisma;
   let jwt: { sign: jest.Mock };
+  let metrics: { authFailuresTotal: { inc: jest.Mock } };
   let service: AuthService;
 
   beforeEach(() => {
@@ -24,7 +25,12 @@ describe('AuthService', () => {
       oAuthAccount: { findUnique: jest.fn(), create: jest.fn() },
     };
     jwt = { sign: jest.fn().mockReturnValue('signed-jwt-token') };
-    service = new AuthService(prisma as unknown as PrismaService, jwt as unknown as JwtService);
+    metrics = { authFailuresTotal: { inc: jest.fn() } };
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwt as unknown as JwtService,
+      metrics as any,
+    );
     jest.clearAllMocks();
     jwt.sign.mockReturnValue('signed-jwt-token');
   });
@@ -73,22 +79,26 @@ describe('AuthService', () => {
     it('throws UnauthorizedException when no account exists for the email', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       await expect(service.login({ email: 'nobody@b.com', password: 'x' })).rejects.toThrow(UnauthorizedException);
+      expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 
     it('throws UnauthorizedException for a soft-deleted (suspended) account', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', passwordHash: 'hash', deletedAt: new Date() });
       await expect(service.login({ email: 'a@b.com', password: 'x' })).rejects.toThrow(UnauthorizedException);
+      expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 
     it('throws UnauthorizedException for an account with no password hash set', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', passwordHash: null, deletedAt: null });
       await expect(service.login({ email: 'a@b.com', password: 'x' })).rejects.toThrow(UnauthorizedException);
+      expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 
     it('throws UnauthorizedException when the password does not match', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', passwordHash: 'hash', deletedAt: null });
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
       await expect(service.login({ email: 'a@b.com', password: 'wrong' })).rejects.toThrow(UnauthorizedException);
+      expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 
     it('returns an access token and user info on successful login', async () => {
@@ -106,6 +116,7 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('signed-jwt-token');
       expect(result.user.role).toBe(Role.ADMIN);
+      expect(metrics.authFailuresTotal.inc).not.toHaveBeenCalled();
     });
   });
 
