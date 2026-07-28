@@ -6,68 +6,103 @@ import { MockPaymentProvider } from './providers/mock-payment.provider';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 
 type MockPrisma = {
-  payment: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
+  payment: { create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
 };
 
 describe('PaymentsService', () => {
   let prisma: MockPrisma;
-  let stripeProvider: { createPaymentIntent: jest.Mock; parseWebhookEvent: jest.Mock };
-  let razorpayProvider: { createPaymentIntent: jest.Mock };
+  let provider: {
+    createPaymentIntent: jest.Mock;
+    parseWebhookEvent: jest.Mock;
+    verifyCheckoutResult: jest.Mock;
+    refund: jest.Mock;
+  };
   let eventBus: { emit: jest.Mock };
   let service: PaymentsService;
 
   beforeEach(() => {
     prisma = {
-      payment: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
+      payment: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     };
-    stripeProvider = { createPaymentIntent: jest.fn(), parseWebhookEvent: jest.fn() };
-    razorpayProvider = { createPaymentIntent: jest.fn() };
+    provider = {
+      createPaymentIntent: jest.fn(),
+      parseWebhookEvent: jest.fn(),
+      verifyCheckoutResult: jest.fn(),
+      refund: jest.fn(),
+    };
     eventBus = { emit: jest.fn() };
     service = new PaymentsService(
       prisma as unknown as PrismaService,
-      stripeProvider as any,
-      razorpayProvider as any,
+      provider as any,
       eventBus as unknown as EventBusService,
     );
   });
 
+  const intent = {
+    providerRef: 'order_rzp1',
+    checkout: { keyId: 'rzp_test_key', orderId: 'order_rzp1', simulated: false },
+  };
+
   describe('initiateForOrder', () => {
-    it('routes to the Stripe adapter for PaymentProvider.STRIPE', async () => {
-      stripeProvider.createPaymentIntent.mockResolvedValue({ providerRef: 'pi_1', clientSecret: 'secret_1' });
+    it('creates the gateway intent and returns only client-safe checkout values', async () => {
+      provider.createPaymentIntent.mockResolvedValue(intent);
       prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
 
-      const result = await service.initiateForOrder('o1', 5000, PaymentProvider.STRIPE);
+      const result = await service.initiateForOrder('o1', 5000, PaymentProvider.RAZORPAY);
 
-      expect(stripeProvider.createPaymentIntent).toHaveBeenCalledWith({ orderId: 'o1', amountMinorUnits: 5000, currency: 'INR' });
-      expect(razorpayProvider.createPaymentIntent).not.toHaveBeenCalled();
-      expect(result.clientSecret).toBe('secret_1');
+      expect(provider.createPaymentIntent).toHaveBeenCalledWith({
+        orderId: 'o1',
+        amountMinorUnits: 5000,
+        currency: 'INR',
+      });
+      expect(result.checkout).toEqual({
+        keyId: 'rzp_test_key',
+        orderId: 'order_rzp1',
+        simulated: false,
+      });
+      // The key secret must never reach a caller that serialises this to the
+      // browser — the whole point of CheckoutHandle being a narrow type.
+      expect(Object.keys(result.checkout)).toEqual(['keyId', 'orderId', 'simulated']);
     });
 
-    it('routes to the Razorpay adapter for PaymentProvider.RAZORPAY', async () => {
-      razorpayProvider.createPaymentIntent.mockResolvedValue({ providerRef: 'rp_1', clientSecret: 'secret_2' });
+    it('persists the payment as PENDING with the provider reference', async () => {
+      provider.createPaymentIntent.mockResolvedValue(intent);
       prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
 
       await service.initiateForOrder('o1', 5000, PaymentProvider.RAZORPAY);
 
-      expect(razorpayProvider.createPaymentIntent).toHaveBeenCalled();
-      expect(stripeProvider.createPaymentIntent).not.toHaveBeenCalled();
+      expect(prisma.payment.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 'o1',
+          provider: PaymentProvider.RAZORPAY,
+          status: PaymentStatus.PENDING,
+          amountMinorUnits: 5000,
+          providerRef: 'order_rzp1',
+        },
+      });
     });
 
-    it('persists the payment as PENDING with the provider reference', async () => {
-      stripeProvider.createPaymentIntent.mockResolvedValue({ providerRef: 'pi_1', clientSecret: 'secret_1' });
-      prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
+    // STRIPE survives in the Prisma enum (dropping an enum value costs a
+    // migration for nothing) but has no adapter since ADR-0005. Naming it must
+    // fail loudly rather than be silently routed at Razorpay.
+    it('rejects PaymentProvider.STRIPE, which no longer has an adapter', async () => {
+      await expect(service.initiateForOrder('o1', 5000, PaymentProvider.STRIPE)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(provider.createPaymentIntent).not.toHaveBeenCalled();
+      expect(prisma.payment.create).not.toHaveBeenCalled();
+    });
 
-      await service.initiateForOrder('o1', 5000, PaymentProvider.STRIPE);
-
-      expect(prisma.payment.create).toHaveBeenCalledWith({
-        data: { orderId: 'o1', provider: PaymentProvider.STRIPE, status: PaymentStatus.PENDING, amountMinorUnits: 5000, providerRef: 'pi_1' },
-      });
+    it('rejects an unrecognised provider', async () => {
+      await expect(
+        service.initiateForOrder('o1', 5000, 'BITCOIN' as PaymentProvider),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe('handleStripeWebhook', () => {
-    it('marks the payment SUCCEEDED and emits payment.succeeded for payment_intent.succeeded, without touching Order', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'pi_1' });
+  describe('handleWebhook', () => {
+    it('marks the payment SUCCEEDED and emits payment.succeeded, without touching Order', async () => {
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'order_rzp1' });
       prisma.payment.findUnique.mockResolvedValue({
         id: 'pay_1',
         orderId: 'o1',
@@ -75,97 +110,242 @@ describe('PaymentsService', () => {
         amountMinorUnits: 5000,
       });
 
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      await service.handleWebhook(Buffer.from(''), 'sig');
 
-      expect(prisma.payment.update).toHaveBeenCalledWith({ where: { id: 'pay_1' }, data: { status: PaymentStatus.SUCCEEDED } });
-      expect(eventBus.emit).toHaveBeenCalledWith('payment.succeeded', { orderId: 'o1', amountMinorUnits: 5000 });
+      expect(prisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay_1' },
+        data: { status: PaymentStatus.SUCCEEDED },
+      });
+      expect(eventBus.emit).toHaveBeenCalledWith('payment.succeeded', {
+        orderId: 'o1',
+        amountMinorUnits: 5000,
+      });
     });
 
     it('is idempotent — a webhook replay for an already-SUCCEEDED payment does nothing', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'pi_1' });
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'order_rzp1' });
       prisma.payment.findUnique.mockResolvedValue({ id: 'pay_1', status: PaymentStatus.SUCCEEDED });
 
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      await service.handleWebhook(Buffer.from(''), 'sig');
 
       expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
-    it('marks the payment FAILED for payment_intent.payment_failed', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'pi_1' });
+    it('marks the payment FAILED for payment.failed', async () => {
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'order_rzp1' });
       prisma.payment.findUnique.mockResolvedValue({ id: 'pay_1', status: PaymentStatus.PENDING });
 
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      await service.handleWebhook(Buffer.from(''), 'sig');
 
-      expect(prisma.payment.update).toHaveBeenCalledWith({ where: { id: 'pay_1' }, data: { status: PaymentStatus.FAILED } });
+      expect(prisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay_1' },
+        data: { status: PaymentStatus.FAILED },
+      });
     });
 
     it('does nothing for an unrecognized event type', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'ignored', description: 'charge.dispute.created' });
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'ignored', description: 'refund.created' });
+      await service.handleWebhook(Buffer.from(''), 'sig');
       expect(prisma.payment.update).not.toHaveBeenCalled();
       expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
     it('does nothing when the webhook references a payment that does not exist locally', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'unknown' });
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'succeeded', providerRef: 'unknown' });
       prisma.payment.findUnique.mockResolvedValue(null);
-      await expect(service.handleStripeWebhook(Buffer.from(''), 'sig')).resolves.toBeUndefined();
+      await expect(service.handleWebhook(Buffer.from(''), 'sig')).resolves.toBeUndefined();
+    });
+
+    it('propagates a signature failure rather than swallowing it', async () => {
+      provider.parseWebhookEvent.mockImplementation(() => {
+        throw new BadRequestException('Invalid Razorpay webhook signature');
+      });
+
+      await expect(service.handleWebhook(Buffer.from('{}'), 'bad')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.payment.update).not.toHaveBeenCalled();
     });
   });
 
-  it('throws BadRequestException for an unsupported payment provider', async () => {
-    await expect(service.initiateForOrder('o1', 5000, 'BITCOIN' as PaymentProvider)).rejects.toThrow(
-      BadRequestException,
-    );
+  describe('confirmFromCheckout', () => {
+    const result = { providerRef: 'order_rzp1', paymentId: 'pay_rzp1', signature: 'sig' };
+
+    it('marks the payment SUCCEEDED when the browser-supplied signature verifies', async () => {
+      provider.verifyCheckoutResult.mockReturnValue({ kind: 'succeeded', providerRef: 'order_rzp1' });
+      prisma.payment.findUnique.mockResolvedValue({
+        id: 'pay_1',
+        orderId: 'o1',
+        status: PaymentStatus.PENDING,
+        amountMinorUnits: 5000,
+      });
+
+      await service.confirmFromCheckout(result);
+
+      expect(provider.verifyCheckoutResult).toHaveBeenCalledWith(result);
+      expect(eventBus.emit).toHaveBeenCalledWith('payment.succeeded', {
+        orderId: 'o1',
+        amountMinorUnits: 5000,
+      });
+    });
+
+    // The payload comes from a browser and is attacker-controllable. A forged
+    // signature must never reach markSucceeded.
+    it('propagates the adapter throw on a forged signature and writes nothing', async () => {
+      provider.verifyCheckoutResult.mockImplementation(() => {
+        throw new BadRequestException('Invalid Razorpay payment signature');
+      });
+
+      await expect(service.confirmFromCheckout(result)).rejects.toThrow(BadRequestException);
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
+    });
+
+    // Shares markSucceeded's guard, so verify racing the webhook is a no-op
+    // rather than a double confirmation.
+    it('is idempotent against a webhook that already confirmed the payment', async () => {
+      provider.verifyCheckoutResult.mockReturnValue({ kind: 'succeeded', providerRef: 'order_rzp1' });
+      prisma.payment.findUnique.mockResolvedValue({ id: 'pay_1', status: PaymentStatus.SUCCEEDED });
+
+      await service.confirmFromCheckout(result);
+
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
+    });
+
+    it('marks the payment FAILED when the adapter reports a failed outcome', async () => {
+      provider.verifyCheckoutResult.mockReturnValue({ kind: 'failed', providerRef: 'order_rzp1' });
+      prisma.payment.findUnique.mockResolvedValue({ id: 'pay_1', status: PaymentStatus.PENDING });
+
+      await service.confirmFromCheckout(result);
+
+      expect(prisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay_1' },
+        data: { status: PaymentStatus.FAILED },
+      });
+    });
+
+    it('does nothing for an ignored outcome', async () => {
+      provider.verifyCheckoutResult.mockReturnValue({ kind: 'ignored', description: 'noop' });
+
+      await service.confirmFromCheckout(result);
+
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('markFailed', () => {
     it('leaves an already-SUCCEEDED payment alone so a late failure cannot undo a capture', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'pi_1' });
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'order_rzp1' });
       prisma.payment.findUnique.mockResolvedValue({ id: 'pay_1', status: PaymentStatus.SUCCEEDED });
 
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      await service.handleWebhook(Buffer.from(''), 'sig');
 
       expect(prisma.payment.update).not.toHaveBeenCalled();
     });
 
     it('does nothing when the failed webhook references an unknown payment', async () => {
-      stripeProvider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'unknown' });
+      provider.parseWebhookEvent.mockReturnValue({ kind: 'failed', providerRef: 'unknown' });
       prisma.payment.findUnique.mockResolvedValue(null);
 
-      await service.handleStripeWebhook(Buffer.from(''), 'sig');
+      await service.handleWebhook(Buffer.from(''), 'sig');
 
       expect(prisma.payment.update).not.toHaveBeenCalled();
     });
   });
 
-  describe('markRefunded', () => {
-    it('marks every payment row for the order REFUNDED', async () => {
-      prisma.payment.updateMany.mockResolvedValue({ count: 1 });
+  describe('refundForOrder', () => {
+    const succeeded = {
+      id: 'pay_1',
+      orderId: 'o1',
+      status: PaymentStatus.SUCCEEDED,
+      providerRef: 'order_rzp1',
+    };
 
-      await service.markRefunded('o1');
+    it('moves money at the gateway before marking the row REFUNDED', async () => {
+      prisma.payment.findUnique.mockResolvedValue(succeeded);
+      const callOrder: string[] = [];
+      provider.refund.mockImplementation(async () => {
+        callOrder.push('gateway');
+        return { refundRef: 'rfnd_1' };
+      });
+      prisma.payment.update.mockImplementation(async () => {
+        callOrder.push('db');
+        return succeeded;
+      });
 
-      expect(prisma.payment.updateMany).toHaveBeenCalledWith({
-        where: { orderId: 'o1' },
+      await service.refundForOrder('o1');
+
+      expect(provider.refund).toHaveBeenCalledWith({
+        providerRef: 'order_rzp1',
+        amountMinorUnits: undefined,
+      });
+      expect(prisma.payment.update).toHaveBeenCalledWith({
+        where: { id: 'pay_1' },
         data: { status: PaymentStatus.REFUNDED },
       });
+      // Ordering is the point: bookkeeping must never run ahead of the money.
+      expect(callOrder).toEqual(['gateway', 'db']);
+    });
+
+    it('passes a partial amount through to the gateway', async () => {
+      prisma.payment.findUnique.mockResolvedValue(succeeded);
+      provider.refund.mockResolvedValue({ refundRef: 'rfnd_1' });
+
+      await service.refundForOrder('o1', 2500);
+
+      expect(provider.refund).toHaveBeenCalledWith({
+        providerRef: 'order_rzp1',
+        amountMinorUnits: 2500,
+      });
+    });
+
+    // The critical failure mode: a Payment marked REFUNDED while the customer
+    // never got their money.
+    it('leaves the row untouched when the gateway refund fails', async () => {
+      prisma.payment.findUnique.mockResolvedValue(succeeded);
+      provider.refund.mockRejectedValue(new Error('gateway down'));
+
+      await expect(service.refundForOrder('o1')).rejects.toThrow('gateway down');
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the order has no payment', async () => {
+      prisma.payment.findUnique.mockResolvedValue(null);
+
+      await service.refundForOrder('o1');
+
+      expect(provider.refund).not.toHaveBeenCalled();
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to refund a payment that never succeeded', async () => {
+      prisma.payment.findUnique.mockResolvedValue({ ...succeeded, status: PaymentStatus.PENDING });
+
+      await service.refundForOrder('o1');
+
+      expect(provider.refund).not.toHaveBeenCalled();
+      expect(prisma.payment.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to refund a succeeded payment with no provider reference', async () => {
+      prisma.payment.findUnique.mockResolvedValue({ ...succeeded, providerRef: null });
+
+      await expect(service.refundForOrder('o1')).rejects.toThrow(BadRequestException);
+      expect(provider.refund).not.toHaveBeenCalled();
     });
   });
 
   describe('mock provider self-confirmation', () => {
     // The mock has no webhook to wait for, so initiateForOrder confirms
     // inline. Real adapters must NOT take this path — a payment may only
-    // become SUCCEEDED via a signed webhook.
+    // become SUCCEEDED via a signed callback.
     it('self-confirms immediately when the adapter is the mock', async () => {
       const mock = new MockPaymentProvider();
-      jest.spyOn(mock, 'createPaymentIntent').mockResolvedValue({
-        providerRef: 'mock_1',
-        clientSecret: 'mock_secret_1',
-      });
+      jest.spyOn(mock, 'createPaymentIntent').mockResolvedValue(intent);
       const mockService = new PaymentsService(
         prisma as unknown as PrismaService,
         mock as any,
-        razorpayProvider as any,
         eventBus as unknown as EventBusService,
       );
       prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
@@ -176,7 +356,7 @@ describe('PaymentsService', () => {
         amountMinorUnits: 5000,
       });
 
-      await mockService.initiateForOrder('o1', 5000, PaymentProvider.STRIPE);
+      await mockService.initiateForOrder('o1', 5000, PaymentProvider.RAZORPAY);
 
       expect(prisma.payment.update).toHaveBeenCalledWith({
         where: { id: 'pay_1' },
@@ -185,13 +365,10 @@ describe('PaymentsService', () => {
     });
 
     it('does not self-confirm for a real adapter', async () => {
-      stripeProvider.createPaymentIntent.mockResolvedValue({
-        providerRef: 'pi_1',
-        clientSecret: 'secret_1',
-      });
+      provider.createPaymentIntent.mockResolvedValue(intent);
       prisma.payment.create.mockResolvedValue({ id: 'pay_1' });
 
-      await service.initiateForOrder('o1', 5000, PaymentProvider.STRIPE);
+      await service.initiateForOrder('o1', 5000, PaymentProvider.RAZORPAY);
 
       expect(prisma.payment.update).not.toHaveBeenCalled();
     });

@@ -43,8 +43,12 @@ export class CreateOrderDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString() couponCode?: string;
 
-  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.STRIPE })
+  // RAZORPAY is the only provider with an adapter (ADR-0005). `STRIPE` remains
+  // in the Prisma enum — no row has ever referenced it, and dropping an enum
+  // value costs a migration for no benefit — so it is still accepted here and
+  // rejected at the service layer rather than silently mapped.
+  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.RAZORPAY })
   @IsOptional()
   @IsEnum(PaymentProvider)
-  paymentProvider?: PaymentProvider = PaymentProvider.STRIPE;
+  paymentProvider?: PaymentProvider = PaymentProvider.RAZORPAY;
 }

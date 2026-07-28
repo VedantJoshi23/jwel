@@ -4,8 +4,7 @@ import { STORAGE_PROVIDER } from './ports/storage-provider.port';
 import { S3StorageProvider } from './providers/s3-storage.provider';
 import { FilesystemStorageProvider } from './providers/filesystem-storage.provider';
 
-// Unlike Payments (Stripe live + Razorpay stub both wired simultaneously,
-// selected per-request), only one Storage adapter is ever active per
+// Like Payments since ADR-0005, only one Storage adapter is ever active per
 // deployment — selected once at bootstrap by `STORAGE_PROVIDER`, defaulting
 // to `filesystem` so a fresh checkout with no AWS credentials configured
 // still boots and works locally.

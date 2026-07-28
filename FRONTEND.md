@@ -104,18 +104,26 @@ integration is open work for a future milestone, not a stylistic choice.
 
 ## 4. Explicitly Deferred / Simplified (Not Implemented This Milestone)
 
-- **No payment step at all.** Checkout calls `POST /orders`, which creates the
-  order and initiates payment server-side, but the frontend *discards* what the
-  API returns and routes straight to the confirmation page. There is no
-  `lib/api/payments.ts`, no gateway script, and no verification call — the
-  checkout form says so explicitly to the user rather than silently pretending
-  payment is complete. The confirmation page shows the order as placed, not as
-  paid.
+- ~~**No payment step at all.**~~ **Built in Milestone 12.** Checkout now opens
+  Razorpay Standard Checkout (`lib/razorpay-checkout.ts`), relays the signed
+  result to `POST /payments/verify` (`lib/api/payments.ts`), and only then
+  routes to the confirmation page. The `checkout.js` script is loaded on demand
+  at submit rather than in the root layout — a payment-gateway script on every
+  storefront page is a cost every shopper pays for a page almost none reach.
 
-  Worth stating precisely, because "Stripe Elements is deferred" (how this
-  entry read until ADR-0005) understated it: wiring Razorpay is not swapping
-  one card widget for another, it is building the client half of checkout for
-  the first time. See ADR-0005 and the Milestone 12 doc.
+  Two behaviours worth knowing about:
+
+  - **Whether payments are simulated is decided by the server**, and arrives
+    per-order on `checkout.simulated`. The client cannot infer it: a
+    `PAYMENTS_MODE=simulated` deployment (RUNBOOK §13) serves a *production*
+    web bundle against a mocked API, so a `NODE_ENV` check would conclude
+    payments are real and open a modal against a key that cannot authenticate.
+    `IS_DEV_MODE` now only controls a static hint under the submit button.
+  - **A dismissed or declined payment leaves a real PENDING order.** That is
+    deliberate — the server reserves stock in the same transaction that creates
+    the order, so the shopper cannot lose the item while the modal is open. The
+    error copy says the order is saved and payable later rather than implying
+    nothing happened.
 - **No Wishlist, Order Tracking, or Admin Dashboard pages.** Not in this
   milestone's 7-page list (Homepage, Search, Collections, Product Details,
   Cart, Checkout, Profile) — DESIGN.md spec'd these but they're not built here.
@@ -326,9 +334,12 @@ fails below 90% on any metric, same enforcement mechanism as the backend.
   publishing a product, or importing a CSV through the real admin UI in a
   real browser has not been exercised end-to-end. Named explicitly, not
   silently implied by the RBAC tests passing.
-- **No checkout E2E test** — a standing gap since Milestone 7, now blocked on
-  real Razorpay test-mode credentials rather than Stripe ones; add-to-cart and
-  the cart page are E2E-tested, the payment step is not.
+- **No checkout E2E test in the committed suite** — a standing gap since
+  Milestone 7. The flow *was* driven end-to-end in a real browser during
+  Milestone 12 (production web build against a simulated-payments API: register
+  → add to bag → checkout → confirmation, order `CONFIRMED`, zero page errors),
+  but against the mock provider, and that run was manual rather than committed.
+  A real-gateway checkout E2E still needs Razorpay test-mode credentials.
 - **No visual regression testing** — component tests assert DOM structure/
   text/attributes, not pixel output.
 - **CI hasn't run Playwright against a from-scratch CI database** — see

@@ -149,12 +149,14 @@ export class OrdersService implements OnModuleInit {
     });
 
     try {
-      const { clientSecret } = await this.paymentsService.initiateForOrder(
+      const { checkout } = await this.paymentsService.initiateForOrder(
         order.id,
         totalMinorUnits,
-        dto.paymentProvider ?? PaymentProvider.STRIPE,
+        dto.paymentProvider ?? PaymentProvider.RAZORPAY,
       );
-      return { orderId: order.id, totalMinorUnits, clientSecret };
+      // `checkout` carries only client-safe values (the public key id and the
+      // gateway's order id) — see CheckoutHandle in payment-provider.port.ts.
+      return { orderId: order.id, totalMinorUnits, checkout };
     } catch (error) {
       this.logger.error(`Payment initiation failed for order ${order.id}, compensating`, error as Error);
       await this.compensateFailedCheckout(order.id, dto.items);

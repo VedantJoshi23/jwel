@@ -2,21 +2,18 @@ import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaymentsService } from './payments.service';
 import { PaymentsController } from './payments.controller';
-import { StripePaymentProvider } from './providers/stripe-payment.provider';
-import { RazorpayPaymentProviderStub } from './providers/razorpay-payment.provider.stub';
+import { RazorpayPaymentProvider } from './providers/razorpay-payment.provider';
 import { MockPaymentProvider } from './providers/mock-payment.provider';
-import { PAYMENT_PROVIDER_RAZORPAY, PAYMENT_PROVIDER_STRIPE } from './ports/payment-provider.port';
+import { PAYMENT_PROVIDER_RAZORPAY } from './ports/payment-provider.port';
 
-// Neither real gateway has live credentials yet (SECURITY.md), so every
-// checkout would otherwise fail before an order/payment row is even created.
-// `MockPaymentProvider` stands in for BOTH providers, but strictly outside
+// `MockPaymentProvider` stands in for the real gateway, but strictly outside
 // production — `NODE_ENV !== 'production'` is decided once at module-init
 // time from the real process environment, not a client-controllable flag,
 // so a production deployment can never resolve to it.
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Escape hatch for a production-shaped staging deployment that has no gateway
-// credentials yet — e.g. client UAT while Stripe/Razorpay onboarding is still
+// credentials yet — e.g. client UAT while Razorpay onboarding is still
 // pending. Checkout then completes through MockPaymentProvider and orders
 // confirm with NO money moving.
 //
@@ -35,25 +32,23 @@ const isSimulatedPayments = process.env.PAYMENTS_MODE === 'simulated';
   controllers: [PaymentsController],
   providers: [
     PaymentsService,
-    RazorpayPaymentProviderStub,
     MockPaymentProvider,
-    // Selected through a factory, not `useExisting`, so StripePaymentProvider
+    // Selected through a factory, not `useExisting`, so RazorpayPaymentProvider
     // is CONSTRUCTED only when credentials exist. Listing it in `providers`
     // instead made Nest instantiate it eagerly at bootstrap regardless of
-    // NODE_ENV, and its constructor calls getOrThrow('STRIPE_SECRET_KEY') —
-    // so the whole app refused to boot without Stripe keys, which is why
+    // NODE_ENV, and its constructor calls getOrThrow('RAZORPAY_KEY_ID') —
+    // so the whole app refused to boot without gateway keys, which is why
     // placeholder secrets had to be carried in .env. Mirrors the lazy
     // useFactory in storage.module.ts.
     {
-      provide: PAYMENT_PROVIDER_STRIPE,
+      provide: PAYMENT_PROVIDER_RAZORPAY,
       inject: [ConfigService, MockPaymentProvider],
       useFactory: (config: ConfigService, mock: MockPaymentProvider) => {
-        // Outside production the mock is used unconditionally — the same
-        // guarantee the previous `useExisting: isProduction ? … : Mock` gave.
-        // Deliberately NOT keyed on whether credentials happen to be present:
-        // CI and local .env carry placeholder Stripe keys, so a
-        // credentials-based check would silently route dev/e2e checkouts at
-        // the real Stripe adapter and break the demo flow.
+        // Outside production the mock is used unconditionally. Deliberately
+        // NOT keyed on whether credentials happen to be present: CI and local
+        // .env carry placeholder Razorpay keys, so a credentials-based check
+        // would silently route dev/e2e checkouts at the real Razorpay adapter
+        // and break the demo flow.
         if (!isProduction) {
           new Logger('PaymentsModule').warn(
             'Non-production environment — using MockPaymentProvider. Payments are simulated.',
@@ -74,29 +69,22 @@ const isSimulatedPayments = process.env.PAYMENTS_MODE === 'simulated';
         }
 
         const hasCredentials =
-          !!config.get<string>('STRIPE_SECRET_KEY') && !!config.get<string>('STRIPE_WEBHOOK_SECRET');
+          !!config.get<string>('RAZORPAY_KEY_ID') &&
+          !!config.get<string>('RAZORPAY_KEY_SECRET') &&
+          !!config.get<string>('RAZORPAY_WEBHOOK_SECRET');
         if (!hasCredentials) {
           // Falling back to the mock here would silently mark real orders paid
           // without money moving. Refuse to start instead.
           throw new Error(
-            'STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are required when NODE_ENV=production. ' +
-              'For a staging deployment with no gateway credentials yet, set ' +
-              'PAYMENTS_MODE=simulated instead — never a placeholder key, which would ' +
+            'RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET are required ' +
+              'when NODE_ENV=production. For a staging deployment with no gateway credentials ' +
+              'yet, set PAYMENTS_MODE=simulated instead — never a placeholder key, which would ' +
               'boot but leave every order stuck PENDING (RUNBOOK §13).',
           );
         }
 
-        return new StripePaymentProvider(config);
+        return new RazorpayPaymentProvider(config);
       },
-    },
-    {
-      // Simulated mode has to cover this provider too. Left as the stub, a
-      // staging checkout that happened to route at Razorpay would throw
-      // "configured as a stub provider" instead of completing — the exact
-      // dead-end the flag exists to avoid.
-      provide: PAYMENT_PROVIDER_RAZORPAY,
-      useExisting:
-        isProduction && !isSimulatedPayments ? RazorpayPaymentProviderStub : MockPaymentProvider,
     },
   ],
   exports: [PaymentsService],

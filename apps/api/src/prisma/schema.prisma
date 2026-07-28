@@ -548,8 +548,9 @@ model Payment {
   provider         PaymentProvider
   status           PaymentStatus   @default(PENDING)
   amountMinorUnits Int             @map("amount_minor_units")
-  // Opaque reference to the provider-side transaction. No card/bank data is ever
-  // stored here — PCI scope is delegated entirely to Stripe/Razorpay (SECURITY.md §4).
+  // Opaque reference to the provider-side transaction (for Razorpay, the Order
+  // id). No card/bank data is ever stored here — PCI scope is delegated
+  // entirely to the gateway (SECURITY.md §4).
   providerRef      String?         @unique @map("provider_ref")
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")

@@ -15,7 +15,7 @@ type MockPrisma = {
 describe('ReturnsService', () => {
   let prisma: MockPrisma;
   let inventory: { restock: jest.Mock };
-  let payments: { markRefunded: jest.Mock };
+  let payments: { refundForOrder: jest.Mock };
   let eventBus: { emit: jest.Mock };
   let service: ReturnsService;
 
@@ -25,7 +25,7 @@ describe('ReturnsService', () => {
       returnRequest: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     };
     inventory = { restock: jest.fn() };
-    payments = { markRefunded: jest.fn() };
+    payments = { refundForOrder: jest.fn() };
     eventBus = { emit: jest.fn() };
     service = new ReturnsService(
       prisma as unknown as PrismaService,
@@ -153,10 +153,10 @@ describe('ReturnsService', () => {
       prisma.returnRequest.update.mockResolvedValue({ id: 'r1', status: ReturnStatus.APPROVED });
       await service.adminUpdateStatus('r1', ReturnStatus.APPROVED);
       expect(inventory.restock).not.toHaveBeenCalled();
-      expect(payments.markRefunded).not.toHaveBeenCalled();
+      expect(payments.refundForOrder).not.toHaveBeenCalled();
     });
 
-    it('restocks inventory and marks the payment REFUNDED (via PaymentsService) when transitioning to REFUNDED', async () => {
+    it('refunds through PaymentsService and restocks inventory when transitioning to REFUNDED', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({
         status: ReturnStatus.REFUND_PROCESSING,
         orderItem: { variantId: 'v1', quantity: 2, orderId: 'o1' },
@@ -169,7 +169,29 @@ describe('ReturnsService', () => {
       await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 5000);
 
       expect(inventory.restock).toHaveBeenCalledWith('v1', 2);
-      expect(payments.markRefunded).toHaveBeenCalledWith('o1');
+      // The refund amount is passed through, so a partial return refunds the
+      // partial amount rather than the whole order.
+      expect(payments.refundForOrder).toHaveBeenCalledWith('o1', 5000);
+    });
+
+    // Ordering matters now that refundForOrder calls a real gateway (ADR-0005).
+    // Restocking first would credit inventory for a refund that never happened,
+    // and the return would still read as un-refunded — so a retry would restock
+    // the same unit a second time.
+    it('refunds before restocking, and restocks nothing if the refund fails', async () => {
+      prisma.returnRequest.findUnique.mockResolvedValue({
+        status: ReturnStatus.REFUND_PROCESSING,
+        orderItem: { variantId: 'v1', quantity: 2, orderId: 'o1' },
+      });
+      payments.refundForOrder.mockRejectedValue(new Error('gateway down'));
+
+      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 5000)).rejects.toThrow(
+        'gateway down',
+      );
+
+      expect(inventory.restock).not.toHaveBeenCalled();
+      expect(prisma.returnRequest.update).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
     it('emits return.refunded with the refund amount only when transitioning to REFUNDED', async () => {

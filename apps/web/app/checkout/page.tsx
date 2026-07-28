@@ -10,23 +10,30 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { createOrder } from '@/lib/api/orders';
+import { verifyPayment } from '@/lib/api/payments';
 import { validateCoupon } from '@/lib/api/coupons';
+import {
+  RazorpayCheckoutError,
+  loadRazorpayCheckout,
+  openRazorpayCheckout,
+} from '@/lib/razorpay-checkout';
 import { ApiError } from '@/lib/api/client';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 import { getProductStockImage } from '@/lib/jewellery-images';
 
-// `next dev`/`next start` bake NODE_ENV in at build time, so a production
-// build can never resolve this to true — matches the backend's own
-// `NODE_ENV !== 'production'` gate on MockPaymentProvider (payments.module.ts).
-// This flag only controls the toast copy; the mock behavior itself lives
-// entirely server-side.
+// Controls the static "payments are mocked" hint shown under the submit button
+// on a local dev build, and nothing else. Whether payments are ACTUALLY
+// simulated is decided by the server and reported per-order on
+// `checkout.simulated` — a production build serving a PAYMENTS_MODE=simulated
+// deployment sees this as false while payments really are mocked, which is
+// precisely why the submit path must not branch on it.
 const IS_DEV_MODE = process.env.NODE_ENV !== 'production';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const { lines, subtotalMinorUnits, clear } = useCart();
-  const { token, isAuthenticated } = useAuth();
+  const { token, user, isAuthenticated } = useAuth();
 
   const [address, setAddress] = useState({ line1: '', line2: '', city: '', state: '', pincode: '' });
   const [couponCode, setCouponCode] = useState('');
@@ -73,27 +80,84 @@ export default function CheckoutPage() {
     event.preventDefault();
     if (!token) return;
 
-    if (IS_DEV_MODE) {
-      toast.info('No payment gateway is integrated yet', {
-        description: 'Dev mode: continuing to the order confirmation without a real charge.',
-      });
-    }
-
     setSubmitting(true);
     setError('');
+
+    // The order is created first and the gateway is paid second, which is why
+    // an abandoned payment leaves a real PENDING order behind rather than
+    // nothing. That is deliberate: the server reserves stock inside the same
+    // transaction that creates the order, so the shopper cannot lose the item
+    // to someone else while the payment modal is open.
+    let response: Awaited<ReturnType<typeof createOrder>>;
     try {
-      const response = await createOrder(token, {
+      response = await createOrder(token, {
         items: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
         shippingAddress: address,
         couponCode: couponCode.trim() || undefined,
       });
-      clear();
-      router.push(`/checkout/confirmation?orderId=${response.orderId}&total=${response.totalMinorUnits}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong placing your order.');
-    } finally {
+      setSubmitting(false);
+      return;
+    }
+
+    // The SERVER says whether a real gateway is behind this checkout; the
+    // client cannot work it out. A PAYMENTS_MODE=simulated deployment
+    // (RUNBOOK §13) serves a production web bundle against an API running the
+    // mock provider, so a local `NODE_ENV` check would conclude payments are
+    // real and open a modal against a key that cannot authenticate — breaking
+    // the exact demo deployment the flag exists for.
+    //
+    // When simulated, the API has already confirmed the payment inline at
+    // order creation, so there is nothing left to do but show the confirmation.
+    if (response.checkout.simulated) {
+      toast.info('Payments are simulated in this environment', {
+        description: 'Continuing to the order confirmation without a real charge.',
+      });
+      finish(response.orderId, response.totalMinorUnits);
+      return;
+    }
+
+    try {
+      const Razorpay = await loadRazorpayCheckout();
+      const handlerResponse = await openRazorpayCheckout(Razorpay, {
+        checkout: response.checkout,
+        amountMinorUnits: response.totalMinorUnits,
+        description: `Order ${response.orderId}`,
+        prefill: { email: user?.email },
+      });
+
+      // Verification is server-side; this only relays the signed result. If it
+      // fails the payment may still have gone through, so the shopper is told
+      // to check their orders rather than to pay again — the webhook confirms
+      // the same payment independently.
+      await verifyPayment({
+        razorpayOrderId: handlerResponse.razorpay_order_id,
+        razorpayPaymentId: handlerResponse.razorpay_payment_id,
+        razorpaySignature: handlerResponse.razorpay_signature,
+      });
+
+      finish(response.orderId, response.totalMinorUnits);
+    } catch (err) {
+      if (err instanceof RazorpayCheckoutError) {
+        // Cancelled or declined: nothing was charged, and the order stays
+        // PENDING so it can be paid from the order page later.
+        setError(`${err.message} Your order is saved and can be paid from your orders page.`);
+      } else if (err instanceof ApiError) {
+        setError(
+          'We could not confirm your payment. If you were charged, it will be applied ' +
+            'automatically — please check your orders before paying again.',
+        );
+      } else {
+        setError('Something went wrong completing your payment.');
+      }
       setSubmitting(false);
     }
+  }
+
+  function finish(orderId: string, totalMinorUnits: number) {
+    clear();
+    router.push(`/checkout/confirmation?orderId=${orderId}&total=${totalMinorUnits}`);
   }
 
   const finalTotal = subtotalMinorUnits - discountMinorUnits;
