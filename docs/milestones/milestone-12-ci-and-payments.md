@@ -256,6 +256,14 @@ After correcting the webhook URL and deploying the reservation-expiry fix
       pre-resize the demo stock images (currently 1400×2100 / up to 403 KB, for
       something that never renders above 640px), and confirm `.next/cache/images`
       is writable in the deployed container.
+
+      **Widened, not resolved (M14, PR #20's CI run):** the same hang hit the
+      *homepage* for the first time — `app/page.tsx` has its own
+      `priority`-loaded hero image, so it was always exposed to this, just
+      never drawn before. Same `waitUntil: 'domcontentloaded'` mitigation
+      applied. The pattern is now: any page with a `priority` image is a
+      candidate, not just the PDP — worth keeping in mind for every future
+      page that adds one, not treating each occurrence as a new mystery.
 - [x] ~~`e2e/admin.spec.ts` hardcodes `http://localhost:3000`~~ — fixed; uses a
       relative URL so `E2E_BASE_URL` actually works. `storefront.spec.ts` had a
       related fault: a bare `getByRole('status')` that is a strict-mode

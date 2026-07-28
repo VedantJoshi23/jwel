@@ -168,6 +168,25 @@ export interface AdminOrder extends Order {
   user: { id: string; email: string; name: string | null };
 }
 
+export type ReturnStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'REFUND_PROCESSING' | 'REFUNDED';
+
+export interface AdminReturn {
+  id: string;
+  reason: 'SIZE_ISSUE' | 'DAMAGED' | 'NOT_AS_DESCRIBED' | 'CHANGED_MIND' | 'OTHER';
+  notes: string | null;
+  status: ReturnStatus;
+  refundAmountMinorUnits: number | null;
+  createdAt: string;
+  orderItem: {
+    id: string;
+    orderId: string;
+    productNameSnapshot: string;
+    quantity: number;
+    unitPriceMinorUnits: number;
+    order: { user: { email: string } };
+  };
+}
+
 export interface AdminUser {
   id: string;
   email: string;
