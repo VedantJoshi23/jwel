@@ -1,0 +1,97 @@
+# OPTIONAL monitoring stack — Prometheus + Grafana (ADR-0002). The app runs
+# fine without it; this exists to answer "is the service healthy" and to
+# enforce the alert thresholds SECURITY.md §A09 already names (auth
+# failure-rate and checkout error-rate spikes), which have had nothing behind
+# them until now.
+#
+#   docker compose -f docker-compose.monitoring.yml up -d
+#
+# Both self-hosted, both free, no third-party account needed — unlike Sentry
+# (deploy/README.md), there is nothing to sign up for. Read RUNBOOK.md before
+# exposing Grafana publicly: it needs its own TLS vhost and a real admin
+# password, same shape as every other subdomain this deployment serves.
+#
+# Own project, like the search and data stacks, so `down` here can never touch
+# the app or database containers, and vice versa.
+name: jwel-monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Bounded retention — this is a small single-node deployment, not a
+      # long-term metrics warehouse. 30 days is enough to see a monthly trend
+      # without the volume growing without limit; RUNBOOK §1's disk budget
+      # assumes this cap, not unbounded growth.
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    # Loopback only, same as Postgres and the app containers — reached over
+    # jwel-net by Grafana, and over an SSH tunnel by a human who wants the raw
+    # Prometheus UI (rare; Grafana is the normal path).
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - jwel-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  grafana:
+    image: grafana/grafana-oss:11.4.0
+    restart: unless-stopped
+    # `env_file`, not `environment: ${VAR}` — the latter is Compose
+    # SUBSTITUTION, which only ever reads the root `.env`, never
+    # `.env.production` (deploy/README.md's "getting this backwards is the
+    # failure mode to expect" — this file got it backwards once, during
+    # testing, and was fixed before deploy). `env_file` passes
+    # `.env.production`'s keys straight into the container, so Grafana's own
+    # native var names (GF_SECURITY_ADMIN_PASSWORD etc.) are set directly by
+    # values that live in the same file as every other app secret — no second
+    # place to manage them.
+    env_file:
+      - ./.env.production
+    environment:
+      # This deployment reaches Grafana through nginx on a public subdomain
+      # (RUNBOOK.md), so its own defaults matter: no open registration, no
+      # anonymous viewing.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - grafana-data:/var/lib/grafana
+      # Datasource + dashboards provisioned as files, not clicked into the UI
+      # — see ADR-0002's own "everything as code" framing. A `docker compose
+      # down -v` (or a fresh host) rebuilds an identical Grafana, not an empty
+      # one someone has to reconfigure by hand.
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks:
+      - jwel-net
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  jwel-net:
+    external: true

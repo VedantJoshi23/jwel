@@ -1,0 +1,14 @@
+apiVersion: 1
+
+providers:
+  - name: jwel
+    folder: Jwel
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      # Matches the dashboards volume mount in docker-compose.monitoring.yml.
+      # Files dropped here appear in Grafana within updateIntervalSeconds —
+      # no UI import step, no click-ops dashboard that only exists on one
+      # person's screen.
+      path: /var/lib/grafana/dashboards
