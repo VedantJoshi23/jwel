@@ -206,6 +206,39 @@ established:
 - The failed-stock path is clean: `409`, no order row, no payment row, no
   wasted gateway call. The check runs before the order transaction.
 
+## Follow-up validation (2026-07-28, later same day)
+
+After correcting the webhook URL and deploying the reservation-expiry fix
+(`fix/stock-reservation-expiry`, PR #16):
+
+- **The webhook now delivers.** A real `payment.captured` event landed at
+  14:06:58 and confirmed its order *before* `/payments/verify` arrived 14
+  seconds later — the idempotency guard held against a real race, not just the
+  synthetic one from earlier. The URL was the entire defect; nothing else was
+  wrong with the integration.
+- **The expiry sweep fired on schedule against real data**, not just in tests.
+  One order genuinely stale past the 30-minute TTL was cancelled at exactly a
+  5-minute cron mark, with the status-history note
+  (`"Payment not completed within the allowed window"`) matching the code
+  exactly — confirmed via `order_status_history`, not inferred from behaviour.
+- **The refund path is now proven against real Razorpay, not just mocks.**
+  Rather than spend more live-catalogue stock on browser automation (two
+  attempts against Razorpay's own Netbanking UI failed on overlay-transition
+  timing and cost 2 more reserved units — a lesson in not fighting a
+  third-party UI with brittle selectors when a better option exists), the
+  refund was validated against a payment that had **already succeeded for real
+  money** earlier the same day. `PaymentsService.refundForOrder` called
+  Razorpay's Refunds API, got back a genuine `rfnd_…` id, and the ordering held
+  end to end in production: gateway refunded → `Payment` row → `REFUNDED` →
+  stock restocked, in that sequence, each step logged separately. This was the
+  last unverified money-moving path in the codebase.
+- **Discovered gap: no admin UI exists for Returns.** The backend
+  (`GET /admin/returns`, `PATCH /admin/returns/:id/status`) is complete and was
+  exercised directly via authenticated `fetch()` calls from the browser
+  console — there is no page in `apps/web` that calls it, and the admin
+  sidebar has no Returns entry at all. Recorded in ADR-0006 as in-scope for the
+  hybrid-admin milestone, alongside the orders UI it should have shipped with.
+
 ## Tasks Remaining
 
 - [ ] Checkout E2E test in the committed suite — the flow was driven
@@ -218,7 +251,7 @@ established:
       root cause unknown, and it is a production concern, not only a test one:
       the same optimizer runs in the deployed app, so a first-time visitor to a
       product page would stall the same way. Evidence is in the trace described
-      above. Worth investigating alongside Milestone 14's observability work,
+      above. Worth investigating alongside Milestone 13's observability work,
       when there is instrumentation to see it. Two cheap things to try first:
       pre-resize the demo stock images (currently 1400×2100 / up to 403 KB, for
       something that never renders above 640px), and confirm `.next/cache/images`
@@ -240,37 +273,53 @@ established:
       a real hardening win but a change with genuine breakage risk (Next.js
       inline scripts need nonces), and doing it inside a payments change with
       no way to test it properly would have been reckless. Belongs with the
-      Milestone 14 hardening pass.
-- [ ] **No Razorpay account or test-mode credentials yet.** Everything above is
-      verified against the mock provider, unit tests, and hand-checked
-      signature logic — not against Razorpay itself. The webhook endpoint has
-      never received a real delivery. This is the single biggest gap between
-      "implemented" and "known to work", and it is the client's action: the
-      account must be in their legal entity's name (RUNBOOK §13, step 1).
-
-- [ ] **Refunds have never run against a real gateway.** `refundForOrder` now
-      moves real money, but every test of it is against a mock. The path most
-      worth exercising before go-live, and the one with the worst failure mode.
+      Milestone 13 hardening pass.
+- [x] ~~No Razorpay account or test-mode credentials yet~~ — test-mode
+      credentials are live on the deployment. Order creation, checkout,
+      payment success and failure, webhook signature verification, the
+      webhook/verify idempotency race, and refunds have all now run against
+      real Razorpay. See "Follow-up validation" above.
+- [x] ~~Refunds have never run against a real gateway~~ — validated; see
+      "Follow-up validation" above. This closes the last unverified
+      money-moving path in the codebase.
 - [ ] **A stock field on the admin product form**, or a warning on publish —
       publishing currently yields a visible but unbuyable product.
+- [ ] **No admin UI for Returns** (found during refund validation). Scoped
+      into the hybrid-admin milestone in ADR-0006 — see that ADR's Decision
+      section for why it belongs in the custom admin, not AdminJS.
 - [ ] Razorpay **live** credentials, and the RUNBOOK §13 go-live sequence
       (rebuild web without `NEXT_PUBLIC_DEMO_MODE`, re-enable indexing, one
       real transaction then refunded). Test mode proves the integration; it
-      does not prove the shop can take money.
+      does not prove the shop can take money — that is the one thing left.
 
 ## Updated Roadmap
 
 1. Milestones 0–10 — MVP ✅
 2. Milestone 11 — Testing ✅
-3. **Milestone 12 — CI proven on Actions ✅; Razorpay implemented ✅ (this
-   milestone).** Remaining before it can take real money: Razorpay credentials
-   from the client, then one real transaction end to end (RUNBOOK §13, step 9).
-4. Milestone 13 — Hybrid admin per ADR-0006: AdminJS for CRUD, Metabase on a
-   read-only user, spike Directus vs Payload for the CMS module. Supersedes
-   M10's materialized-views follow-up. Admin audit log lands here.
-5. Milestone 14 — Observability per ADR-0002 and `STD-OBSERVABILITY`:
-   Prometheus `/metrics`, Grafana dashboards, Sentry. Entirely unbuilt today —
-   no `/metrics`, no `prom-client`, no Sentry anywhere in the tree.
+3. **Milestone 12 — CI proven on Actions ✅; Razorpay implemented and
+   validated against real test-mode credentials ✅ (this milestone).**
+   Payments, refunds, webhooks — all proven live. Only remaining before it can
+   take real money: **live** Razorpay credentials from the client, then one
+   real transaction end to end (RUNBOOK §13, step 9).
+4. **Milestone 13 — Observability** per `ADR-0002` and `STD-OBSERVABILITY`:
+   Sentry first, then Prometheus `/metrics` and Grafana dashboards. Entirely
+   unbuilt today — no `/metrics`, no `prom-client`, no Sentry anywhere in the
+   tree.
+
+   **Reordered ahead of the hybrid admin milestone** (was M13, now M14) — a
+   decision made mid-M12, not part of the original plan. The webhook
+   misconfiguration this milestone found was silent for hours; nothing
+   surfaced it except a human going looking. A shop about to take real payments
+   needs to find out about failures like that from an alert, not from a support
+   email. The admin-tooling work is a productivity improvement for an admin
+   surface that already works; this is a safety gap in one that is about to
+   handle real money.
+5. **Milestone 14 — Hybrid admin** per `ADR-0006`: AdminJS for CRUD, Metabase
+   on a read-only user, spike Directus vs Payload for the CMS module.
+   Supersedes M10's materialized-views follow-up. Admin audit log lands here.
+   **Also includes the admin Returns UI** — real workflow surface that never
+   got a page (see "Follow-up validation" above and ADR-0006's Decision
+   section for why it's custom-admin scope, not AdminJS).
 6. Milestone 15 — Deployment / go-live. `deploy/` is written and
    reasoned-through but has never been executed end to end.
 7. Milestone 16+ — Shipping (`FEAT-SHIPPING`), WhatsApp/SMS

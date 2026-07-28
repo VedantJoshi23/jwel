@@ -7,7 +7,7 @@ owner: Architecture
 reviewers: []
 created: 2026-07-27
 updated: 2026-07-27
-milestone: M13
+milestone: M14
 category: Decision
 priority: High
 depends_on:
@@ -88,8 +88,19 @@ That asymmetry is the whole argument.
 
 - **Custom Next.js admin keeps everything with business logic and side
   effects** — orders, returns, and the planned Risk (`DOM-RISK`) and
-  Shipment/NDR (`DOM-SHIPPING`) queues. This is the 20% that is genuinely hard
-  and already works.
+  Shipment/NDR (`DOM-SHIPPING`) queues. This is the 20% that is genuinely hard.
+
+  **Returns is scoped here but has no admin UI yet** — discovered during
+  Milestone 12's live refund validation. The backend is complete and correct
+  (`GET /admin/returns`, `PATCH /admin/returns/:id/status`, and the
+  money-before-bookkeeping-before-restock ordering in
+  `ReturnsService.adminUpdateStatus`), but nothing in `apps/web` calls it; the
+  admin sidebar goes straight from Coupons to CMS. Every return since has been
+  processed via raw `fetch()` calls against the API. This is real workflow
+  surface per this ADR's own criterion — a human decision that triggers a
+  refund and a restock — so it belongs in the custom admin, not AdminJS.
+  **Build it in this milestone**, alongside the orders UI it should have
+  shipped next to.
 - **AdminJS takes the CRUD screens** — categories, coupons, banners, simple
   lookups. Mounted on the existing API via the NestJS + Prisma adapters.
 - **Metabase for business reporting**, against a dedicated **read-only**
@@ -97,7 +108,7 @@ That asymmetry is the whole argument.
 - **Directus or Payload for the CMS module only** (banners, homepage content) —
   the one part of this app that is pure content management with no commerce
   logic. This also covers FR-23's unbuilt scope (category landing content,
-  lookbook/editorial). Which of the two is a spike in M13, not decided here.
+  lookbook/editorial). Which of the two is a spike in M14, not decided here.
 
 **Grafana stays infrastructure-only.** `ADR-0002` chose it for system metrics;
 pointing it at business data would mix "is the service healthy" with "which

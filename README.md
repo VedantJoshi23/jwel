@@ -15,8 +15,13 @@ recommendations, and the admin dashboard.
 **Phase 2 (testing + DevOps) is under way.** Milestone 11 built the test suite
 (backend Jest unit + integration, frontend Vitest, Playwright E2E) and the CI
 workflow; `deploy/` carries a full self-hosted Docker/nginx deployment and
-runbook. Milestone 12 is in progress — see
+runbook. Milestone 12 is complete — CI proven on Actions, and Razorpay
+implemented and validated against real test-mode credentials on the live
+deployment (payments, refunds, and webhooks all confirmed working end to end)
+— see
 [`docs/milestones/milestone-12-ci-and-payments.md`](docs/milestones/milestone-12-ci-and-payments.md).
+Only live credentials and the RUNBOOK §13 go-live sequence remain before it
+can take real money.
 
 Three client decisions now shape the roadmap:
 
@@ -119,19 +124,23 @@ including the environment-specific fixes Elasticsearch needed locally
 Full detail and the reasoning behind the ordering is in
 [`docs/milestones/milestone-12-ci-and-payments.md`](docs/milestones/milestone-12-ci-and-payments.md).
 
-1. **Finish Milestone 12 — Razorpay.** The docs and ADR-0005 name Razorpay as
-   the provider, but the adapter is not built yet: the code still carries the
-   Stripe adapter and a Razorpay stub that throws. Includes the port reshape
-   off Stripe's `clientSecret`, the `refund()` method open since M7, and
-   building the frontend payment step, which has never existed. Deployments
-   before this lands use `PAYMENTS_MODE=simulated` (`deploy/RUNBOOK.md` §13).
-2. **Milestone 13 — Hybrid admin** per
+1. **Milestone 12 — Razorpay ✅.** Implemented per ADR-0005 and validated
+   against real test-mode credentials on the live deployment: order creation,
+   checkout, payment success/failure, webhook signature verification, the
+   webhook/verify idempotency race, and refunds have all run against real
+   Razorpay. Only remaining: **live** credentials from the client, then the
+   RUNBOOK §13 go-live sequence.
+2. **Milestone 13 — Observability** per
+   [ADR-0002](knowledge/decisions/ADR-0002-observability-stack.md): Sentry
+   first, then Prometheus `/metrics` and Grafana. Entirely unbuilt today.
+   Reordered ahead of admin tooling mid-M12 — a webhook misconfiguration went
+   undetected for hours with nothing but a human noticing; a shop taking real
+   payments needs that from an alert, not a support email.
+3. **Milestone 14 — Hybrid admin** per
    [ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md): AdminJS
    for CRUD, Metabase on a read-only user for reporting, a headless CMS spike
-   for content. Admin audit log lands here.
-3. **Milestone 14 — Observability** per
-   [ADR-0002](knowledge/decisions/ADR-0002-observability-stack.md): Prometheus
-   `/metrics`, Grafana, Sentry. Entirely unbuilt today.
+   for content, an admin audit log, and an **admin Returns UI** — the backend
+   exists but no page ever called it, found during live refund validation.
 4. **Milestone 15 — Deployment / go-live.** `deploy/` is written and
    reasoned-through but has never been executed end to end.
 5. **Milestone 16+** — Shipping, WhatsApp/SMS, Fraud/Risk (all specified in
