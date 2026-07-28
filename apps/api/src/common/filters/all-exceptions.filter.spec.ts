@@ -1,6 +1,9 @@
 import { ArgumentsHost, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
 import { AllExceptionsFilter } from './all-exceptions.filter';
+
+jest.mock('@sentry/node', () => ({ captureException: jest.fn() }));
 
 function buildHost(headers: Record<string, string> = {}) {
   const json = jest.fn();
@@ -17,6 +20,7 @@ describe('AllExceptionsFilter', () => {
   let filter: AllExceptionsFilter;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     filter = new AllExceptionsFilter();
   });
 
@@ -25,6 +29,23 @@ describe('AllExceptionsFilter', () => {
     filter.catch(new NotFoundException('Product not found'), host);
     expect(status).toHaveBeenCalledWith(404);
     expect(json.mock.calls[0][0]).toMatchObject({ statusCode: 404, message: 'Product not found' });
+  });
+
+  // A 404 is normal traffic, not a bug report. Reporting every one of these
+  // would drown the signal a 5xx is supposed to be.
+  it('does not report a 4xx to Sentry', () => {
+    const { host } = buildHost();
+    filter.catch(new NotFoundException('Product not found'), host);
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('reports a 5xx to Sentry, tagged with the correlation id', () => {
+    const { host } = buildHost({ 'x-correlation-id': 'abc-123' });
+    const error = new Error('boom');
+    filter.catch(error, host);
+    expect(Sentry.captureException).toHaveBeenCalledWith(error, {
+      tags: { correlationId: 'abc-123' },
+    });
   });
 
   it('echoes back the x-correlation-id header when present', () => {

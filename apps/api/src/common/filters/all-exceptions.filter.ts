@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
 
 interface ErrorEnvelope {
   statusCode: number;
@@ -50,6 +51,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `[${correlationId}] ${request.method} ${request.url} -> ${status}: ${JSON.stringify(message)}`,
         exception instanceof Error ? exception.stack : undefined,
       );
+
+      // Only 5xx — a 404 or a validation 400 is not a bug report, it's normal
+      // traffic, and reporting every one of them would drown the real signal.
+      // `correlationId` is attached as a tag (not just in `extra`) so it is
+      // searchable in Sentry's UI, matching ADR-0002's requirement that a
+      // single request be traceable across logs, metrics, and error reports.
+      // A no-op when SENTRY_DSN is unset (see instrument.ts).
+      Sentry.captureException(exception, { tags: { correlationId } });
     } else {
       this.logger.warn(`[${correlationId}] ${request.method} ${request.url} -> ${status}: ${JSON.stringify(message)}`);
     }

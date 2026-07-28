@@ -38,10 +38,27 @@ ARG NEXT_PUBLIC_SITE_URL
 # the API's PAYMENTS_MODE=simulated — nothing enforces that they agree, so
 # see RUNBOOK §13. Unset/absent is the live-shop default.
 ARG NEXT_PUBLIC_DEMO_MODE
+# Optional — see instrumentation-client.ts. Absent means Sentry.init runs with
+# no DSN, which is a complete no-op (the SDK's own behavior): the build still
+# succeeds and the deployed app simply reports nothing. A DSN is public by
+# design (write-only, cannot read project data), unlike SENTRY_AUTH_TOKEN
+# below.
+ARG NEXT_PUBLIC_SENTRY_DSN
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_API_ORIGIN=${NEXT_PUBLIC_API_ORIGIN}
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV NEXT_PUBLIC_DEMO_MODE=${NEXT_PUBLIC_DEMO_MODE}
+ENV NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
+
+# Source-map upload only — SENTRY_ORG/PROJECT/AUTH_TOKEN, not the DSN above.
+# Deliberately NOT wired as build ARGs yet: no Sentry project exists for this
+# client, so there is nothing to authenticate against, and ARG values are
+# visible in `docker history` on the intermediate build stage — acceptable for
+# NEXT_PUBLIC_* values (they ship in the bundle anyway) but not a pattern to
+# extend to a real secret without deciding how to keep it out of layer
+# history (BuildKit `--secret` mount) first. next.config.mjs already treats an
+# absent SENTRY_AUTH_TOKEN as "skip source-map upload entirely", so this is a
+# safe gap to leave open, not a blocker — see deploy/README.md.
 
 COPY apps/web apps/web
 WORKDIR /repo/apps/web

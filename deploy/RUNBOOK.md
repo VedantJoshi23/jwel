@@ -176,6 +176,12 @@ docker build -f apps/web/Dockerfile \
 Drop `NEXT_PUBLIC_DEMO_MODE` once payments are live — see §13. While it is set,
 the storefront shows a "no payment is taken" banner and returns `noindex`.
 
+**Optional — error tracking (ADR-0002).** Once a Sentry project exists, add
+`SENTRY_DSN=` to `.env.production` and `--build-arg
+NEXT_PUBLIC_SENTRY_DSN=<dsn>` to the web build above. Both are absent-safe —
+no Sentry project, no behavior change, nothing to set up before this step
+works. See `deploy/README.md` §1 for the fuller note.
+
 The `ghcr.io/local/...` naming is arbitrary here — it just has to match
 `GH_OWNER=local` and `API_TAG=$GIT_SHA` / `WEB_TAG=$GIT_SHA` in
 **`deploy/.env`**, so Compose finds the image you just built instead of trying
