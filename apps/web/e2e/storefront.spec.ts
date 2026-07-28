@@ -1,14 +1,22 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Storefront browsing', () => {
+  // `waitUntil: 'domcontentloaded'` rather than the default 'load' — same
+  // reasoning and same fix as the PDP navigations below. The homepage has its
+  // own `priority`-loaded hero image (app/page.tsx), so it is exposed to the
+  // identical unresolved `/_next/image` optimizer hang documented in
+  // milestone-12 (an outstanding request that intermittently never resolves
+  // on the CI runner). Surfaced here for the first time not because the
+  // homepage changed, but because which stock image gets hashed to `priority`
+  // is randomized per fresh CI database — this run's draw happened to hang.
   test('homepage loads and shows the site header/footer', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('link', { name: 'ELYSIAN' }).first()).toBeVisible();
     await expect(page.locator('footer')).toBeVisible();
   });
 
   test('searching for a known seeded product surfaces it in results', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.getByLabel('Search products').fill('Diamond');
     // The header search box has no visible submit button — pressing Enter
     // in the input is the real user path that triggers the form's onSubmit.
