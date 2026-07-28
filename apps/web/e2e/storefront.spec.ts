@@ -50,7 +50,10 @@ test.describe('Storefront browsing', () => {
   test('adding a product to the bag updates the cart and the header badge', async ({ page }) => {
     await page.goto('/product/diamond-halo-ring', { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Add to bag' }).click();
-    await expect(page.getByRole('status')).toContainText('Added');
+    // Scoped: the demo-mode banner (NEXT_PUBLIC_DEMO_MODE=true) also carries
+    // role="status", so a bare getByRole('status') is a strict-mode
+    // violation against a demo deployment.
+    await expect(page.getByRole('status').filter({ hasText: 'to your bag' })).toBeVisible();
     await expect(page.getByLabel(/Shopping bag, 1 item/)).toBeVisible();
 
     await page.goto('/cart');

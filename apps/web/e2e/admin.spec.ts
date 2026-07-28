@@ -15,7 +15,10 @@ test.describe('Admin Portal RBAC', () => {
     await expect(page).toHaveURL(/\/profile/);
 
     await page.goto('/admin');
-    await expect(page).toHaveURL('http://localhost:3000/');
+    // Relative, not absolute: an absolute origin breaks the moment the suite
+    // runs against anything but the default port (E2E_BASE_URL exists
+    // precisely so it can).
+    await expect(page).toHaveURL('/');
   });
 
   test('unauthenticated direct access to an admin sub-route also redirects', async ({ page }) => {
