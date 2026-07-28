@@ -639,6 +639,105 @@ go-live — step 8 above is the natural place.
 
 ---
 
+## Optional: Monitoring (Prometheus + Grafana)
+
+Entirely optional, like Elasticsearch below — the app runs fine without it.
+Unlike Sentry (`deploy/README.md`), **no third-party account is needed**:
+both are self-hosted, free indefinitely, and there is nothing to sign up
+for. `ADR-0002` named this stack; `docs/milestones/milestone-13-observability.md`
+records what it looks like built.
+
+Check disk headroom first — `docker system df` — and prune reclaimable build
+cache if it is high; this deployment needed 23GB reclaimed before the first
+`up` here.
+
+```bash
+docker compose -f docker-compose.monitoring.yml up -d
+docker compose -f docker-compose.monitoring.yml ps    # wait for "healthy" on both
+```
+
+**`GF_SECURITY_ADMIN_PASSWORD` must be set in `deploy/.env.production`
+before the first `up`** — the container refuses a default password. Generate
+one the same way as every other secret in this file:
+
+```ini
+GF_SECURITY_ADMIN_USER=admin
+GF_SECURITY_ADMIN_PASSWORD=<openssl rand -base64 24>
+GF_SERVER_ROOT_URL=https://grafana.yourdomain.com
+```
+
+These are Grafana's own native variable names, read via `env_file:` in
+`docker-compose.monitoring.yml` — **not** `${GF_...}` Compose-substitution
+syntax, which would only ever read the root `.env`, never `.env.production`.
+Getting that backwards is the same failure mode `API_TAG` warns about
+earlier in this file, and it happened once while building this stack before
+being caught.
+
+The datasource, one starter dashboard, and the two `SECURITY.md` §A09 alert
+rules (auth failure-rate, checkout error-rate) are provisioned from files
+under `deploy/monitoring/grafana/provisioning/` — nothing to click through in
+the UI on a fresh deploy. Confirm provisioning actually landed, not just that
+the container is healthy:
+
+```bash
+curl -s -u admin:<password> http://127.0.0.1:3001/api/v1/provisioning/alert-rules
+curl -s -u admin:<password> http://127.0.0.1:3001/api/search
+```
+
+### Putting Grafana behind a real domain
+
+A **separate** nginx config from the storefront/API — `deploy/nginx/grafana.conf.template`
+— installed as its own file in `sites-available`/`sites-enabled`, deliberately
+not folded into `jwel.conf.template`. That file is live and load-bearing; a
+mistake extending it risks the whole site, not one subdomain.
+
+```bash
+# 1. DNS first, same as any other subdomain — wait for it to resolve.
+dig +short grafana.yourdomain.com
+
+# 2. Cert. No nginx changes needed first: sites-enabled/default is
+#    `listen 80 default_server` and already serves /var/www/html for any
+#    hostname nginx doesn't otherwise recognize, so the ACME challenge
+#    succeeds even before this subdomain has its own vhost.
+sudo certbot certonly --webroot -w /var/www/html -d grafana.yourdomain.com
+
+# 3. Render, install as its own file, validate, reload.
+cd ~/jwel/deploy/nginx
+GRAFANA_DOMAIN=grafana.yourdomain.com envsubst '${GRAFANA_DOMAIN}' \
+  < grafana.conf.template | sudo tee /etc/nginx/sites-available/grafana > /dev/null
+sudo ln -sf /etc/nginx/sites-available/grafana /etc/nginx/sites-enabled/grafana
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Verify the storefront and API are unaffected before doing anything else —
+`nginx -t` passing does not by itself prove the two live vhosts still work:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://yourdomain.com/
+curl -fsS https://api.yourdomain.com/health/ready
+curl -s -o /dev/null -w '%{http_code}\n' https://grafana.yourdomain.com/login
+```
+
+No nginx-level basic auth on top of Grafana's own login — matches how the API
+subdomain relies on its own app-level auth rather than a second layer in
+front of it. `GF_USERS_ALLOW_SIGN_UP` and `GF_AUTH_ANONYMOUS_ENABLED` are both
+forced `false` in the compose file regardless of what `.env.production` sets,
+since this is now a public URL.
+
+### Turning it off
+
+```bash
+docker compose -f docker-compose.monitoring.yml down
+sudo rm /etc/nginx/sites-enabled/grafana
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The named volumes (`jwel-monitoring_prometheus-data`, `jwel-monitoring_grafana-data`)
+survive `down` without `-v` — bringing the stack back up later resumes with
+history intact rather than starting cold.
+
+---
+
 ## Optional: Elasticsearch
 
 Entirely optional. Without it the API logs `Elasticsearch unavailable at

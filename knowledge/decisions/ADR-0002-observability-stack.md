@@ -2,12 +2,12 @@
 id: ADR-0002
 title: Sentry + Prometheus/Grafana as the Observability Stack
 version: 1.0.0
-status: Proposal
+status: Accepted
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-07-09
-milestone: M3
+updated: 2026-07-28
+milestone: M13
 category: Decision
 priority: Critical
 depends_on: []
@@ -66,15 +66,31 @@ traced across logs, metrics, and error reports.
 - Two systems to operate instead of one all-in-one APM — accepted in
   exchange for lower cost and no change to a tool choice `PRODUCT.md`
   already committed to.
-- Sentry needs a DSN and release/environment tagging wired into both
-  `apps/api`'s bootstrap and `apps/web`'s Next.js config; Prometheus needs
-  a `/metrics` endpoint exposed and scraped.
-- Alert thresholds (auth failure-rate spikes, checkout error-rate spikes
-  — already named in `SECURITY.md` §A09) become actually enforceable
-  once Prometheus alerting rules exist; today that line in `SECURITY.md`
-  describes a capability that doesn't exist yet.
+- **Both halves are now built** (Milestone 13). Sentry: `apps/api/src/instrument.ts`
+  + `AllExceptionsFilter` (5xx only, tagged with `correlationId`), and
+  `apps/web`'s `instrumentation.ts`/`instrumentation-client.ts`. Both are
+  inert without a `SENTRY_DSN` — no Sentry account exists for this client
+  yet, so this ships as dormant capability, same posture Razorpay had before
+  credentials arrived. Prometheus: `GET /metrics` (`prom-client`), scraped by
+  a self-hosted Prometheus + Grafana stack (`deploy/docker-compose.monitoring.yml`),
+  reachable at `grafana.whisperingorion.dev`.
+- Alert thresholds (auth failure-rate spikes, checkout error-rate spikes —
+  named in `SECURITY.md` §A09) are enforceable **now**, provisioned as
+  Grafana alert rules (`deploy/monitoring/grafana/provisioning/alerting/rules.yml`),
+  not Prometheus's own `rule_files`/Alertmanager mechanism as this ADR
+  originally implied. That path needs a third container just to route two
+  rules, plus a notification receiver (email/Slack/webhook) that doesn't
+  exist for this client yet; Grafana's built-in unified alerting needs
+  neither and shows firing state in its own UI immediately. A real
+  notification channel is a config addition later, not new infrastructure.
 - Dashboard review becomes a real recurring operational task, not a
-  one-time setup — `STD-OBSERVABILITY` names the cadence.
+  one-time setup — `STD-OBSERVABILITY` names the cadence. One starter
+  dashboard exists (`Jwel API — Overview`); it is a floor, not a finished
+  product.
+- Self-hosting Prometheus + Grafana costs real disk over time — the
+  `--storage.tsdb.retention.time=30d` flag bounds it, but the build cache
+  cleanup this milestone needed first (23GB reclaimed) is a reminder this
+  VM's disk budget is not unlimited.
 
 ## Revisit Criteria
 

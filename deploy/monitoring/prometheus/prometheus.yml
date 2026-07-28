@@ -1,0 +1,28 @@
+# Scrape config for the jwel-monitoring stack. Mounted read-only into the
+# Prometheus container — see docker-compose.monitoring.yml.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alerting is handled by Grafana's own unified alerting (provisioned under
+# grafana/provisioning/alerting/), not Prometheus's native
+# rule_files/Alertmanager mechanism. That path needs a third container
+# (Alertmanager) just to route two rules, and a receiver — email, Slack,
+# webhook — that doesn't exist for this client yet. Grafana alerting needs
+# neither: it queries this Prometheus directly and shows firing state in its
+# own UI immediately, with a notification channel addable later as a config
+# change, not an infra change.
+
+scrape_configs:
+  - job_name: jwel-api
+    static_configs:
+      # `api:4000` — the app-stack service name, reached over the external
+      # jwel-net network both stacks join. Not `localhost`: Prometheus runs in
+      # its own container, so localhost would mean itself.
+      - targets: ["api:4000"]
+    metrics_path: /metrics
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

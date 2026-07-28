@@ -1,0 +1,65 @@
+# TEMPLATE — not a usable nginx config. Substitute ${GRAFANA_DOMAIN} first.
+#
+# Deliberately a SEPARATE file from jwel.conf.template, installed as its own
+# entry in sites-available/sites-enabled rather than folded into `main`. The
+# storefront and API vhosts in `main` are live and load-bearing; a mistake
+# while extending that file risks the whole site, not just this one
+# subdomain. This file can be installed, tested, or rolled back without
+# touching `main` at all.
+#
+# Install:
+#   sudo cp grafana.conf.template /etc/nginx/sites-available/grafana   # (after substituting ${GRAFANA_DOMAIN})
+#   sudo ln -s /etc/nginx/sites-available/grafana /etc/nginx/sites-enabled/grafana
+#   sudo nginx -t && sudo systemctl reload nginx
+#
+# Prerequisite: the cert must already exist —
+#   sudo certbot certonly --webroot -w /var/www/html -d ${GRAFANA_DOMAIN}
+# `/var/www/html` is reachable for the ACME challenge even before this file
+# is installed, because sites-enabled/default is `listen 80 default_server`
+# and serves that same webroot for any hostname nginx doesn't otherwise
+# recognize — so cert issuance never has to precede this config the way it
+# does for a brand-new apex domain.
+
+server {
+    server_name ${GRAFANA_DOMAIN};
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # No Upgrade/Connection headers, same reasoning as jwel.conf.template:
+        # the dashboard here uses standard Prometheus range-query panels on a
+        # timed refresh, not Grafana's WebSocket-based live-streaming panels,
+        # so there is nothing to upgrade. Adding them would need a
+        # `map $http_upgrade $connection_upgrade` in nginx.conf's http block,
+        # which does not exist — referencing the variable without the map
+        # fails `nginx -t` outright, for a feature not in use.
+    }
+
+    listen 443 ssl;
+    ssl_certificate     /etc/letsencrypt/live/${GRAFANA_DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${GRAFANA_DOMAIN}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    server_tokens off;
+}
+
+server {
+    listen 80;
+    server_name ${GRAFANA_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

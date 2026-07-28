@@ -1,0 +1,76 @@
+apiVersion: 1
+
+# Grafana's own unified alerting, not Prometheus's native
+# rule_files/Alertmanager mechanism — see prometheus.yml for why. These are
+# the two thresholds SECURITY.md §A09 has named since that document was
+# written, with nothing behind them until this file.
+groups:
+  - orgId: 1
+    name: jwel-security-alerts
+    folder: Jwel
+    interval: 1m
+    rules:
+      - uid: jwel-auth-failure-spike
+        title: Auth failure rate spike
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: sum(rate(auth_failures_total[5m]))
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              refId: C
+              conditions:
+                - evaluator: { type: gt, params: [1] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 1 failed login/sec, sustained for 5 minutes"
+          description: >-
+            SECURITY.md §A09 names this as an alertable threshold. Could be a
+            credential-stuffing attempt or a legitimate outage (e.g. a broken
+            deploy that fails every login) — check recent deploys first, then
+            source IPs in the API logs by correlation_id.
+
+      - uid: jwel-checkout-error-spike
+        title: Checkout error rate spike (5xx on order/payment routes)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: >-
+                sum(rate(http_requests_total{route=~"/api/v1/(orders|payments).*",status_code=~"5.."}[5m]))
+              instant: true
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              expression: A
+              refId: C
+              conditions:
+                - evaluator: { type: gt, params: [0.1] }
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "5xx errors on checkout/payment routes, sustained for 5 minutes"
+          description: >-
+            SECURITY.md §A09's other named threshold. This is the path that
+            takes real money — check the payment_events_total{outcome} panel
+            and the API's error logs (correlation_id) before assuming it is
+            Razorpay's side rather than a code regression.
