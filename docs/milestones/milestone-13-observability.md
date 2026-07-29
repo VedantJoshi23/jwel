@@ -74,11 +74,9 @@ client yet.
 
 ## Tasks Remaining
 
-- [ ] **PR #18 (the `/metrics` endpoint) is not yet deployed to production.**
-      Prometheus's `jwel-api` scrape target currently shows `down (404)`
-      because the live API doesn't have the route yet. Everything else in
-      this milestone is verified against a real running Grafana/Prometheus;
-      this is the one piece still waiting on a merge + redeploy.
+- [x] **PR #18 (the `/metrics` endpoint) deployed to production** — shipped
+      as part of a later API image rollout (M14); Prometheus's `jwel-api`
+      scrape target is live.
 - [ ] **No alert notification channel configured.** Alerts fire and are
       visible in Grafana's own UI, but nothing emails or pages anyone yet —
       no SMTP, no Slack webhook exists for this client. A config addition,
@@ -95,11 +93,11 @@ client yet.
 
 1. Milestones 0–12 — MVP, testing, CI, Razorpay ✅
 2. **Milestone 13 — Observability (this milestone).** Sentry ✅, Prometheus +
-   Grafana ✅ and live at `grafana.whisperingorion.dev`, PR #18 deploy
-   pending.
-3. Milestone 14 — Hybrid admin per `ADR-0006`: AdminJS, Metabase, CMS spike,
-   admin audit log, and the admin Returns UI gap found during M12's live
-   validation.
+   Grafana ✅ and live at `grafana.whisperingorion.dev`, `/metrics` deployed.
+   Only remaining: an alert notification channel, deferred pending a
+   client-provided email address.
+3. Milestone 14 — Hybrid admin per `ADR-0006`, in progress — see
+   `docs/milestones/milestone-14-hybrid-admin.md`.
 4. Milestone 15 — Deployment / go-live.
 5. Milestone 16+ — Shipping, WhatsApp/SMS, Fraud/Risk.
 
