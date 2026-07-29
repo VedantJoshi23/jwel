@@ -86,10 +86,57 @@ full explanation) rather than silently building on the wrong premise.
       never actually missing. `ADR-0006`, `README.md`, and this document are
       the fix — no code change was needed or made.
 
+- [x] **Metabase for business reporting** (per `ADR-0006`'s hard
+      requirement of a dedicated read-only database user). Own isolated
+      Compose project (`jwel-metabase`), pinned `metabase/metabase:v0.63.1`,
+      its own Postgres database on the existing `jwel-data` instance for its
+      application state (dashboards/questions/users) — deliberately not the
+      default embedded H2 store, which Metabase's own docs call unsafe for
+      production.
+  - **The read-only requirement was proven, not assumed**: after granting
+    `metabase_ro` only `SELECT`, a real `UPDATE`/`INSERT` attempt against it
+    was run and confirmed rejected (`permission denied for table orders`)
+    before recording this as done.
+  - **A real mistake, caught by actually booting the container**: the first
+    draft of `docker-compose.metabase.yml` referenced `${MB_DB_USER}`/
+    `${MB_DB_PASS}` inside the `environment:` block — Compose *substitution*
+    syntax, which only reads the root `.env`, never `.env.production`. Since
+    `env_file:` already injects those exact names from `.env.production`,
+    the `environment:` block's unset `${VAR}` silently overwrote them with
+    an empty string. This is the identical failure mode the Grafana build
+    hit and documented a warning against in M13 — and it was made again
+    here anyway, despite writing that exact warning into this file's own
+    header comment first. Fixed; comment updated to explain the mechanism,
+    not just repeat the warning.
+  - Postgres 15+'s no-default-CREATE-on-public-schema change meant the
+    `metabase` role's database-level `ALL PRIVILEGES` grant alone wasn't
+    enough for Metabase's own migrations to create its tables on first
+    boot — needed an explicit `GRANT ALL ON SCHEMA public` inside the
+    `metabase` database itself. Caught the same way: by actually letting
+    the container try to migrate, not by assuming the earlier grant covered
+    it.
+  - End-to-end verified with a real query, not just a successful connection
+    test: `SELECT status, count(*) FROM orders GROUP BY status` executed
+    through Metabase's own query engine against the `metabase_ro` connection
+    returned real production order data.
+  - `backup.sh` extended to also dump the `metabase` application database
+    (unlike Grafana's, this is real state with no provision-as-code
+    equivalent — someone will build dashboards by hand) — conditional on the
+    database existing, so a deployment that never opts into Metabase doesn't
+    start failing its nightly backup over a database it was never asked to
+    create. Run once by hand and confirmed non-empty.
+  - **Not yet done**: the public subdomain. `metabase.whisperingorion.dev`
+    has no DNS record yet — blocked on the client adding the A record, same
+    manual step every prior subdomain here has needed. The nginx template
+    (`deploy/nginx/metabase.conf.template`) and the RUNBOOK section covering
+    cert issuance + vhost install are ready; only the DNS step and the
+    resulting `certbot`/nginx commands remain once it resolves.
+
 ## Tasks Remaining
 
-- [ ] Metabase for business reporting, against a dedicated read-only
-      database user (per `ADR-0006`).
+- [ ] **Metabase's public subdomain** — waiting on the
+      `metabase.whisperingorion.dev` A record; everything else is done and
+      verified against the live service over its loopback port.
 - [ ] Directus-vs-Payload spike for the CMS module (banners, homepage
       content) — also closes FR-23's unbuilt scope (category landing
       content, lookbook/editorial).
@@ -102,7 +149,8 @@ full explanation) rather than silently building on the wrong premise.
 1. Milestones 0–13 — MVP, testing, CI, Razorpay, observability ✅
 2. **Milestone 14 — Hybrid admin (this milestone).** Returns UI ✅, audit log
    ✅, categories/coupons/banners confirmed already built, AdminJS evaluated
-   and rejected. Remaining: Metabase, CMS spike.
+   and rejected, Metabase built and verified (public subdomain pending a
+   client DNS record). Remaining: CMS spike.
 3. Milestone 15 — Deployment / go-live.
 4. Milestone 16+ — Shipping, WhatsApp/SMS, Fraud/Risk.
 
@@ -113,3 +161,5 @@ full explanation) rather than silently building on the wrong premise.
 | A second admin-tool's mutations could go unaudited if adopted carelessly | Documented explicitly in `ADR-0006`: whatever CRUD framework is eventually chosen must get its own hook into the existing `AuditLog` table/service as part of adoption, not as a follow-up |
 | Docs drifting from reality again, the way ADR-0006's CRUD section did | The specific failure mode here was a *contradiction within a single document* (Context said X existed, Decision said to build X) going unreviewed. Worth a habit, not just a one-time fix: when editing an ADR's Decision, re-read its own Context section for claims that already answer the question |
 | AdminJS's dependency footprint was discovered only by actually installing it | Same lesson as this project's "verify against the real thing" pattern elsewhere (real `next build`, real Playwright runs, real Postgres for integration tests) — `npm view <pkg> peerDependencies` proved compatibility but said nothing about transitive vulnerability count; only a real `npm install` + `npm audit` surfaced the actual cost |
+| A BI tool with write access to production data is a data-loss incident waiting for a bad query (`ADR-0006`'s own framing) | Not trusted on the strength of a `GRANT SELECT`-only statement — a real `UPDATE` against `metabase_ro` was run and confirmed rejected before this milestone recorded Metabase as done |
+| The exact `${VAR}`-in-`environment:`-vs-`env_file` Compose-substitution mistake that hit Grafana in M13 was made again while building Metabase's compose file, despite a warning comment already existing in this repo for it | Caught the same way as before — by actually booting the container and reading its real env, not by trusting the comment. Worth treating as a standing risk for any *future* `env_file`-backed service in this deployment, not a one-off: the warning comment alone did not prevent a repeat |

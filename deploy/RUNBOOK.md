@@ -738,6 +738,173 @@ history intact rather than starting cold.
 
 ---
 
+## Optional: Metabase (Business Reporting)
+
+Entirely optional, like Monitoring above and Elasticsearch below. `ADR-0006`
+named this stack; `docs/milestones/milestone-14-hybrid-admin.md` records what
+it looks like built. **Deliberately a separate service from Grafana** — per
+`ADR-0006`, Grafana stays infrastructure-only ("is the service healthy"),
+Metabase answers business questions ("which SKUs sold best"); don't be
+tempted to reuse one for the other.
+
+The main Postgres (`docker-compose.postgres.yml`) must already be running —
+Metabase needs its own application database on it before it can boot.
+
+### 1. Create Metabase's application database and the read-only reporting role
+
+Two separate Postgres identities, easy to confuse:
+
+- **`metabase`** — owns a dedicated `metabase` database on the same Postgres
+  instance. This is Metabase's own state: dashboards, saved questions,
+  users, and the reporting-connection config it remembers after setup.
+  Deliberately real Postgres, not the default embedded H2 file store, which
+  Metabase's own docs call out as unsafe for production.
+- **`metabase_ro`** — the READ-ONLY role Metabase is configured to query
+  *against* (the `jwel` database itself) once it's running. This is the
+  `ADR-0006` hard requirement: "a BI tool with write access to the orders
+  table is a data-loss incident waiting for a bad query."
+
+```bash
+cd ~/jwel/deploy
+MB_DB_PASS=$(openssl rand -hex 24)
+METABASE_RO_PASSWORD=$(openssl rand -hex 24)
+
+docker compose -f docker-compose.postgres.yml exec -T postgres psql -U jwel -d jwel <<SQL
+CREATE DATABASE metabase;
+CREATE ROLE metabase LOGIN PASSWORD '${MB_DB_PASS}';
+GRANT ALL PRIVILEGES ON DATABASE metabase TO metabase;
+CREATE ROLE metabase_ro LOGIN PASSWORD '${METABASE_RO_PASSWORD}';
+GRANT CONNECT ON DATABASE jwel TO metabase_ro;
+GRANT USAGE ON SCHEMA public TO metabase_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO metabase_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO metabase_ro;
+SQL
+
+# Postgres 15+ no longer grants CREATE on the public schema to a database's
+# owner-adjacent roles by default — without this, Metabase's own migrations
+# fail to create its tables the first time it boots.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d metabase -c "GRANT ALL ON SCHEMA public TO metabase;"
+
+echo "MB_DB_PASS=${MB_DB_PASS}"
+echo "METABASE_RO_PASSWORD=${METABASE_RO_PASSWORD}"
+```
+
+**Verify the read-only role actually can't write before trusting it** — a
+`GRANT SELECT`-only role is the ADR's hard requirement, so prove it rather
+than assume the grants above did what they say:
+
+```bash
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  env PGPASSWORD="$METABASE_RO_PASSWORD" psql -U metabase_ro -d jwel -h localhost \
+  -c "UPDATE orders SET status = 'CANCELLED' WHERE false;"
+# must print: ERROR:  permission denied for table orders
+```
+
+### 2. Add the credentials to `.env.production`, then start Metabase
+
+```ini
+# ---- Metabase (M14, ADR-0006) ----
+MB_DB_USER=metabase
+MB_DB_PASS=<generated above>
+# Not consumed by any container — used once, manually, when configuring
+# Metabase's reporting-database connection through its own setup wizard.
+METABASE_RO_PASSWORD=<generated above>
+```
+
+These are Metabase's own native variable names, read via `env_file:` in
+`docker-compose.metabase.yml` — **not** `${MB_DB_...}` Compose-substitution
+syntax in the `environment:` block, which would only ever read the root
+`.env`, never `.env.production`, and silently overwrite the correct value
+with an empty string. Same failure mode `API_TAG` and Grafana's
+`GF_SECURITY_ADMIN_PASSWORD` warn about earlier in this file — it happened
+again while building this stack, caught by the container refusing to
+connect rather than by re-reading the warning.
+
+```bash
+docker compose -f docker-compose.metabase.yml up -d
+docker compose -f docker-compose.metabase.yml ps    # wait for "healthy" — cold JVM start, can take ~90s
+```
+
+### 3. Complete the setup wizard BEFORE exposing it publicly
+
+Unlike Grafana, Metabase has **no admin-password env var** — the first
+browser to reach its setup wizard claims the initial admin account. Do this
+over the loopback port, before any DNS/nginx work below, closing that race
+window:
+
+```bash
+curl -s http://127.0.0.1:3002/api/session/properties   # confirms "has-user-setup": false and a setup-token
+
+SETUP_TOKEN=<from above>
+MB_ADMIN_PASS=$(openssl rand -base64 24 | tr -d '/+=' | head -c 24)
+
+curl -s -X POST http://127.0.0.1:3002/api/setup \
+  -H "Content-Type: application/json" \
+  -d "{\"token\":\"${SETUP_TOKEN}\",\"user\":{\"first_name\":\"<name>\",\"last_name\":\"<name>\",\"email\":\"<real email>\",\"password\":\"${MB_ADMIN_PASS}\",\"site_name\":\"Jwel\"},\"prefs\":{\"site_name\":\"Jwel\",\"allow_tracking\":false}}"
+```
+
+Then add the read-only reporting connection (via the UI, or the same
+session-token + `POST /api/database` pattern the setup script above used),
+pointing at `host: postgres`, `dbname: jwel`, `user: metabase_ro`, the
+`METABASE_RO_PASSWORD` generated in step 1. Run one real query against a
+real table before moving on — a successful connection test proves the
+handshake works, not that a query actually returns data:
+
+```bash
+curl -s -X POST http://127.0.0.1:3002/api/dataset \
+  -H "Content-Type: application/json" -H "X-Metabase-Session: <session id>" \
+  -d '{"type":"native","native":{"query":"SELECT count(*) FROM orders"},"database":<id>}'
+```
+
+### Putting Metabase behind a real domain
+
+A **separate** nginx config — `deploy/nginx/metabase.conf.template` —
+installed as its own file, same isolation reasoning as Grafana's.
+
+```bash
+# 1. DNS first — own A record, same IP as every other subdomain (no
+#    wildcard DNS exists in this deployment).
+dig +short metabase.yourdomain.com
+
+# 2. Cert.
+sudo certbot certonly --webroot -w /var/www/html -d metabase.yourdomain.com
+
+# 3. Render, install, validate, reload.
+cd ~/jwel/deploy/nginx
+METABASE_DOMAIN=metabase.yourdomain.com envsubst '${METABASE_DOMAIN}' \
+  < metabase.conf.template | sudo tee /etc/nginx/sites-available/metabase > /dev/null
+sudo ln -sf /etc/nginx/sites-available/metabase /etc/nginx/sites-enabled/metabase
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Verify the storefront, API, and Grafana are all unaffected before doing
+anything else:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://yourdomain.com/
+curl -fsS https://api.yourdomain.com/health/ready
+curl -s -o /dev/null -w '%{http_code}\n' https://grafana.yourdomain.com/login
+curl -s -o /dev/null -w '%{http_code}\n' https://metabase.yourdomain.com/
+```
+
+### Turning it off
+
+```bash
+docker compose -f docker-compose.metabase.yml down
+sudo rm /etc/nginx/sites-enabled/metabase
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+The `metabase` Postgres database, the `metabase`/`metabase_ro` roles, and
+`.env.production`'s Metabase vars all survive a bare `down` (they live in
+Postgres and on disk, not in the container). Bringing the stack back up
+later resumes with dashboards intact. If actually decommissioning rather
+than pausing, drop the database and both roles separately —
+`docker compose -f docker-compose.metabase.yml down` alone does not do this.
+
+---
+
 ## Optional: Elasticsearch
 
 Entirely optional. Without it the API logs `Elasticsearch unavailable at
