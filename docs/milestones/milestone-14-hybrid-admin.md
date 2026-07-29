@@ -125,18 +125,22 @@ full explanation) rather than silently building on the wrong premise.
     database existing, so a deployment that never opts into Metabase doesn't
     start failing its nightly backup over a database it was never asked to
     create. Run once by hand and confirmed non-empty.
-  - **Not yet done**: the public subdomain. `metabase.whisperingorion.dev`
-    has no DNS record yet — blocked on the client adding the A record, same
-    manual step every prior subdomain here has needed. The nginx template
-    (`deploy/nginx/metabase.conf.template`) and the RUNBOOK section covering
-    cert issuance + vhost install are ready; only the DNS step and the
-    resulting `certbot`/nginx commands remain once it resolves.
+  - **Public subdomain live**: `metabase.whisperingorion.dev`, cert issued,
+    own nginx vhost installed, `nginx -t` passed, storefront/API/Grafana all
+    confirmed unaffected after reload. Verified with a real HTTPS request
+    over the actual network path (`--resolve`-pinned curl, `200`) rather
+    than trusting `nginx -t` alone — the VM's own local resolver
+    (`systemd-resolved`, Oracle Cloud's internal upstream) lagged behind the
+    public record for a while after the client added it, which made a plain
+    `curl https://metabase.whisperingorion.dev/` from the VM itself
+    misleadingly fail with a DNS error even though public resolvers
+    (8.8.8.8, 1.1.1.1) and real external clients already resolved it
+    correctly — a self-lookup artifact, not a deployment problem, confirmed
+    by checking against public resolvers rather than assuming the VM's own
+    failure meant something was actually wrong.
 
 ## Tasks Remaining
 
-- [ ] **Metabase's public subdomain** — waiting on the
-      `metabase.whisperingorion.dev` A record; everything else is done and
-      verified against the live service over its loopback port.
 - [ ] Directus-vs-Payload spike for the CMS module (banners, homepage
       content) — also closes FR-23's unbuilt scope (category landing
       content, lookbook/editorial).
@@ -149,8 +153,8 @@ full explanation) rather than silently building on the wrong premise.
 1. Milestones 0–13 — MVP, testing, CI, Razorpay, observability ✅
 2. **Milestone 14 — Hybrid admin (this milestone).** Returns UI ✅, audit log
    ✅, categories/coupons/banners confirmed already built, AdminJS evaluated
-   and rejected, Metabase built and verified (public subdomain pending a
-   client DNS record). Remaining: CMS spike.
+   and rejected, Metabase built and live at `metabase.whisperingorion.dev`.
+   Remaining: CMS spike.
 3. Milestone 15 — Deployment / go-live.
 4. Milestone 16+ — Shipping, WhatsApp/SMS, Fraud/Risk.
 
