@@ -1,6 +1,8 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 type MockPrisma = {
   user: { findFirst: jest.Mock; update: jest.Mock; findMany: jest.Mock; count: jest.Mock };
@@ -8,8 +10,11 @@ type MockPrisma = {
   $transaction: jest.Mock;
 };
 
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
+
 describe('UsersService', () => {
   let prisma: MockPrisma;
+  let auditLog: { record: jest.Mock };
   let service: UsersService;
 
   beforeEach(() => {
@@ -18,7 +23,8 @@ describe('UsersService', () => {
       address: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
-    service = new UsersService(prisma as unknown as PrismaService);
+    auditLog = { record: jest.fn() };
+    service = new UsersService(prisma as unknown as PrismaService, auditLog as unknown as AuditLogService);
   });
 
   describe('getProfile', () => {
@@ -102,8 +108,19 @@ describe('UsersService', () => {
   describe('adminSuspendUser', () => {
     it('sets deletedAt rather than hard-deleting', async () => {
       prisma.user.update.mockResolvedValue({});
-      await service.adminSuspendUser('u1');
+      await service.adminSuspendUser('u1', actor);
       expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { deletedAt: expect.any(Date) } });
+    });
+
+    it('records an audit log entry for the suspension', async () => {
+      prisma.user.update.mockResolvedValue({});
+      await service.adminSuspendUser('u1', actor);
+      expect(auditLog.record).toHaveBeenCalledWith({
+        actor,
+        action: 'user.suspended',
+        entityType: 'User',
+        entityId: 'u1',
+      });
     });
   });
 });

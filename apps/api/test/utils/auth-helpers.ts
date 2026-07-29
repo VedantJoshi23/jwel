@@ -42,7 +42,14 @@ export async function registerAndLoginAsAdmin(
   return { token: res.body.accessToken, userId };
 }
 
+// AuditLog.actorId is a RESTRICT foreign key onto User (deliberately no
+// cascade — an audit trail entry must outlive the actor it records; app
+// code only ever soft-deletes admins via deletedAt, never a hard delete).
+// A test admin who performed an audited action during the test therefore
+// leaves rows referencing it, so those have to go before the hard delete
+// below or this throws a foreign key violation.
 export async function cleanupTestUser(email: string): Promise<void> {
+  await prisma.auditLog.deleteMany({ where: { actorEmail: email } });
   await prisma.user.deleteMany({ where: { email } });
 }
 

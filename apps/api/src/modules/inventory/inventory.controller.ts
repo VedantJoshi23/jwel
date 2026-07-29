@@ -4,6 +4,7 @@ import { InventoryService } from './inventory.service';
 import { AdjustStockDto } from './dto/adjust-stock.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('inventory')
 @ApiBearerAuth()
@@ -27,7 +28,11 @@ export class InventoryController {
   @Patch(':variantId/adjust')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: '[Admin] Manually adjust on-hand stock (restock, damage write-off, etc.)' })
-  adjust(@Param('variantId') variantId: string, @Body() dto: AdjustStockDto) {
-    return this.inventoryService.adminAdjust(variantId, dto.delta);
+  adjust(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('variantId') variantId: string,
+    @Body() dto: AdjustStockDto,
+  ) {
+    return this.inventoryService.adminAdjust(variantId, dto.delta, actor);
   }
 }

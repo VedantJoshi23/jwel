@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 type MockPrisma = {
   inventory: { findUnique: jest.Mock; update: jest.Mock };
@@ -8,8 +10,11 @@ type MockPrisma = {
   $queryRaw: jest.Mock;
 };
 
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
+
 describe('InventoryService', () => {
   let prisma: MockPrisma;
+  let auditLog: { record: jest.Mock };
   let service: InventoryService;
 
   beforeEach(() => {
@@ -18,7 +23,8 @@ describe('InventoryService', () => {
       $executeRaw: jest.fn(),
       $queryRaw: jest.fn(),
     };
-    service = new InventoryService(prisma as unknown as PrismaService);
+    auditLog = { record: jest.fn() };
+    service = new InventoryService(prisma as unknown as PrismaService, auditLog as unknown as AuditLogService);
   });
 
   describe('getByVariant', () => {
@@ -56,30 +62,33 @@ describe('InventoryService', () => {
     it('increments on-hand stock via a positive delta using a plain update', async () => {
       prisma.inventory.findUnique.mockResolvedValue({ variantId: 'v1', quantityOnHand: 5, quantityReserved: 0 });
       prisma.inventory.update.mockResolvedValue({});
-      await service.adminAdjust('v1', 5);
+      await service.adminAdjust('v1', 5, actor);
       expect(prisma.inventory.update).toHaveBeenCalledWith({
         where: { variantId: 'v1' },
         data: { quantityOnHand: { increment: 5 } },
       });
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actor, action: 'inventory.adjusted', entityType: 'Inventory', entityId: 'v1' }),
+      );
     });
 
     it('decrements on-hand stock via a conditional raw UPDATE for a negative delta', async () => {
       prisma.inventory.findUnique.mockResolvedValue({ variantId: 'v1', quantityOnHand: 10, quantityReserved: 0 });
       prisma.$executeRaw.mockResolvedValue(1);
-      await service.adminAdjust('v1', -3);
+      await service.adminAdjust('v1', -3, actor);
       expect(prisma.$executeRaw).toHaveBeenCalled();
     });
 
     it('throws ConflictException when a negative delta would drop on-hand below reserved', async () => {
       prisma.inventory.findUnique.mockResolvedValue({ variantId: 'v1', quantityOnHand: 5, quantityReserved: 4 });
       prisma.$executeRaw.mockResolvedValue(0);
-      await expect(service.adminAdjust('v1', -3)).rejects.toThrow(ConflictException);
+      await expect(service.adminAdjust('v1', -3, actor)).rejects.toThrow(ConflictException);
     });
 
     it('throws NotFoundException up-front when the variant has no inventory record', async () => {
       prisma.inventory.findUnique.mockResolvedValue(null);
-      await expect(service.adminAdjust('missing', 5)).rejects.toThrow(NotFoundException);
+      await expect(service.adminAdjust('missing', 5, actor)).rejects.toThrow(NotFoundException);
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
       expect(prisma.inventory.update).not.toHaveBeenCalled();
     });

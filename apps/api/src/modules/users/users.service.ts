@@ -4,6 +4,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
 import { PaginationQueryDto, PaginatedResult } from '../../common/dto/pagination-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 // Never select passwordHash into a response payload — every read path below
 // uses this explicit select so a future field addition to `users` can't
@@ -19,7 +21,10 @@ const SAFE_USER_SELECT = {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.prisma.user.findFirst({
@@ -74,7 +79,13 @@ export class UsersService {
     return { items, page, pageSize, total };
   }
 
-  async adminSuspendUser(userId: string): Promise<void> {
+  async adminSuspendUser(userId: string, actor: AuthenticatedUser): Promise<void> {
     await this.prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
+    await this.auditLogService.record({
+      actor,
+      action: 'user.suspended',
+      entityType: 'User',
+      entityId: userId,
+    });
   }
 }

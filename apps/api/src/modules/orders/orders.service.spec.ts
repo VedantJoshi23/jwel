@@ -7,6 +7,10 @@ import { CouponsService } from '../coupons/coupons.service';
 import { PaymentsService } from '../payments/payments.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 type MockPrisma = {
   order: {
@@ -39,6 +43,7 @@ describe('OrdersService', () => {
   let coupons: { validate: jest.Mock; redeem: jest.Mock };
   let payments: { initiateForOrder: jest.Mock };
   let eventBus: { emit: jest.Mock; on: jest.Mock };
+  let auditLog: { record: jest.Mock };
   let service: OrdersService;
   let tx: { order: { create: jest.Mock; update: jest.Mock } };
 
@@ -60,12 +65,14 @@ describe('OrdersService', () => {
     coupons = { validate: jest.fn(), redeem: jest.fn() };
     payments = { initiateForOrder: jest.fn() };
     eventBus = { emit: jest.fn(), on: jest.fn() };
+    auditLog = { record: jest.fn() };
     service = new OrdersService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
       coupons as unknown as CouponsService,
       payments as unknown as PaymentsService,
       eventBus as unknown as EventBusService,
+      auditLog as unknown as AuditLogService,
     );
   });
 
@@ -245,24 +252,28 @@ describe('OrdersService', () => {
   describe('adminUpdateStatus', () => {
     it('throws NotFoundException for a nonexistent order', async () => {
       prisma.order.findUnique.mockResolvedValue(null);
-      await expect(service.adminUpdateStatus('o1', OrderStatus.CONFIRMED)).rejects.toThrow(NotFoundException);
+      await expect(service.adminUpdateStatus('o1', OrderStatus.CONFIRMED, actor)).rejects.toThrow(NotFoundException);
     });
 
     it('allows PLACED -> CONFIRMED', async () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.PLACED, items: [] });
       prisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.CONFIRMED });
-      await expect(service.adminUpdateStatus('o1', OrderStatus.CONFIRMED)).resolves.toBeDefined();
+      await expect(service.adminUpdateStatus('o1', OrderStatus.CONFIRMED, actor)).resolves.toBeDefined();
     });
 
     it('rejects an illegal transition, e.g. PLACED -> DELIVERED (skipping intermediate states)', async () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.PLACED, items: [] });
-      await expect(service.adminUpdateStatus('o1', OrderStatus.DELIVERED)).rejects.toThrow(BadRequestException);
+      await expect(service.adminUpdateStatus('o1', OrderStatus.DELIVERED, actor)).rejects.toThrow(
+        BadRequestException,
+      );
       expect(prisma.order.update).not.toHaveBeenCalled();
     });
 
     it('rejects any transition out of a terminal state (DELIVERED)', async () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.DELIVERED, items: [] });
-      await expect(service.adminUpdateStatus('o1', OrderStatus.CANCELLED)).rejects.toThrow(BadRequestException);
+      await expect(service.adminUpdateStatus('o1', OrderStatus.CANCELLED, actor)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('commits inventory (decrements on-hand) when transitioning to SHIPPED', async () => {
@@ -270,7 +281,7 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.PROCESSING, items });
       prisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.SHIPPED });
 
-      await service.adminUpdateStatus('o1', OrderStatus.SHIPPED);
+      await service.adminUpdateStatus('o1', OrderStatus.SHIPPED, actor);
 
       expect(inventory.commit).toHaveBeenCalledWith('v1', 2);
       expect(inventory.commit).toHaveBeenCalledWith('v2', 1);
@@ -282,7 +293,7 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.CONFIRMED, items });
       prisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.CANCELLED });
 
-      await service.adminUpdateStatus('o1', OrderStatus.CANCELLED);
+      await service.adminUpdateStatus('o1', OrderStatus.CANCELLED, actor);
 
       expect(inventory.release).toHaveBeenCalledWith('v1', 3);
       expect(inventory.commit).not.toHaveBeenCalled();
@@ -292,7 +303,7 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.PLACED, items: [{ variantId: 'v1', quantity: 1 }] });
       prisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.CONFIRMED });
 
-      await service.adminUpdateStatus('o1', OrderStatus.CONFIRMED);
+      await service.adminUpdateStatus('o1', OrderStatus.CONFIRMED, actor);
 
       expect(inventory.commit).not.toHaveBeenCalled();
       expect(inventory.release).not.toHaveBeenCalled();
@@ -302,7 +313,7 @@ describe('OrdersService', () => {
       prisma.order.findUnique.mockResolvedValue({ id: 'o1', status: OrderStatus.PLACED, items: [] });
       prisma.order.update.mockResolvedValue({ id: 'o1', status: OrderStatus.CONFIRMED });
 
-      await service.adminUpdateStatus('o1', OrderStatus.CONFIRMED, 'payment verified manually');
+      await service.adminUpdateStatus('o1', OrderStatus.CONFIRMED, actor, 'payment verified manually');
 
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -310,6 +321,10 @@ describe('OrdersService', () => {
             statusHistory: { create: { status: OrderStatus.CONFIRMED, note: 'payment verified manually' } },
           }),
         }),
+      );
+
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actor, action: 'order.status_updated', entityType: 'Order', entityId: 'o1' }),
       );
     });
   });

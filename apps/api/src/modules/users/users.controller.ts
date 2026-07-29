@@ -54,7 +54,7 @@ export class UsersController {
   @Patch('admin/users/:userId/suspend')
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: '[Admin] Suspend a user account (soft delete)' })
-  adminSuspendUser(@Param('userId') userId: string) {
-    return this.usersService.adminSuspendUser(userId);
+  adminSuspendUser(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
+    return this.usersService.adminSuspendUser(userId, actor);
   }
 }

@@ -6,6 +6,10 @@ import { InventoryService } from '../inventory/inventory.service';
 import { PaymentsService } from '../payments/payments.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 type MockPrisma = {
   orderItem: { findUnique: jest.Mock };
@@ -17,6 +21,7 @@ describe('ReturnsService', () => {
   let inventory: { restock: jest.Mock };
   let payments: { refundForOrder: jest.Mock };
   let eventBus: { emit: jest.Mock };
+  let auditLog: { record: jest.Mock };
   let service: ReturnsService;
 
   beforeEach(() => {
@@ -27,11 +32,13 @@ describe('ReturnsService', () => {
     inventory = { restock: jest.fn() };
     payments = { refundForOrder: jest.fn() };
     eventBus = { emit: jest.fn() };
+    auditLog = { record: jest.fn() };
     service = new ReturnsService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
       payments as unknown as PaymentsService,
       eventBus as unknown as EventBusService,
+      auditLog as unknown as AuditLogService,
     );
   });
 
@@ -135,23 +142,29 @@ describe('ReturnsService', () => {
   describe('adminUpdateStatus', () => {
     it('throws NotFoundException for a nonexistent return', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue(null);
-      await expect(service.adminUpdateStatus('r1', ReturnStatus.APPROVED)).rejects.toThrow(NotFoundException);
+      await expect(service.adminUpdateStatus('r1', ReturnStatus.APPROVED, actor)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('rejects an illegal transition, e.g. REQUESTED -> REFUNDED (skipping APPROVED)', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({ status: ReturnStatus.REQUESTED });
-      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 1000)).rejects.toThrow(BadRequestException);
+      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 1000)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('rejects marking REFUNDED without a refundAmountMinorUnits', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({ status: ReturnStatus.REFUND_PROCESSING });
-      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED)).rejects.toThrow(BadRequestException);
+      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('allows REQUESTED -> APPROVED with no inventory/payment side effects', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({ status: ReturnStatus.REQUESTED });
       prisma.returnRequest.update.mockResolvedValue({ id: 'r1', status: ReturnStatus.APPROVED });
-      await service.adminUpdateStatus('r1', ReturnStatus.APPROVED);
+      await service.adminUpdateStatus('r1', ReturnStatus.APPROVED, actor);
       expect(inventory.restock).not.toHaveBeenCalled();
       expect(payments.refundForOrder).not.toHaveBeenCalled();
     });
@@ -166,12 +179,15 @@ describe('ReturnsService', () => {
         orderItem: { order: { user: { email: 'a@b.com' } } },
       });
 
-      await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 5000);
+      await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 5000);
 
       expect(inventory.restock).toHaveBeenCalledWith('v1', 2);
       // The refund amount is passed through, so a partial return refunds the
       // partial amount rather than the whole order.
       expect(payments.refundForOrder).toHaveBeenCalledWith('o1', 5000);
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actor, action: 'return.status_updated', entityType: 'ReturnRequest', entityId: 'r1' }),
+      );
     });
 
     // Ordering matters now that refundForOrder calls a real gateway (ADR-0005).
@@ -185,7 +201,7 @@ describe('ReturnsService', () => {
       });
       payments.refundForOrder.mockRejectedValue(new Error('gateway down'));
 
-      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 5000)).rejects.toThrow(
+      await expect(service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 5000)).rejects.toThrow(
         'gateway down',
       );
 
@@ -204,7 +220,7 @@ describe('ReturnsService', () => {
         orderItem: { order: { user: { email: 'a@b.com' } } },
       });
 
-      await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, 7500);
+      await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 7500);
 
       expect(eventBus.emit).toHaveBeenCalledWith('return.refunded', {
         returnId: 'r1',
@@ -216,7 +232,7 @@ describe('ReturnsService', () => {
     it('does not emit return.refunded for a non-REFUNDED transition', async () => {
       prisma.returnRequest.findUnique.mockResolvedValue({ status: ReturnStatus.REQUESTED });
       prisma.returnRequest.update.mockResolvedValue({ id: 'r1' });
-      await service.adminUpdateStatus('r1', ReturnStatus.APPROVED);
+      await service.adminUpdateStatus('r1', ReturnStatus.APPROVED, actor);
       expect(eventBus.emit).not.toHaveBeenCalled();
     });
   });
