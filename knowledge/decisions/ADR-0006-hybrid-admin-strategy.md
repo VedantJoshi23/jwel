@@ -6,7 +6,7 @@ status: Accepted
 owner: Architecture
 reviewers: []
 created: 2026-07-27
-updated: 2026-07-27
+updated: 2026-07-29
 milestone: M14
 category: Decision
 priority: High
@@ -69,12 +69,20 @@ That asymmetry is the whole argument.
   backend-as-a-service, and this project already has auth, storage and a real
   NestJS API.
 - **Auto-admin libraries** (AdminJS, React Admin, Refine, Forest Admin).
-  AdminJS is the only one that is genuinely *additive*: official NestJS and
-  Prisma adapters, mounts as a route on the existing API, no schema migration.
-  React Admin and Refine both mean writing React again — at which point the
-  work approximates what already exists by hand. Forest Admin is a paid hosted
-  product that wants access to the production database, which is a
-  data-boundary conversation this project has no reason to open.
+  AdminJS looked the most *additive* on paper — official NestJS and Prisma
+  adapters, mounts as a route on the existing API, no schema migration — but
+  a real `npm install` in M14 showed the cost of that convenience: it pulls
+  ~400 packages into `apps/api` itself, with 62 `npm audit` findings (1
+  critical) in its own bundling toolchain, sitting inside the same process
+  that handles Razorpay payments. Rejected on that basis, not on functionality.
+  React Admin and Refine were re-evaluated on the same axis and land much
+  better: 2-3 high findings, 0 critical, and both run entirely in `apps/web`
+  — a data-provider layer over the existing REST API, no backend footprint at
+  all. The "writing React again" objection undersold them: both auto-generate
+  list/create/edit screens from an API description rather than hand-building
+  each page, which is most of AdminJS's actual value. Forest Admin remains
+  rejected — paid hosted product that wants direct production database
+  access, a data-boundary conversation this project has no reason to open.
 - **BI tools** (Metabase, Superset, Redash, Grafana). These are not admin
   panels at all; they answer a different question, and the current Analytics
   dashboard is hardcoded, so non-engineers cannot ask new ones. Metabase has
@@ -101,8 +109,29 @@ That asymmetry is the whole argument.
   refund and a restock — so it belongs in the custom admin, not AdminJS.
   **Build it in this milestone**, alongside the orders UI it should have
   shipped next to.
-- **AdminJS takes the CRUD screens** — categories, coupons, banners, simple
-  lookups. Mounted on the existing API via the NestJS + Prisma adapters.
+- **Categories, coupons, and banners CRUD is already built** — as custom
+  Next.js pages (`app/(admin)/admin/{categories,coupons,cms}/page.tsx`),
+  present since before this ADR was written (coupons/banners since the
+  initial MVP commit, categories added shortly after). This ADR's original
+  text proposed moving them to AdminJS as though they were an unbuilt gap —
+  its own Context section (above) already listed these as existing pages,
+  and that contradiction went unnoticed until M14 (2026-07-29). **Corrected:
+  they stay as they are.** No tool migration; nothing to build here.
+- **A CRUD-screen framework for *future* lookups/entities is deliberately
+  undecided.** AdminJS was evaluated in M14 and rejected: mounting it adds
+  ~400 packages directly into the payment-processing API process, with 62
+  `npm audit` findings (1 critical, 14 high) in its bundling toolchain. Two
+  frontend-only alternatives (react-admin, Refine) were evaluated as
+  lower-risk substitutes — both add 2-3 high findings, none critical, and
+  neither touches `apps/api`'s dependency tree since they'd run entirely in
+  `apps/web` — and react-admin was the client's preference between them. But
+  a search of the roadmap at M14 found no concrete unbuilt CRUD-shaped
+  resource to point it at: every named gap (Risk queue, Shipment/NDR queue,
+  Returns UI) is workflow-shaped by this ADR's own criterion, not CRUD.
+  Standing up react-admin against no real target would be speculative
+  infrastructure. **Decision deferred**: pick a framework (react-admin is
+  the leading candidate) when an actual new CRUD entity is named in a
+  roadmap doc, not before.
 - **Metabase for business reporting**, against a dedicated **read-only**
   database user.
 - **Directus or Payload for the CMS module only** (banners, homepage content) —
@@ -117,13 +146,17 @@ sharp is part of this decision, not an aside.
 
 ## Consequences
 
-- Two admin surfaces exist, and "which tool owns this screen?" becomes a real
-  question at PR time. The workflow/CRUD criterion above is the tiebreaker;
-  when a CRUD screen grows a side effect, it moves to the custom admin.
-- AdminJS mounts on the API and must sit behind the same `RolesGuard` posture
-  as everything else. An admin tool with its own parallel auth would be a
-  straightforward privilege-escalation path, and is the main risk this
-  introduces.
+- Two admin surfaces will exist once a future CRUD framework is actually
+  adopted, and "which tool owns this screen?" will be a real question at PR
+  time then. The workflow/CRUD criterion above is the tiebreaker; when a CRUD
+  screen grows a side effect, it moves to the custom admin. Today there is
+  only one admin surface (the custom Next.js app) — the CRUD split is
+  aspirational until a framework is chosen per the deferred decision above.
+- Whichever CRUD framework is eventually chosen must sit behind the same
+  `RolesGuard` posture as everything else, and — per the AdminJS lesson above
+  — its dependency footprint should be checked *before* being trusted, not
+  after. A framework with its own parallel auth would be a straightforward
+  privilege-escalation path.
 - Metabase's read-only user is a hard requirement, not a preference — a BI tool
   with write access to the orders table is a data-loss incident waiting for a
   bad query.
@@ -132,9 +165,11 @@ sharp is part of this decision, not an aside.
   business questions better than more hardcoded dashboard endpoints. The
   materialized-view work returns only if Metabase's query performance against
   the live schema proves inadequate.
-- No admin audit log exists yet, and adding a second tool that mutates data
-  makes that gap worse rather than better. It should land with AdminJS, not
-  after.
+- The admin audit log (M14, PR #21) shipped ahead of any second admin tool,
+  closing the gap this ADR originally flagged — it covers the custom-admin
+  workflow surface (orders, returns, inventory, user suspension) already. A
+  future CRUD framework's own mutations will need their own hook into the
+  same `AuditLog` table/service when that framework is actually adopted.
 - Self-hosting Metabase and possibly Directus adds services to a VM already
   running Postgres, Elasticsearch and two app containers — check `RUNBOOK.md`
   §1's spec before assuming there is headroom. `ADR-0002`'s Prometheus/Grafana
@@ -143,7 +178,10 @@ sharp is part of this decision, not an aside.
 ## Revisit Criteria
 
 Revisit if the CRUD/workflow boundary stops predicting well — specifically, if
-AdminJS screens repeatedly acquire side effects and get migrated back, that is
-evidence the split was drawn in the wrong place, not that the migrations were
-unlucky. Revisit the Metabase choice only against a concrete reporting need it
-cannot serve.
+a future CRUD screen repeatedly acquires side effects and gets migrated back,
+that is evidence the split was drawn in the wrong place, not that the
+migration was unlucky. Revisit the Metabase choice only against a concrete
+reporting need it cannot serve. Revisit the deferred CRUD-framework decision
+as soon as a concrete new entity needing simple admin CRUD is named in a
+roadmap doc — react-admin is the leading candidate then, but re-check its
+dependency audit at that time rather than trusting this one.

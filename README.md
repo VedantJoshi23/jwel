@@ -27,8 +27,11 @@ Three client decisions now shape the roadmap:
 
 - **Razorpay is the sole payment provider; Stripe is dropped**
   ([ADR-0005](knowledge/decisions/ADR-0005-razorpay-as-sole-payment-provider.md))
-- **Admin is a hybrid** — custom for workflows, AdminJS for CRUD, Metabase for
-  reporting, a headless CMS for content
+- **Admin is a hybrid** — custom for workflows; categories/coupons/banners
+  CRUD is already covered by the existing custom admin (no third-party tool
+  needed there); a CRUD framework for *future* entities is deliberately
+  undecided (AdminJS was evaluated and rejected on dependency-security
+  grounds); Metabase for reporting; a headless CMS for content
   ([ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md))
 - **CI now runs on GitHub Actions**, so the Milestone 11 workflow is finally
   being proven on a real runner rather than only locally
@@ -130,17 +133,22 @@ Full detail and the reasoning behind the ordering is in
    webhook/verify idempotency race, and refunds have all run against real
    Razorpay. Only remaining: **live** credentials from the client, then the
    RUNBOOK §13 go-live sequence.
-2. **Milestone 13 — Observability** per
-   [ADR-0002](knowledge/decisions/ADR-0002-observability-stack.md): Sentry
-   first, then Prometheus `/metrics` and Grafana. Entirely unbuilt today.
-   Reordered ahead of admin tooling mid-M12 — a webhook misconfiguration went
-   undetected for hours with nothing but a human noticing; a shop taking real
-   payments needs that from an alert, not a support email.
-3. **Milestone 14 — Hybrid admin** per
-   [ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md): AdminJS
-   for CRUD, Metabase on a read-only user for reporting, a headless CMS spike
-   for content, an admin audit log, and an **admin Returns UI** — the backend
-   exists but no page ever called it, found during live refund validation.
+2. **Milestone 13 — Observability**, mostly done, per
+   [ADR-0002](knowledge/decisions/ADR-0002-observability-stack.md): Sentry,
+   Prometheus `/metrics`, and a self-hosted Grafana are all live on the
+   production VM. Only remaining: wiring an alert notification channel
+   (email/Slack), deferred pending a client-provided email address.
+3. **Milestone 14 — Hybrid admin**, in progress, per
+   [ADR-0006](knowledge/decisions/ADR-0006-hybrid-admin-strategy.md): the
+   admin audit log and the admin **Returns UI** (the backend existed but no
+   page ever called it, found during live refund validation) are both done
+   and live. Categories/coupons/banners CRUD was already covered by the
+   existing custom admin — ADR-0006 originally described it as an AdminJS gap
+   that didn't actually exist; corrected. Remaining: Metabase on a read-only
+   user for reporting, and a headless CMS spike (Directus vs. Payload) for
+   content. A CRUD framework for *future* admin entities is deliberately
+   undecided — AdminJS was evaluated and rejected on dependency-security
+   grounds (see ADR-0006) — until a concrete need appears.
 4. **Milestone 15 — Deployment / go-live.** `deploy/` is written and
    reasoned-through but has never been executed end to end.
 5. **Milestone 16+** — Shipping, WhatsApp/SMS, Fraud/Risk (all specified in
