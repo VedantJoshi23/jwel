@@ -405,6 +405,14 @@ carry over; the client does not need a new account.
 | 11 | Google OAuth redirect URI | api | Google Cloud console |
 | 12 | Razorpay webhook endpoint URL | api | Razorpay dashboard |
 
+This table predates the Grafana (M13) and Metabase (M14) subdomains and
+deliberately does not include them — whether they move with the domain is a
+per-deployment decision, not a mechanical requirement, since they're internal
+ops tooling rather than customer-facing. See `GO-LIVE.md`'s Phase 1 callout
+for the two options. If moving them: each is its own independent
+DNS-record + `certbot` + own-nginx-template cycle (see each service's own
+"Optional" section below), not an extension of rows 1–4 above.
+
 Rows 8–10 are the ones that catch people. `NEXT_PUBLIC_*` values are inlined
 into the JavaScript bundle at build time — they are **not** read from the
 environment when the container starts. Editing `.env.production` and running
@@ -786,6 +794,17 @@ SQL
 docker compose -f docker-compose.postgres.yml exec -T postgres \
   psql -U jwel -d metabase -c "GRANT ALL ON SCHEMA public TO metabase;"
 
+# Metabase's own first-boot migration creates the citext extension, which
+# requires superuser (or at least extension-owner) privileges that the
+# `metabase` role does not have, even with schema ownership above. Without
+# this, Metabase fails to start with "permission denied to create extension
+# 'citext'" — hit for real when this deployment's Metabase database was
+# dropped and recreated once during setup; not needed on a first-ever boot
+# against a database create statement issued by `jwel` (a superuser), only
+# rediscovered the hard way on a from-scratch redo.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d metabase -c "CREATE EXTENSION IF NOT EXISTS citext;"
+
 echo "MB_DB_PASS=${MB_DB_PASS}"
 echo "METABASE_RO_PASSWORD=${METABASE_RO_PASSWORD}"
 ```
@@ -843,6 +862,28 @@ curl -s -X POST http://127.0.0.1:3002/api/setup \
   -H "Content-Type: application/json" \
   -d "{\"token\":\"${SETUP_TOKEN}\",\"user\":{\"first_name\":\"<name>\",\"last_name\":\"<name>\",\"email\":\"<real email>\",\"password\":\"${MB_ADMIN_PASS}\",\"site_name\":\"Jwel\"},\"prefs\":{\"site_name\":\"Jwel\",\"allow_tracking\":false}}"
 ```
+
+**Verify the account actually logs in before doing anything else** — a
+`{"id": ...}` response from `/api/setup` only proves the request was
+accepted, not that the credential works:
+
+```bash
+curl -s -X POST http://127.0.0.1:3002/api/session   -H "Content-Type: application/json"   -d "{"username":"<real email>","password":"${MB_ADMIN_PASS}"}"
+# must return {"id": "<session-id>"}, not an {"errors": ...} body
+```
+
+If this instance's admin password is ever lost and needs regenerating,
+**do not trust Metabase's own `reset-password` CLI**
+(`docker exec <container> java -jar /app/metabase.jar reset-password <email>`)
+without verifying login immediately after — in practice on this deployment
+it wrote a real new hash to `core_user` (confirmed via `updated_at`) that
+then never authenticated, even after a container restart to rule out
+in-memory caching. The reliable recovery path used instead: drop and
+recreate the `metabase` application database (safe only if nothing valuable
+is in it yet — this is real, unbacked-up-until-`backup.sh`-runs state) and
+redo the `/api/setup` flow above from scratch, which has been reliable both
+times it's been used. A from-scratch redo needs the `citext` extension
+created first — see step 1 above.
 
 Then add the read-only reporting connection (via the UI, or the same
 session-token + `POST /api/database` pattern the setup script above used),

@@ -138,6 +138,31 @@ full explanation) rather than silently building on the wrong premise.
     correctly — a self-lookup artifact, not a deployment problem, confirmed
     by checking against public resolvers rather than assuming the VM's own
     failure meant something was actually wrong.
+  - **Two more real bugs found while setting up the first admin account.**
+    (1) Metabase's own `reset-password` CLI (`java -jar metabase.jar
+    reset-password <email>`) wrote a new bcrypt hash to `core_user` — a real
+    row-level DB write, confirmed via `updated_at` — but the generated
+    password never authenticated afterward, even after restarting the
+    container to rule out in-process caching. Spent real effort trying to
+    reverse-engineer Metabase's exact password-hashing scheme directly
+    against the stored hash (salt+password, sha256/sha512 pre-hash
+    variants) rather than guess-and-check against production; none matched,
+    and rather than keep guessing, the CLI command was abandoned as
+    unreliable in this version rather than trusted on partial evidence.
+    (2) The actual fix was a clean re-setup: drop and recreate the
+    `metabase` application database, which then failed its own first-boot
+    migration with `permission denied to create extension "citext"` — the
+    `metabase` role isn't a superuser and Postgres doesn't let a non-
+    superuser create most extensions even with schema ownership. Fixed by
+    creating `citext` once as the `jwel` superuser before Metabase's
+    migrations ran. **Neither of these was hit on the very first setup**
+    (only surfaced once the database was dropped and recreated to recover
+    from bug (1)) — worth remembering if this deployment's Metabase ever
+    needs a from-scratch reset again: create `citext` first, and don't
+    trust `reset-password`'s exit code alone; verify login before moving on,
+    same as every other credential this project has ever generated.
+    `deploy/RUNBOOK.md`'s Metabase section records the `citext` step so a
+    future from-scratch setup doesn't hit this blind.
 
 ## Tasks Remaining
 
