@@ -1,0 +1,77 @@
+# OPTIONAL business-reporting stack — Metabase (ADR-0006). The app runs fine
+# without it; this exists so non-engineers can ask ad-hoc business questions
+# (which SKUs sold best last month) without a hardcoded dashboard endpoint or
+# a raw SQL session. ADR-0002/Grafana stays infrastructure-only ("is the
+# service healthy") on purpose — Metabase is the one that answers business
+# questions, and ADR-0006 is explicit that line must stay sharp.
+#
+#   docker compose -f docker-compose.postgres.yml up -d   # must be running first
+#   docker compose -f docker-compose.metabase.yml up -d
+#
+# Self-hosted, free, no third-party account needed — same shape as Grafana.
+# Read RUNBOOK.md's "Optional: Metabase" section before exposing this
+# publicly: complete the setup wizard over the loopback port FIRST (Metabase
+# has no admin-password env var like Grafana's `GF_SECURITY_ADMIN_PASSWORD`
+# — the first browser to reach the setup wizard claims the initial admin
+# account), then put it behind its own TLS vhost.
+#
+# Own project, like the search, monitoring, and data stacks, so `down` here
+# can never touch the app, database, or Grafana/Prometheus containers.
+name: jwel-metabase
+
+services:
+  metabase:
+    image: metabase/metabase:v0.63.1
+    restart: unless-stopped
+    # `env_file`, not `environment: ${VAR}` — the latter is Compose
+    # SUBSTITUTION, which only ever reads the root `.env`, never
+    # `.env.production` (deploy/README.md's "getting this backwards is the
+    # failure mode to expect" — the Grafana file got this wrong once during
+    # testing before being fixed). `env_file` passes `.env.production`'s
+    # keys straight into the container, so Metabase's own native `MB_*`
+    # variable names are set by values living in the same file as every
+    # other app secret.
+    env_file:
+      - ./.env.production
+    environment:
+      # Metabase's own APPLICATION database — dashboards, saved questions,
+      # users, and the reporting-connection config it stores after setup.
+      # Deliberately a real Postgres database (`metabase`, on the existing
+      # `jwel-data` instance), not the default embedded H2 file store, which
+      # Metabase's own docs call out as unsafe for production (single point
+      # of failure, no safe concurrent access). This is DIFFERENT from the
+      # read-only `metabase_ro` role configured *inside* Metabase's UI after
+      # setup — that one is what Metabase queries to build reports; this one
+      # is what Metabase uses to remember its own state.
+      #
+      # MB_DB_USER / MB_DB_PASS are NOT set here as ${VAR} — that would be
+      # Compose substitution again, the exact mistake this file's own
+      # comment above warns about. `env_file` above already injects them as
+      # real container env vars with these same names, straight from
+      # `.env.production`; repeating them here as `${VAR}` reads the (unset)
+      # root `.env` instead and silently overwrites the correct value with
+      # an empty string. Caught by actually booting the container, not by
+      # re-reading the comment.
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: "5432"
+      MB_DB_HOST: postgres
+    # Metabase listens on 3000 internally — same as the web app — so it must
+    # be remapped. 3000/3001/9090 are already claimed by web/Grafana/
+    # Prometheus; 3002 is the next free loopback port.
+    ports:
+      - "127.0.0.1:3002:3000"
+    networks:
+      - jwel-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      # Metabase's JVM cold start is slower than Grafana's — give it real
+      # room before the first healthcheck can fail it.
+      start_period: 60s
+
+networks:
+  jwel-net:
+    external: true

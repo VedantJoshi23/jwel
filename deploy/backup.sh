@@ -28,6 +28,21 @@ docker compose -f docker-compose.postgres.yml exec -T postgres \
 docker run --rm -v jwel_uploads:/data -v "$OUT":/out alpine \
     tar czf "/out/uploads-$STAMP.tar.gz" -C /data .
 
+# Metabase (optional, M14/ADR-0006) is DIFFERENT from Grafana/Prometheus,
+# which deliberately get no backup.sh coverage — their config is provisioned
+# as files (dashboards-as-code) and a fresh volume rebuilds identically.
+# Metabase's dashboards/saved questions are built by clicking in its UI with
+# no provision-as-code equivalent in the open-source edition, so this is
+# real, irreplaceable state. Conditional on the `metabase` database actually
+# existing — Metabase is optional, and a host that never opted into it must
+# not have its backups start failing because of a database that was never
+# created.
+if docker compose -f docker-compose.postgres.yml exec -T postgres \
+    psql -U jwel -d jwel -tAc "SELECT 1 FROM pg_database WHERE datname = 'metabase'" | grep -q 1; then
+    docker compose -f docker-compose.postgres.yml exec -T postgres \
+        pg_dump -U jwel metabase | gzip > "$OUT/metabase-db-$STAMP.sql.gz"
+fi
+
 # A zero-byte dump means pg_dump failed but gzip still produced a file, so the
 # pipeline's exit status was gzip's. Catch it here rather than discovering it
 # during a restore.
@@ -37,8 +52,13 @@ for f in "$OUT/db-$STAMP.sql.gz" "$OUT/uploads-$STAMP.tar.gz"; do
         exit 1
     fi
 done
+if [[ -f "$OUT/metabase-db-$STAMP.sql.gz" && ! -s "$OUT/metabase-db-$STAMP.sql.gz" ]]; then
+    echo "backup FAILED: $OUT/metabase-db-$STAMP.sql.gz is empty" >&2
+    exit 1
+fi
 
 find "$OUT" -name 'db-*.sql.gz' -mtime +$RETAIN_DAYS -delete
 find "$OUT" -name 'uploads-*.tar.gz' -mtime +$RETAIN_DAYS -delete
+find "$OUT" -name 'metabase-db-*.sql.gz' -mtime +$RETAIN_DAYS -delete
 
-echo "backup ok: $(du -h "$OUT/db-$STAMP.sql.gz" | cut -f1) db, $(du -h "$OUT/uploads-$STAMP.tar.gz" | cut -f1) uploads"
+echo "backup ok: $(du -h "$OUT/db-$STAMP.sql.gz" | cut -f1) db, $(du -h "$OUT/uploads-$STAMP.tar.gz" | cut -f1) uploads$([[ -f "$OUT/metabase-db-$STAMP.sql.gz" ]] && echo ", $(du -h "$OUT/metabase-db-$STAMP.sql.gz" | cut -f1) metabase-db")"
