@@ -16,12 +16,18 @@ commands below address those volumes by name.
 
 ```
 deploy/
-  docker-compose.postgres.yml       data stack   — brought up once, rarely touched
-  docker-compose.api.yml            app stack    — api + web, redeployed on every release
-  docker-compose.elasticsearch.yml  search stack — OPTIONAL; see RUNBOOK.md
+  docker-compose.postgres.yml       data stack       — brought up once, rarely touched
+  docker-compose.api.yml            app stack        — api + web, redeployed on every release
+  docker-compose.elasticsearch.yml  search stack     — OPTIONAL; see RUNBOOK.md
+  docker-compose.monitoring.yml     Prometheus+Grafana — OPTIONAL; see RUNBOOK.md
+  docker-compose.metabase.yml       Metabase (BI)    — OPTIONAL; see RUNBOOK.md
   nginx/jwel.conf.template          TLS + reverse proxy — render.sh fills in
   nginx/render.sh                   the hostnames; see RUNBOOK §12
+  nginx/grafana.conf.template       own vhost, rendered/installed manually — RUNBOOK "Optional: Monitoring"
+  nginx/metabase.conf.template      own vhost, rendered/installed manually — RUNBOOK "Optional: Metabase"
   Caddyfile                         unused alternative, for a host without nginx
+  RUNBOOK.md                        step-by-step first deploy, in order
+  GO-LIVE.md                        the client-domain + real-payments cutover checklist
 ```
 
 The app stack runs two images: `jwel-api` (`apps/api/Dockerfile`) and `jwel-web`
