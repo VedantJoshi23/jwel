@@ -13,6 +13,8 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { Role } from '../../common/enums/role.enum';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 // `user: { select: ... }`, never `include: { user: true }` — a bare include
 // pulls the full User row (passwordHash and all) straight into the API
@@ -49,6 +51,7 @@ export class ReturnsService {
     private readonly inventoryService: InventoryService,
     private readonly paymentsService: PaymentsService,
     private readonly eventBus: EventBusService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   async create(userId: string, dto: CreateReturnDto) {
@@ -124,7 +127,12 @@ export class ReturnsService {
     });
   }
 
-  async adminUpdateStatus(returnId: string, nextStatus: ReturnStatus, refundAmountMinorUnits?: number) {
+  async adminUpdateStatus(
+    returnId: string,
+    nextStatus: ReturnStatus,
+    actor: AuthenticatedUser,
+    refundAmountMinorUnits?: number,
+  ) {
     const returnRequest = await this.prisma.returnRequest.findUnique({
       where: { id: returnId },
       include: returnInclude,
@@ -178,6 +186,17 @@ export class ReturnsService {
         refundAmountMinorUnits: refundAmountMinorUnits!,
       });
     }
+
+    // The single highest-stakes action this module logs: REFUNDED means a
+    // real Razorpay refund already moved money (see the comment above), so
+    // this entry is the "who approved this money leaving" record.
+    await this.auditLogService.record({
+      actor,
+      action: 'return.status_updated',
+      entityType: 'ReturnRequest',
+      entityId: returnId,
+      metadata: { from: returnRequest.status, to: nextStatus, refundAmountMinorUnits },
+    });
 
     return updated;
   }

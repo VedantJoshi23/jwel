@@ -1,13 +1,12 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { ReturnStatus } from '@prisma/client';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ReturnsService } from './returns.service';
 import { CreateReturnDto } from './dto/create-return.dto';
 import { UpdateReturnStatusDto } from './dto/update-return-status.dto';
+import { AdminFindReturnsQueryDto } from './dto/admin-find-returns-query.dto';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @ApiTags('returns')
 @ApiBearerAuth()
@@ -35,16 +34,19 @@ export class ReturnsController {
 
   @Get('admin/returns')
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiQuery({ name: 'status', enum: ReturnStatus, required: false })
   @ApiOperation({ summary: '[Admin/Staff] List return requests, optionally filtered by status' })
-  adminFindAll(@Query() query: PaginationQueryDto, @Query('status') status?: ReturnStatus) {
-    return this.returnsService.adminFindAll(query, status);
+  adminFindAll(@Query() query: AdminFindReturnsQueryDto) {
+    return this.returnsService.adminFindAll(query, query.status);
   }
 
   @Patch('admin/returns/:id/status')
   @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: '[Admin/Staff] Approve, reject, or process a return (restocks inventory on refund)' })
-  adminUpdateStatus(@Param('id') id: string, @Body() dto: UpdateReturnStatusDto) {
-    return this.returnsService.adminUpdateStatus(id, dto.status, dto.refundAmountMinorUnits);
+  adminUpdateStatus(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateReturnStatusDto,
+  ) {
+    return this.returnsService.adminUpdateStatus(id, dto.status, actor, dto.refundAmountMinorUnits);
   }
 }

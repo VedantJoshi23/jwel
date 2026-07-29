@@ -179,6 +179,7 @@ model User {
   reviews       Review[]
   productViews  ProductView[]
   oauthAccounts OAuthAccount[]
+  auditLogs     AuditLog[]
 
   // Reporting: fast "active customers" / cohort queries exclude soft-deleted.
   @@index([role])
@@ -725,4 +726,36 @@ model Banner {
 
   @@index([isActive, sortOrder])
   @@map("banners")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// AUDIT LOG — Milestone 14 (ADR-0006)
+// ──────────────────────────────────────────────────────────────────────────
+
+// Named as a Consequence in ADR-0006: "No admin audit log exists yet, and
+// adding a second tool [AdminJS] that mutates data makes that gap worse
+// rather than better. It should land with AdminJS, not after." This covers
+// the custom-admin workflow surface (orders, returns, inventory, user
+// suspension) that ADR-0006 keeps out of AdminJS; AdminJS's own CRUD
+// mutations get their own hook into this same table when that module lands.
+//
+// No onDelete on actor — losing the "who" on a historical entry by cascading
+// a user deletion would defeat the point of an audit trail. Users are only
+// ever soft-deleted (User.deletedAt) in this codebase, so the FK is never
+// actually exercised by a delete.
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId    String   @map("actor_id") @db.Uuid
+  actorEmail String   @map("actor_email")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
 }

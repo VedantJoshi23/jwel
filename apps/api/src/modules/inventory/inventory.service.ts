@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 type Client = PrismaService | Prisma.TransactionClient;
 
@@ -26,7 +28,10 @@ export interface LowStockItem {
 
 @Injectable()
 export class InventoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
+  ) {}
 
   async getByVariant(variantId: string) {
     const item = await this.prisma.inventory.findUnique({ where: { variantId } });
@@ -77,7 +82,7 @@ export class InventoryService {
     `;
   }
 
-  async adminAdjust(variantId: string, delta: number) {
+  async adminAdjust(variantId: string, delta: number, actor: AuthenticatedUser) {
     await this.getByVariant(variantId);
     if (delta < 0) {
       const result = await this.prisma.$executeRaw`
@@ -94,7 +99,18 @@ export class InventoryService {
         data: { quantityOnHand: { increment: delta } },
       });
     }
-    return this.getByVariant(variantId);
+
+    const updated = await this.getByVariant(variantId);
+
+    await this.auditLogService.record({
+      actor,
+      action: 'inventory.adjusted',
+      entityType: 'Inventory',
+      entityId: variantId,
+      metadata: { delta, quantityOnHandAfter: updated.quantityOnHand },
+    });
+
+    return updated;
   }
 
   /**

@@ -1,5 +1,8 @@
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 describe('InventoryController', () => {
   let service: { listLowStock: jest.Mock; getByVariant: jest.Mock; adminAdjust: jest.Mock };
@@ -24,7 +27,7 @@ describe('InventoryController', () => {
   });
 
   it('adjust delegates with the variant id and delta', () => {
-    expect(controller.adjust('v1', { delta: -5 } as any)).toBe('adjusted');
-    expect(service.adminAdjust).toHaveBeenCalledWith('v1', -5);
+    expect(controller.adjust(actor, 'v1', { delta: -5 } as any)).toBe('adjusted');
+    expect(service.adminAdjust).toHaveBeenCalledWith('v1', -5, actor);
   });
 });

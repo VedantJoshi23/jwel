@@ -59,8 +59,8 @@ describe('UsersController', () => {
     expect(controller.adminListUsers(query as any)).toBe('users');
   });
 
-  it('adminSuspendUser delegates with the target userId', () => {
-    controller.adminSuspendUser('u2');
-    expect(service.adminSuspendUser).toHaveBeenCalledWith('u2');
+  it('adminSuspendUser delegates with the target userId and the acting admin', () => {
+    controller.adminSuspendUser(user, 'u2');
+    expect(service.adminSuspendUser).toHaveBeenCalledWith('u2', user);
   });
 });

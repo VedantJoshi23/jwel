@@ -34,16 +34,16 @@ describe('ReturnsController', () => {
     expect(service.findOne).toHaveBeenCalledWith('r1', user);
   });
 
-  it('adminFindAll delegates with query and optional status filter', () => {
-    const query = { page: 1, pageSize: 10 };
-    expect(controller.adminFindAll(query as any, 'APPROVED' as any)).toBe('admin-list');
+  it('adminFindAll delegates with the query and its own status filter', () => {
+    const query = { page: 1, pageSize: 10, status: 'APPROVED' };
+    expect(controller.adminFindAll(query as any)).toBe('admin-list');
     expect(service.adminFindAll).toHaveBeenCalledWith(query, 'APPROVED');
   });
 
-  it('adminUpdateStatus delegates with id, status, and refund amount', () => {
-    expect(controller.adminUpdateStatus('r1', { status: 'REFUNDED', refundAmountMinorUnits: 5000 } as any)).toBe(
-      'updated',
-    );
-    expect(service.adminUpdateStatus).toHaveBeenCalledWith('r1', 'REFUNDED', 5000);
+  it('adminUpdateStatus delegates with id, status, actor, and refund amount', () => {
+    expect(
+      controller.adminUpdateStatus(user, 'r1', { status: 'REFUNDED', refundAmountMinorUnits: 5000 } as any),
+    ).toBe('updated');
+    expect(service.adminUpdateStatus).toHaveBeenCalledWith('r1', 'REFUNDED', user, 5000);
   });
 });

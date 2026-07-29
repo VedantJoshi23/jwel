@@ -16,6 +16,8 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { Role } from '../../common/enums/role.enum';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 // How long an unpaid checkout may hold its reserved stock. Comfortably
 // longer than Razorpay's ~12-minute modal session, so a slow bank redirect
@@ -42,6 +44,7 @@ export class OrdersService implements OnModuleInit {
     private readonly couponsService: CouponsService,
     private readonly paymentsService: PaymentsService,
     private readonly eventBus: EventBusService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   // Order owns its own status transitions (Law 1) — Payments only ever
@@ -331,7 +334,7 @@ export class OrdersService implements OnModuleInit {
     return { items, page, pageSize, total };
   }
 
-  async adminUpdateStatus(orderId: string, nextStatus: OrderStatus, note?: string) {
+  async adminUpdateStatus(orderId: string, nextStatus: OrderStatus, actor: AuthenticatedUser, note?: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
     if (!order) {
       throw new NotFoundException('Order not found');
@@ -353,7 +356,7 @@ export class OrdersService implements OnModuleInit {
       }
     }
 
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id: orderId },
       data: {
         status: nextStatus,
@@ -361,5 +364,15 @@ export class OrdersService implements OnModuleInit {
       },
       include: { items: true, statusHistory: true },
     });
+
+    await this.auditLogService.record({
+      actor,
+      action: 'order.status_updated',
+      entityType: 'Order',
+      entityId: orderId,
+      metadata: { from: order.status, to: nextStatus, note },
+    });
+
+    return updated;
   }
 }

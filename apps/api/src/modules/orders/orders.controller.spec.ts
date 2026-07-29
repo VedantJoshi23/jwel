@@ -41,8 +41,10 @@ describe('OrdersController', () => {
     expect(service.adminFindAll).toHaveBeenCalledWith(query);
   });
 
-  it('adminUpdateStatus delegates with id, status, and note', () => {
-    expect(controller.adminUpdateStatus('o1', { status: 'CONFIRMED', note: 'ok' } as any)).toBe('status-updated');
-    expect(service.adminUpdateStatus).toHaveBeenCalledWith('o1', 'CONFIRMED', 'ok');
+  it('adminUpdateStatus delegates with id, status, actor, and note', () => {
+    expect(controller.adminUpdateStatus(user, 'o1', { status: 'CONFIRMED', note: 'ok' } as any)).toBe(
+      'status-updated',
+    );
+    expect(service.adminUpdateStatus).toHaveBeenCalledWith('o1', 'CONFIRMED', user, 'ok');
   });
 });

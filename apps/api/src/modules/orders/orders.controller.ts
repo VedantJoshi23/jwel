@@ -42,7 +42,11 @@ export class OrdersController {
   @Patch('admin/orders/:id/status')
   @Roles(Role.ADMIN, Role.STAFF)
   @ApiOperation({ summary: '[Admin/Staff] Transition order status (FR-19)' })
-  adminUpdateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.adminUpdateStatus(id, dto.status, dto.note);
+  adminUpdateStatus(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.adminUpdateStatus(id, dto.status, actor, dto.note);
   }
 }

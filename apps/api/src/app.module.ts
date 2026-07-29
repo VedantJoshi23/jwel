@@ -30,6 +30,7 @@ import { CmsModule } from './modules/cms/cms.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
     CmsModule,
     AnalyticsModule,
     HealthModule,
+    AuditLogModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
