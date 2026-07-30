@@ -6,7 +6,10 @@ mistake is easy to spot before it becomes the next step's problem.
 
 `deploy/README.md` has the exact command reference this runbook walks
 through — read this file for the *order* and the *why*, that one for the
-precise commands and flags.
+precise commands and flags. `deploy/GO-LIVE.md` is the consolidated
+checklist for the specific day this all points toward: moving off this
+runbook's staging domain onto the client's real domain and switching
+payments from test-mode to real money, in one ordered sequence.
 
 ---
 
