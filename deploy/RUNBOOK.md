@@ -789,6 +789,17 @@ SQL
 docker compose -f docker-compose.postgres.yml exec -T postgres \
   psql -U jwel -d metabase -c "GRANT ALL ON SCHEMA public TO metabase;"
 
+# Metabase's own first-boot migration creates the citext extension, which
+# requires superuser (or at least extension-owner) privileges that the
+# `metabase` role does not have, even with schema ownership above. Without
+# this, Metabase fails to start with "permission denied to create extension
+# 'citext'" — hit for real when this deployment's Metabase database was
+# dropped and recreated once during setup; not needed on a first-ever boot
+# against a database create statement issued by `jwel` (a superuser), only
+# rediscovered the hard way on a from-scratch redo.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d metabase -c "CREATE EXTENSION IF NOT EXISTS citext;"
+
 echo "MB_DB_PASS=${MB_DB_PASS}"
 echo "METABASE_RO_PASSWORD=${METABASE_RO_PASSWORD}"
 ```
@@ -846,6 +857,36 @@ curl -s -X POST http://127.0.0.1:3002/api/setup \
   -H "Content-Type: application/json" \
   -d "{\"token\":\"${SETUP_TOKEN}\",\"user\":{\"first_name\":\"<name>\",\"last_name\":\"<name>\",\"email\":\"<real email>\",\"password\":\"${MB_ADMIN_PASS}\",\"site_name\":\"Jwel\"},\"prefs\":{\"site_name\":\"Jwel\",\"allow_tracking\":false}}"
 ```
+
+**Verify the account actually logs in before doing anything else** — a
+`{"id": ...}` response from `/api/setup` only proves the request was
+accepted, not that the credential works:
+
+```bash
+curl -s -X POST http://127.0.0.1:3002/api/session \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"<real email>\",\"password\":\"${MB_ADMIN_PASS}\"}"
+# must return {"id": "<session-id>"}, not an {"errors": ...} body
+```
+
+If this instance's admin password is ever lost and needs regenerating,
+**Metabase's own `reset-password` CLI is unreliable on its own** —
+`docker exec <container> java -jar /app/metabase.jar reset-password <email>`
+prints a reset TOKEN (`<user-id>_<uuid>`), not a usable password. That token
+must then be exchanged for a real password via
+`POST /api/session/reset_password` with `{"token": "<token>", "password": "<new password>"}`
+— using the CLI's raw output as a login password fails outright, which reads
+as "the CLI doesn't work" if you don't realize the two-step exchange is
+required. **Always verify login immediately after**, with the same
+`/api/session` check above, regardless of which path was used — this
+deployment has hit a case where the exchange endpoint reported
+`{"success":true}` and the database row's `updated_at` genuinely changed,
+but the resulting password still didn't authenticate. When that happens, the
+reliable recovery is a clean re-setup: drop and recreate the `metabase`
+application database (safe only if nothing valuable is in it yet — this is
+real, unbacked-up-until-`backup.sh`-runs state) and redo the `/api/setup`
+flow above from scratch. A from-scratch redo needs the `citext` extension
+created first — see step 1 above, easy to hit blind on a second attempt.
 
 Then add the read-only reporting connection (via the UI, or the same
 session-token + `POST /api/database` pattern the setup script above used),
