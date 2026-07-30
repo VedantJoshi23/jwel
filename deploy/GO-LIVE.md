@@ -1,205 +1,171 @@
-# Go-Live — cutting over to the client's domain and taking real payments
+# Go-Live — Cutting Over to the Client's Real Domain
 
-One consolidated, ordered checklist for the two things that have to happen
-together at launch: moving off `whisperingorion.dev` (the developer-owned
-staging domain this has run on throughout the build) onto the domain the
-client actually owns, and switching payments from simulated/test-mode to
-real money. `RUNBOOK.md` §12 and §13 cover each in full technical detail;
-this file is the "do these in this order, don't skip a step" sequence that
-combines them, plus the current state of this specific deployment so
-nothing here has to be guessed at go-live time.
+This is the **single ordered checklist** for the day this deployment moves
+off `whisperingorion.dev` (or wherever it's currently staged) onto the
+client's actual production domain, with real Razorpay payments turned on.
 
-**Read this top to bottom before starting anything.** The two halves
-interleave — rebuilding the web image, for instance, has to happen once with
-both the new domain's build args *and* demo mode removed, not twice.
+It does not repeat the detailed mechanics already written elsewhere in this
+directory — each step links to the section that explains *why*, and this
+file's job is only to put them in the right **order**, with the parts that
+are easy to miss called out explicitly. Read the linked section before
+running its commands the first time; this checklist assumes you already
+have.
 
-## Current state (as of this writing)
+**Work top to bottom. Do not skip ahead to payments (Phase 3) before the
+domain (Phase 1) is fully verified** — the storefront must never be
+reachable at the new domain while still pointing at the old API host, and it
+must never take real card details while still showing the demo banner.
 
-| Thing | Current value | What go-live changes it to |
-|---|---|---|
-| Apex domain | `whisperingorion.dev` | client's domain |
-| `RAZORPAY_KEY_ID` | `rzp_test_...` (**test mode**) | live key from the client's activated account |
-| `PAYMENTS_MODE` | unset (real Razorpay integration active, just in test-mode credentials) | stays unset — this is not the demo-mode flag |
-| Web image demo banner (`NEXT_PUBLIC_DEMO_MODE`) | **baked in** — confirmed via `grep -rl "Demo store" .next/server` on the live image | removed, new image built without it |
-| `SENTRY_DSN` | **unset** — Sentry is inert | should be set before go-live if a Sentry account exists by then (blocked on the client providing one — see `docs/milestones/milestone-13-observability.md`) |
-| Grafana / Metabase subdomains | `grafana.whisperingorion.dev`, `metabase.whisperingorion.dev` | **do not need to move** — see "What stays on whisperingorion.dev" below |
-| API/web image tags | `API_TAG`/`WEB_TAG` in `deploy/.env` | new tags from the rebuild in step 3 |
+---
 
-## What stays on `whisperingorion.dev`
+## Phase 0 — Client-side prerequisites (get these before starting)
 
-Only the **storefront and API** need to move to the client's domain — those
-are the customer-facing hostnames baked into the web bundle, CORS config,
-and the Razorpay webhook URL. Grafana and Metabase are internal/admin tools
-with no customer-facing dependency on the apex domain; leaving them on
-`whisperingorion.dev` permanently is fine and simpler than re-issuing certs
-and re-pointing DNS for services nobody outside the team logs into. Revisit
-only if there's a specific reason (e.g. the developer's own domain lease
-lapsing) — not a default part of this checklist.
+None of these are yours to create — chase them down first, since Phase 1–3
+each block on one of them:
 
-## Prerequisites (get these before starting)
+- [ ] **Domain purchased**, registrar access (or DNS delegated to someone who
+      has it) to add A records.
+- [ ] **Razorpay live account**, activated, in the client's legal entity's
+      name — see RUNBOOK §13 step 1 for why this must be the client's
+      account, not yours.
+- [ ] Decide **now**, not during the cutover, what happens to the ops
+      subdomains (`grafana.`, `metabase.`) — see the callout in Phase 1.
+- [ ] *(Optional)* A Sentry account/project if error tracking is wanted on
+      the new domain (`deploy/README.md`, "Optional — error tracking").
+- [ ] *(Optional)* A client email address for Grafana alert notifications,
+      if that's being wired up around the same time
+      (`docs/milestones/milestone-13-observability.md`, Tasks Remaining).
 
-- [ ] Client has purchased their production domain and can add DNS records
-      for it (or has granted registrar/DNS access).
-- [ ] Client has an **activated** Razorpay account (their legal entity,
-      their business documents — payouts and chargeback liability follow
-      the account holder) with live API keys, or has added you as a
-      developer so you never hold their live secret key directly.
+---
 
-## The sequence
+## Phase 1 — Domain cutover
 
-### 1. DNS — both records, wait for propagation
+Full mechanics, the hostname table, and rollback: **RUNBOOK §12 "Changing
+the domain."** Follow that section's numbered procedure for the apex +
+`api.` pair. Summary of the order:
 
-```bash
-dig +short newdomain.com          # must print this server's IP (80.225.213.151)
-dig +short api.newdomain.com      # same
-```
+1. DNS A records for apex + `api.` → wait for `dig` to confirm both.
+2. `certbot` for both new hostnames.
+3. Rebuild the **web image** with the new `NEXT_PUBLIC_*` build args — these
+   are baked in at build time, not read from `.env.production`. Verify the
+   new hostname actually landed in the bundle (RUNBOOK §12 step 4) before
+   deploying it.
+4. Update `.env.production` (`PUBLIC_BASE_URL`, `FRONTEND_URL`,
+   `CORS_ALLOWED_ORIGINS`) and `.env` (`WEB_TAG`).
+5. Render + install the new nginx config, `nginx -t`, reload.
+6. `docker compose -f docker-compose.api.yml up -d`.
+7. Verify per RUNBOOK §12 "Verify" — including opening the storefront in a
+   real browser and confirming XHR calls hit the new API host, not just
+   that `curl` returns 200.
 
-Confirm via `dig` before touching certbot — failed cert attempts count
-against Let's Encrypt's 5-per-hostname-per-hour rate limit. Full detail:
-`RUNBOOK.md` §12.
+### Callout: what happens to `grafana.` and `metabase.`?
 
-### 2. Certificates for the new names
+RUNBOOK §12's hostname table only covers the apex + `api.` pair — it predates
+the Grafana (M13) and Metabase (M14) subdomains, and was never updated when
+those were added. Decide one of two ways before starting, since this affects
+whether you need certs/DNS for two more hostnames on the new domain:
 
-```bash
-sudo certbot certonly --webroot -w /var/www/html -d newdomain.com -d www.newdomain.com
-sudo certbot certonly --webroot -w /var/www/html -d api.newdomain.com
-```
+- **Move them too** — same procedure as any other subdomain (see RUNBOOK's
+  "Optional: Monitoring" and "Optional: Metabase" sections' own "Putting X
+  behind a real domain" subsections): new A record, `certbot`, render +
+  install that service's own nginx template. Nothing in Grafana's or
+  Metabase's own config references the storefront/API hostnames, so this is
+  independent of Phase 1 and can happen before, during, or after it.
+- **Leave them where they are** — these are internal ops tooling, not
+  customer-facing, so there's no functional requirement they share the
+  client's domain. If left on the staging host's domain, keep that domain's
+  DNS/cert renewal alive indefinitely (don't let it lapse thinking the
+  migration is "done") and make sure whoever administers the client's domain
+  knows the ops tooling intentionally lives elsewhere, so it doesn't get
+  "helpfully" pointed at the new domain by someone unaware of the split.
 
-The old `whisperingorion.dev` certs and DNS stay untouched — nothing is
-revoked, so the old domain keeps working throughout the cutover, which is
-what makes rollback fast if something goes wrong mid-sequence.
+Nothing in this repo mandates one answer — pick based on whether the client
+wants their own team to eventually access Grafana/Metabase (in which case
+their domain is friendlier) versus keeping it purely an engineering-team
+tool (in which case the staging host is simpler and this step is a no-op).
 
-### 3. Razorpay — webhook + credentials
+---
 
-In the Razorpay dashboard (Settings → Webhooks), point the endpoint at
-`https://api.newdomain.com/api/v1/payments/webhook/razorpay`, subscribed to
-`payment.captured` and `payment.failed` — the only two events
-`razorpay-payment.provider.ts` acts on. **Set the webhook secret yourself
-when creating the webhook and record it immediately** — Razorpay never
-shows it again.
+## Phase 2 — Observability on the new domain (optional, do anytime after Phase 1)
 
-In `deploy/.env.production`:
-- Delete the `PAYMENTS_MODE` line if present (it currently is not — this
-  deployment already runs the real Razorpay integration in test-mode
-  credentials, not simulated-payments mode; don't confuse the two).
-- Replace `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`/`RAZORPAY_WEBHOOK_SECRET`
-  with the live values.
-- Update `PUBLIC_BASE_URL=https://api.newdomain.com`,
-  `FRONTEND_URL=https://newdomain.com`,
-  `CORS_ALLOWED_ORIGINS=https://newdomain.com`.
+- [ ] Sentry: if a client Sentry project now exists, add `SENTRY_DSN` and
+      rebuild the web image with `NEXT_PUBLIC_SENTRY_DSN` (`deploy/README.md`
+      "Optional — error tracking"). This does **not** require a new web
+      image build on its own if bundled into the same rebuild Phase 1 already
+      did — check both build args are present in one build, not two.
+- [ ] Grafana alert notification channel (email/Slack), if a client email
+      was obtained per Phase 0 — see
+      `docs/milestones/milestone-13-observability.md`'s Tasks Remaining for
+      the current state; not yet built as of M14.
 
-### 4. Rebuild the web image — new domain AND no demo mode, in one build
+---
 
-```bash
-cd ~/jwel
-GIT_SHA=$(git rev-parse --short HEAD)
-docker build -f apps/web/Dockerfile \
-  --build-arg NEXT_PUBLIC_API_URL=https://api.newdomain.com/api/v1 \
-  --build-arg NEXT_PUBLIC_API_ORIGIN=https://api.newdomain.com \
-  --build-arg NEXT_PUBLIC_SITE_URL=https://newdomain.com \
-  -t ghcr.io/local/jwel-web:$GIT_SHA-golive .
-```
+## Phase 3 — Payments go-live
 
-No `NEXT_PUBLIC_DEMO_MODE` build arg — this is what actually removes the
-demo banner and `noindex`. `NEXT_PUBLIC_*` values are inlined at build time,
-never read from the running container's environment, so there is no way to
-turn this off with a restart.
+**Full checklist: RUNBOOK §13 "Going live: the checklist."** Nine numbered
+steps — gateway account, webhook registration, credential swap, web image
+rebuild *without* the demo-mode build arg, a bundle-content verification
+that actually works (RUNBOOK §13 step 5 explains why the naive version of
+this check is worthless), deploy, confirm the simulated-payments flag is
+gone from the logs, re-enable search indexing, and **one real transaction**
+followed by a refund.
 
-**Verify both things actually landed, before deploying — don't trust the
-build args silently working:**
+Do not skip step 9 (the real transaction). A payment gateway that has never
+moved real money through this exact deployment is a hypothesis, not a
+verified integration — the same standard this project has held every other
+piece of infrastructure to (see `docs/milestones/milestone-12-ci-and-payments.md`
+and `milestone-14-hybrid-admin.md` for what "verified for real, not assumed"
+has meant in practice here).
 
-```bash
-# New domain reached the bundle:
-docker run --rm ghcr.io/local/jwel-web:$GIT_SHA-golive \
-  sh -c 'grep -rl "api.newdomain.com" .next/static | head -1'
-# must print a chunk filename — empty output means the old domain is still baked in
+If HTTP basic auth was added to keep the demo private (RUNBOOK §13
+"Restricting access while in demo mode"), removing it is part of this phase,
+not a separate task — RUNBOOK §13 step 8 is the natural place.
 
-# Demo banner is gone — check .next/server, NOT .next/static (the banner is
-# a server component; RUNBOOK.md §13 has the measured proof of why the
-# static-only check used to pass silently on a bundle that still shipped it):
-docker run --rm ghcr.io/local/jwel-web:$GIT_SHA-golive \
-  sh -c 'grep -rl "Demo store" .next/server | head -1'
-# must print NOTHING
-```
+---
 
-### 5. Deploy
+## Phase 4 — Final combined verification
 
-```bash
-cd ~/jwel/deploy
-# .env:  WEB_TAG=<the $GIT_SHA-golive tag from step 4>
-./nginx/render.sh newdomain.com api.newdomain.com > /tmp/jwel.conf
-sudo cp /etc/nginx/sites-available/main /etc/nginx/sites-available/main.bak
-sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
-sudo nginx -t && sudo systemctl reload nginx
-docker compose -f docker-compose.api.yml up -d
-```
-
-### 6. Verify — all of it, not just the happy path
+Everything below should be run **after** Phases 1 and 3 are both complete,
+as one pass — individual phase verification proves each piece works in
+isolation, this proves nothing regressed across the whole cutover:
 
 ```bash
-curl -fsS https://api.newdomain.com/health/ready              # {"status":"ok","database":"ok"}
-curl -s -o /dev/null -w '%{http_code}\n' https://newdomain.com/       # 200
-curl -s https://newdomain.com/robots.txt                       # must NOT be disallow-all
-docker compose -f docker-compose.api.yml logs api | grep 'CHECKOUT IS SIMULATED'  # must print nothing
+# Storefront + API on the new domain
+curl -s -o /dev/null -w '%{http_code}\n' https://<new-domain>/                    # 200
+curl -fsS https://api.<new-domain>/health/ready                                    # {"status":"ok","database":"ok"}
+
+# Search indexing re-enabled (not still disallow-all from demo mode)
+curl -s https://<new-domain>/robots.txt
+
+# Simulated-payments flag is gone
+docker compose -f docker-compose.api.yml logs api | grep -c 'CHECKOUT IS SIMULATED'   # 0
+
+# Any ops subdomains that moved with the domain (skip if left on the old host)
+curl -s -o /dev/null -w '%{http_code}\n' https://grafana.<new-domain>/login
+curl -s -o /dev/null -w '%{http_code}\n' https://metabase.<new-domain>/
 ```
 
-Then in a real browser with devtools open: confirm storefront XHRs go to
-`api.newdomain.com` (a CORS error means `CORS_ALLOWED_ORIGINS` still lists
-the old apex, or the API wasn't restarted), and that product images render
-(`PUBLIC_BASE_URL` took effect).
+Then, in a real browser:
 
-Confirm the services that are staying put are still fine — a domain/image
-change to the app stack should never touch these, but verify rather than
-assume, same as after every other infra change to this deployment:
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://grafana.whisperingorion.dev/login
-curl -s -o /dev/null -w '%{http_code}\n' https://metabase.whisperingorion.dev/
-```
-
-### 7. One real transaction, then refund it
-
-Place a genuine order with a real card for the smallest-value item.
-Confirm: the order reaches `CONFIRMED`, the money appears in the Razorpay
-dashboard, the webhook shows a 2xx delivery. Then refund it through the
-admin Returns UI (`/admin/returns`) and confirm the refund appears in
-Razorpay too. **A gateway that has never moved real money is a hypothesis**,
-same as an untested backup — this is the step that turns it into a fact.
-
-### 8. Search indexing
-
-If the demo was ever publicly reachable and indexed, request removal of any
-indexed URLs in Google Search Console — `noindex` stops future indexing, not
-retroactive removal.
-
-### 9. Tell the client
-
-Once verified: hand over the new URL, confirm they can log into
-`/admin` (the account carries over — no new admin account needed), and
-point out `metabase.whisperingorion.dev` / `grafana.whisperingorion.dev` as
-the reporting/ops URLs, which did not change.
+- [ ] Place one real order start to finish (this is Phase 3 step 9 — don't
+      duplicate the transaction, just confirm it's the one being checked
+      here too).
+- [ ] Log into `/admin` and confirm the order appears, RBAC still works, and
+      (if it moved) Grafana/Metabase are reachable at their new URLs.
+- [ ] Check the browser's Network tab on at least one storefront page — API
+      calls must go to the new `api.` host, not the old one. A stale
+      `CORS_ALLOWED_ORIGINS` or a web image built against the old API host
+      both look fine until this specific check.
 
 ## Rollback
 
-```bash
-sudo cp /etc/nginx/sites-available/main.bak /etc/nginx/sites-available/main
-sudo nginx -t && sudo systemctl reload nginx
-# revert WEB_TAG in deploy/.env to the previous tag, then:
-docker compose -f docker-compose.api.yml up -d
-```
+Domain: RUNBOOK §12 "Rolling back" — the old certs/DNS/nginx config are
+untouched throughout Phase 1, so reverting is fast. Keep the old domain
+registered and pointed at the server for a few weeks after cutover; DNS
+caches and existing links keep arriving there.
 
-The old domain's certs and DNS are untouched throughout, so this is fast.
-Keep the old domain registered and pointing at the server for a few weeks
-after the move — DNS caches, bookmarks, and already-shared links keep
-arriving on the old hostname for a while.
-
-## Known gaps to be aware of at go-live (not blockers, but real)
-
-- **No alert notification channel.** Grafana alerts fire and are visible in
-  its own UI, but nothing emails or pages anyone yet — deferred pending a
-  client-provided email address (`docs/milestones/milestone-13-observability.md`).
-  Worth revisiting the priority of this once real money is moving.
-- **Sentry is inert** (`SENTRY_DSN` unset) — same blocker, same doc.
-- **The admin audit log has no UI** — `GET /api/v1/admin/audit-log` exists
-  and works, but there's no page in `/admin` to browse it; API-only for now
-  (`docs/milestones/milestone-14-hybrid-admin.md`).
+Payments: there is no clean rollback from real transactions back to demo
+mode once Phase 3 has processed a real order — that order is real money that
+moved. If Phase 3 needs to be aborted mid-way, stop before step 9 (the real
+transaction) and revert steps 3–4 (credentials, web image) to restore
+`PAYMENTS_MODE=simulated`.

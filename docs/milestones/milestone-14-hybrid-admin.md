@@ -138,6 +138,31 @@ full explanation) rather than silently building on the wrong premise.
     correctly — a self-lookup artifact, not a deployment problem, confirmed
     by checking against public resolvers rather than assuming the VM's own
     failure meant something was actually wrong.
+  - **Two more real bugs found while setting up the first admin account.**
+    (1) Metabase's own `reset-password` CLI (`java -jar metabase.jar
+    reset-password <email>`) wrote a new bcrypt hash to `core_user` — a real
+    row-level DB write, confirmed via `updated_at` — but the generated
+    password never authenticated afterward, even after restarting the
+    container to rule out in-process caching. Root cause understood on a
+    later, successful attempt: the CLI prints a reset *token*
+    (`<user-id>_<uuid>`), not a usable password — it has to be exchanged via
+    `POST /api/session/reset_password` for a real one, and treating the raw
+    CLI output as a login password fails outright. Even with the correct
+    two-step exchange, one reset on this deployment reported
+    `{"success":true}` with a genuinely updated `updated_at` and still didn't
+    authenticate — so the rule going forward is to verify login immediately
+    after *any* reset, never trust the response body alone. (2) Recovering
+    from (1) via a clean re-setup (drop and recreate the `metabase`
+    application database) then failed its own first-boot migration with
+    `permission denied to create extension "citext"` — the `metabase` role
+    isn't a superuser and Postgres doesn't let a non-superuser create most
+    extensions even with schema ownership. Fixed by creating `citext` once
+    as the `jwel` superuser before Metabase's migrations ran. **Neither of
+    these was hit on the very first setup** — only surfaced once the
+    database was dropped and recreated to recover from bug (1) — worth
+    remembering if this deployment's Metabase ever needs a from-scratch
+    reset again. `deploy/RUNBOOK.md`'s Metabase section now carries both as
+    explicit steps/warnings so a future reset doesn't hit either blind.
 
 ## Tasks Remaining
 
@@ -167,3 +192,4 @@ full explanation) rather than silently building on the wrong premise.
 | AdminJS's dependency footprint was discovered only by actually installing it | Same lesson as this project's "verify against the real thing" pattern elsewhere (real `next build`, real Playwright runs, real Postgres for integration tests) — `npm view <pkg> peerDependencies` proved compatibility but said nothing about transitive vulnerability count; only a real `npm install` + `npm audit` surfaced the actual cost |
 | A BI tool with write access to production data is a data-loss incident waiting for a bad query (`ADR-0006`'s own framing) | Not trusted on the strength of a `GRANT SELECT`-only statement — a real `UPDATE` against `metabase_ro` was run and confirmed rejected before this milestone recorded Metabase as done |
 | The exact `${VAR}`-in-`environment:`-vs-`env_file` Compose-substitution mistake that hit Grafana in M13 was made again while building Metabase's compose file, despite a warning comment already existing in this repo for it | Caught the same way as before — by actually booting the container and reading its real env, not by trusting the comment. Worth treating as a standing risk for any *future* `env_file`-backed service in this deployment, not a one-off: the warning comment alone did not prevent a repeat |
+| A credential-reset flow can report success (`{"success":true}`, a real `updated_at` change) while the credential still doesn't work | Established a standing rule, not a one-off fix: verify login immediately after any password reset, regardless of which tool or endpoint reported success — recorded in `RUNBOOK.md`'s Metabase section so a future admin-account recovery doesn't skip this on the strength of a green response body |
