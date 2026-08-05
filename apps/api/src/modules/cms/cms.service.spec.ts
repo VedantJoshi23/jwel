@@ -1,16 +1,23 @@
 import { NotFoundException } from '@nestjs/common';
 import { CmsService } from './cms.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 type MockPrisma = { banner: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock } };
 
 describe('CmsService', () => {
   let prisma: MockPrisma;
+  let storage: { upload: jest.Mock; delete: jest.Mock; resolveUrl: jest.Mock };
   let service: CmsService;
 
   beforeEach(() => {
     prisma = { banner: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn(), delete: jest.fn() } };
-    service = new CmsService(prisma as unknown as PrismaService);
+    storage = {
+      upload: jest.fn(),
+      delete: jest.fn(),
+      resolveUrl: jest.fn((ref: string) => `https://cdn.example/${ref}`),
+    };
+    service = new CmsService(prisma as unknown as PrismaService, storage as unknown as StorageProviderPort);
   });
 
   describe('listActiveBanners', () => {
@@ -28,6 +35,29 @@ describe('CmsService', () => {
       prisma.banner.findMany.mockResolvedValue([]);
       await service.listActiveBanners();
       expect(prisma.banner.findMany.mock.calls[0][0].orderBy).toEqual({ sortOrder: 'asc' });
+    });
+
+    // The ref is opaque and its shape differs per storage adapter, so the
+    // client cannot resolve it — only the API knows which adapter is live.
+    it('resolves each imageRef into a loadable imageUrl via the storage port', async () => {
+      prisma.banner.findMany.mockResolvedValue([
+        { id: 'b1', title: 'Diwali', imageRef: 'local:banners/a.jpg', sortOrder: 0 },
+        { id: 'b2', title: 'Wedding', imageRef: 'local:banners/b.jpg', sortOrder: 1 },
+      ]);
+
+      const result = await service.listActiveBanners();
+
+      expect(storage.resolveUrl).toHaveBeenCalledWith('local:banners/a.jpg');
+      expect(result.map((banner) => banner.imageUrl)).toEqual([
+        'https://cdn.example/local:banners/a.jpg',
+        'https://cdn.example/local:banners/b.jpg',
+      ]);
+    });
+
+    it('keeps imageRef alongside imageUrl — the admin surface edits refs', async () => {
+      prisma.banner.findMany.mockResolvedValue([{ id: 'b1', imageRef: 'local:banners/a.jpg' }]);
+      const [banner] = await service.listActiveBanners();
+      expect(banner.imageRef).toBe('local:banners/a.jpg');
     });
   });
 

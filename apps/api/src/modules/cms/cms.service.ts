@@ -1,17 +1,28 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
+import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 @Injectable()
 export class CmsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProviderPort,
+  ) {}
 
   // Public surface: only banners that are flagged active AND inside their
   // optional scheduling window — lets marketing queue up a banner ahead of a
   // launch date without a same-day deploy/toggle.
-  listActiveBanners() {
+  //
+  // Resolves `imageRef` into a loadable `imageUrl` here rather than leaving
+  // that to the client. The ref is deliberately opaque (storage-provider.port
+  // calls it that, and its shape differs between the S3 and filesystem
+  // adapters), so only the API — which knows which adapter is active — can
+  // turn it into a URL. `imageRef` is still returned alongside: the admin
+  // surface edits refs, not URLs.
+  async listActiveBanners() {
     const now = new Date();
-    return this.prisma.banner.findMany({
+    const banners = await this.prisma.banner.findMany({
       where: {
         isActive: true,
         OR: [{ startsAt: null }, { startsAt: { lte: now } }],
@@ -19,6 +30,11 @@ export class CmsService {
       },
       orderBy: { sortOrder: 'asc' },
     });
+
+    return banners.map((banner) => ({
+      ...banner,
+      imageUrl: this.storage.resolveUrl(banner.imageRef),
+    }));
   }
 
   adminListBanners() {

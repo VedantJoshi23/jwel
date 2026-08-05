@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { Sparkles } from 'lucide-react';
 import type { Metadata } from 'next';
 import { safeGetProducts } from '@/lib/api/safe-get-products';
+import { safeGetActiveBanners } from '@/lib/api/cms';
 import { ProductCard } from '@/components/product/product-card';
+import { PromoBanners } from '@/components/home/promo-banners';
 import { brand } from '@/lib/brand';
 import { categoryImages, heroImage } from '@/lib/jewellery-images';
 import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
@@ -14,9 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [newIn, bestsellers] = await Promise.all([
+  const [newIn, bestsellers, banners] = await Promise.all([
     safeGetProducts({ sort: 'newest', pageSize: 3 }),
     safeGetProducts({ sort: 'popularity', pageSize: 2 }),
+    safeGetActiveBanners(),
   ]);
 
   const hero = brand.hero;
@@ -58,6 +61,10 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── Scheduled promo banners (CMS) — renders nothing when none are
+             active, so the page is unchanged on a store with no campaign ── */}
+      <PromoBanners banners={banners} />
 
       {/* ── Category trio ─────────────────────────────────────────────────── */}
       <section className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
