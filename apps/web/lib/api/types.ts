@@ -43,6 +43,36 @@ export interface Category {
   sortOrder?: number;
 }
 
+export type CollectionType = 'GOLD' | 'DIAMOND' | 'SEASONAL' | 'EDITORIAL';
+
+/**
+ * A curated set that cuts across categories ("Diwali Edit", "Bridal
+ * Lookbook"), as opposed to a Category, which is what a piece *is*.
+ *
+ * Both are addressed under /collections/[slug]; the API refuses to let a
+ * collection and a category share a slug, in either direction.
+ */
+export interface Collection {
+  id: string;
+  name: string;
+  slug: string;
+  type: CollectionType;
+  description: string | null;
+  heroImageRef: string | null;
+  heroImageUrl: string | null;
+  isFeatured: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+}
+
+export interface AdminCollection extends Collection {
+  _count?: { products: number };
+}
+
+export interface CollectionWithProducts extends Collection {
+  products: PaginatedResult<Product>;
+}
+
 export interface Product {
   id: string;
   name: string;

@@ -27,6 +27,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SearchModule } from './modules/search/search.module';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module';
 import { CmsModule } from './modules/cms/cms.module';
+import { CollectionsModule } from './modules/collections/collections.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
@@ -64,6 +65,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     SearchModule,
     RecommendationsModule,
     CmsModule,
+    CollectionsModule,
     AnalyticsModule,
     HealthModule,
     AuditLogModule,
