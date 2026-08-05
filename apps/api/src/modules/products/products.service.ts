@@ -246,11 +246,31 @@ export class ProductsService {
       .replace(/^-+|-+$/g, '');
   }
 
+  /**
+   * `/collections/[slug]` resolves a Collection first and falls back to a
+   * Category, so the two share one URL space. A category taking a slug a
+   * collection already holds would be permanently shadowed — its page would
+   * render the collection instead, with nothing in the logs to say why.
+   *
+   * The mirror of this lives in `CollectionsService.assertSlugIsFree`.
+   * Guarding one side only leaves the same collision reachable from the
+   * other, which is why this check exists in a file about products.
+   */
+  private async assertSlugNotTakenByCollection(slug: string): Promise<void> {
+    const collection = await this.prisma.collection.findUnique({ where: { slug } });
+    if (collection) {
+      throw new BadRequestException(
+        `The collection "${collection.name}" already uses the slug "${slug}". A category sharing it would be hidden behind that collection.`,
+      );
+    }
+  }
+
   async createCategory(dto: CreateCategoryDto) {
     const slug = (dto.slug ? ProductsService.slugify(dto.slug) : ProductsService.slugify(dto.name)) || '';
     if (!slug) {
       throw new BadRequestException('Category name must contain at least one alphanumeric character for its slug.');
     }
+    await this.assertSlugNotTakenByCollection(slug);
     if (dto.parentId) {
       await this.getLiveCategoryOrThrow(dto.parentId);
     }
@@ -281,6 +301,7 @@ export class ProductsService {
     if (dto.slug !== undefined) {
       const slug = ProductsService.slugify(dto.slug);
       if (!slug) throw new BadRequestException('Slug must contain at least one alphanumeric character.');
+      await this.assertSlugNotTakenByCollection(slug);
       data.slug = slug;
     }
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;

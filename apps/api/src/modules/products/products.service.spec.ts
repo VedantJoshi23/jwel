@@ -18,6 +18,7 @@ type MockPrisma = {
     update: jest.Mock;
     count: jest.Mock;
   };
+  collection: { findUnique: jest.Mock };
   $transaction: jest.Mock;
 };
 
@@ -52,6 +53,9 @@ describe('ProductsService', () => {
         update: jest.fn(),
         count: jest.fn(),
       },
+      // Category writes check this to keep a category from taking a slug a
+      // collection already holds — the two share /collections/[slug].
+      collection: { findUnique: jest.fn().mockResolvedValue(null) },
       // Prisma's $transaction has two forms and this service uses both: an
       // array of operations (reorderMedia) and an interactive callback
       // (adminUpdate). Handle each, or the callback form gets passed to
@@ -400,6 +404,17 @@ describe('ProductsService', () => {
       prisma.category.create.mockRejectedValue(new Error('connection lost'));
       await expect(service.createCategory({ name: 'Rings' } as any)).rejects.toThrow('connection lost');
     });
+
+    // The mirror of CollectionsService's guard. /collections/[slug] resolves a
+    // collection before falling back to a category, so a category taking a
+    // collection's slug would be permanently shadowed by it.
+    it('refuses a slug a collection already holds', async () => {
+      prisma.collection.findUnique.mockResolvedValue({ id: 'col1', name: 'Diwali Edit', slug: 'diwali-edit' });
+      await expect(service.createCategory({ name: 'Diwali Edit' } as any)).rejects.toThrow(
+        /collection "Diwali Edit"/,
+      );
+      expect(prisma.category.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateCategory', () => {
@@ -445,6 +460,15 @@ describe('ProductsService', () => {
     it('rejects a slug that slugifies to empty', async () => {
       prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
       await expect(service.updateCategory('c1', { slug: '!!!' })).rejects.toThrow(BadRequestException);
+    });
+
+    // Renaming into the collision is the same defect as creating into it, and
+    // is the easier one to hit — the category already exists and works.
+    it('refuses renaming a category onto a slug a collection holds', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.collection.findUnique.mockResolvedValue({ id: 'col1', name: 'Diwali Edit', slug: 'diwali-edit' });
+      await expect(service.updateCategory('c1', { slug: 'diwali-edit' })).rejects.toThrow(/collection "Diwali Edit"/);
+      expect(prisma.category.update).not.toHaveBeenCalled();
     });
 
     it('maps a duplicate slug to a friendly BadRequest', async () => {
