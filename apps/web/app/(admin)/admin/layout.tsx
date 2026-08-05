@@ -45,7 +45,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             })}
           </nav>
         </aside>
-        <main className="flex-1 px-8 py-8">{children}</main>
+        {/* id here, not on a wrapper: this is now the page's only <main>. It
+            used to be nested inside SiteChrome's, which is invalid HTML and
+            left the root layout's skip link pointing at the storefront's
+            <main> rather than the admin content. */}
+        <main id="main-content" className="flex-1 px-8 py-8">
+          {children}
+        </main>
       </div>
     </AdminGuard>
   );
