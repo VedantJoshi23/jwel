@@ -6,6 +6,14 @@ import { FilterForm } from '@/components/common/filter-form';
 import { Pagination } from '@/components/common/pagination';
 import { brand } from '@/lib/brand';
 import { getCategoryBannerImage } from '@/lib/jewellery-images';
+import { safeGetCollectionBySlug } from '@/lib/api/collections';
+import { CollectionView } from '@/components/collection/collection-view';
+
+// Answered by this route itself, ahead of any lookup: `all` is the whole
+// catalogue and the other two are curated sorts. The API refuses to let a
+// Collection be created under any of these names (CollectionsService's
+// RESERVED_SLUGS) precisely because a collection here would be unreachable.
+const ROUTE_OWNED_SLUGS = ['all', 'new-arrivals', 'bestsellers'];
 
 interface CollectionPageProps {
   params: Promise<{ slug: string }>;
@@ -27,6 +35,23 @@ function titleCase(slug: string): string {
 
 export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
   const { slug } = await params;
+
+  // Deliberately the same default arguments the page body uses below. Next
+  // memoizes identical fetches within one render pass, so on page 1 — the
+  // overwhelmingly common case — these two calls collapse into one request.
+  // Asking for a cheaper page size here would only break that.
+  if (!ROUTE_OWNED_SLUGS.includes(slug)) {
+    const collection = await safeGetCollectionBySlug(slug);
+    if (collection) {
+      return {
+        title: collection.name,
+        description:
+          collection.description ??
+          `Shop the ${collection.name} collection at ${brand.name} — handcrafted jewellery for every occasion.`,
+      };
+    }
+  }
+
   const title = titleCase(slug);
   return {
     title,
@@ -38,6 +63,21 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   const resolvedParams = await params;
   const resolvedSearchParams = await searchParams;
   const page = Number(resolvedSearchParams.page ?? '1');
+
+  // Collection first, Category second. The two share this URL space, and the
+  // API guards both directions against a slug collision
+  // (CollectionsService.assertSlugIsFree and its mirror in ProductsService),
+  // so at most one of them can ever answer to a given slug.
+  //
+  // Skipped entirely for the three slugs this route answers itself — that is
+  // a request the API can never satisfy, so there is no reason to spend a
+  // round trip discovering it.
+  if (!ROUTE_OWNED_SLUGS.includes(resolvedParams.slug)) {
+    const collection = await safeGetCollectionBySlug(resolvedParams.slug, page);
+    if (collection) {
+      return <CollectionView collection={collection} searchParams={resolvedSearchParams} />;
+    }
+  }
 
   // "new-arrivals" and "bestsellers" are curated views (matching the homepage
   // sections of the same name), not real product categories — every other
