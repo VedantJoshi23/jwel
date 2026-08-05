@@ -28,14 +28,21 @@ import { ReorderMediaDto } from './dto/reorder-media.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
+import { ALLOWED_IMAGE_MIME_REGEX, MAX_IMAGE_BYTES } from '../../common/media/image-upload.constraints';
 
-// Mirrors ProductsService's own limits (SECURITY.md §6 — validated server-
-// side before the file is handed to the Storage port). Duplicated as a
-// literal, not imported from the service, on purpose: this is Multer/pipe
-// configuration for the HTTP boundary, a different layer than the service's
-// own defense-in-depth check on the same numbers.
-const MAX_MEDIA_BYTES = 8 * 1024 * 1024;
-const ALLOWED_MEDIA_MIME_REGEX = /^image\/(jpeg|png|webp)$/;
+// This file used to carry these as literals, with a comment arguing the
+// duplication was deliberate: pipe configuration at the HTTP boundary is a
+// different layer from the service's defense-in-depth re-check, so the two
+// should not be coupled.
+//
+// That argument is about having two independent *checks*, and it still holds
+// — both are still here, and neither trusts the other. It does not require
+// two copies of the *numbers*. Keeping the literals in two files meant
+// raising the cap in one and not the other would produce a route that
+// accepts a file the service then rejects. A third route (admin/uploads)
+// would have made it three copies, which is what forced the issue.
+const MAX_MEDIA_BYTES = MAX_IMAGE_BYTES;
+const ALLOWED_MEDIA_MIME_REGEX = ALLOWED_IMAGE_MIME_REGEX;
 
 @ApiTags('products')
 @Controller('api/v1')

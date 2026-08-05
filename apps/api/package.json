@@ -11,7 +11,7 @@
     "test": "jest",
     "test:cov": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:integration": "jest --config ./test/jest-integration.json",
+    "test:integration": "NODE_OPTIONS=--experimental-vm-modules jest --config ./test/jest-integration.json",
     "prisma:generate": "prisma generate --schema=src/prisma/schema.prisma",
     "prisma:migrate:dev": "prisma migrate dev --schema=src/prisma/schema.prisma",
     "prisma:migrate:deploy": "prisma migrate deploy --schema=src/prisma/schema.prisma",
