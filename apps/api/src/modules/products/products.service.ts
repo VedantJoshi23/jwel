@@ -9,6 +9,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
+import { MAX_IMAGE_BYTES, isAllowedImageMimeType } from '../../common/media/image-upload.constraints';
 
 const productInclude = {
   category: true,
@@ -376,8 +377,9 @@ export class ProductsService {
 
   // --- Media management -------------------------------------------------
 
-  private static readonly ALLOWED_MEDIA_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-  private static readonly MAX_MEDIA_BYTES = 8 * 1024 * 1024; // 8 MB
+  // Shared with the controller's ParseFilePipe and the admin/uploads route
+  // via common/media/image-upload.constraints — one definition of the limit,
+  // still checked independently at each layer.
 
   async addMedia(productId: string, file: { buffer: Buffer; mimetype: string; originalname: string }): Promise<ProductResponse> {
     await this.findProductOrThrow(productId);
@@ -387,10 +389,10 @@ export class ProductsService {
     // handed to the Storage port, and a service method callable from
     // anywhere shouldn't rely on one specific controller route being the
     // only caller that got the pipe configuration right.
-    if (!ProductsService.ALLOWED_MEDIA_MIME_TYPES.includes(file.mimetype)) {
+    if (!isAllowedImageMimeType(file.mimetype)) {
       throw new BadRequestException(`Unsupported file type: ${file.mimetype}`);
     }
-    if (file.buffer.byteLength > ProductsService.MAX_MEDIA_BYTES) {
+    if (file.buffer.byteLength > MAX_IMAGE_BYTES) {
       throw new BadRequestException('File exceeds the 8 MB upload limit');
     }
 

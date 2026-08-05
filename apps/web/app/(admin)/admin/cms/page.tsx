@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminCreateBanner, adminDeleteBanner, adminListBanners } from '@/lib/api/admin-cms';
+import { ImageUploadField } from '@/components/admin/image-upload-field';
 import type { Banner } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
 
-const EMPTY_FORM = { title: '', imageRef: '', linkUrl: '', sortOrder: '0' };
+const EMPTY_FORM = { title: '', imageRef: '', imageUrl: '', linkUrl: '', sortOrder: '0' };
 
 export default function AdminCmsPage() {
   const token = useAuthStore((state) => state.token);
@@ -72,7 +73,7 @@ export default function AdminCmsPage() {
       <Card className="mb-8">
         <CardContent>
           <h2 className="mb-4 font-display text-lg font-bold">New banner</h2>
-          <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <form onSubmit={handleCreate} className="grid gap-4 sm:grid-cols-2">
             <Input
               placeholder="Title"
               required
@@ -80,13 +81,7 @@ export default function AdminCmsPage() {
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             />
             <Input
-              placeholder="Image ref (storage path)"
-              required
-              value={form.imageRef}
-              onChange={(e) => setForm((f) => ({ ...f, imageRef: e.target.value }))}
-            />
-            <Input
-              placeholder="Link URL (optional)"
+              placeholder="Link URL — /collections/rings or https://…"
               value={form.linkUrl}
               onChange={(e) => setForm((f) => ({ ...f, linkUrl: e.target.value }))}
             />
@@ -96,7 +91,27 @@ export default function AdminCmsPage() {
               value={form.sortOrder}
               onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
             />
-            <Button type="submit" loading={creating} className="col-span-2 lg:col-span-1">
+            <div className="sm:col-span-2">
+              <ImageUploadField
+                label="Banner image"
+                folder="banners"
+                token={token}
+                value={form.imageRef || null}
+                previewUrl={form.imageUrl || null}
+                onChange={(storageRef, previewUrl) =>
+                  setForm((f) => ({ ...f, imageRef: storageRef ?? '', imageUrl: previewUrl ?? '' }))
+                }
+                disabled={creating}
+              />
+            </div>
+            <Button
+              type="submit"
+              loading={creating}
+              // The API requires imageRef; without an upload there is nothing
+              // to submit, and a 400 is a worse way to learn that.
+              disabled={!form.imageRef}
+              className="sm:col-span-2"
+            >
               Create
             </Button>
           </form>

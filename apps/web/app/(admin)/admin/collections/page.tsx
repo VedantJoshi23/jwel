@@ -11,7 +11,9 @@ import {
   adminListCollections,
   adminUpdateCollection,
 } from '@/lib/api/admin-collections';
-import type { AdminCollection, CollectionType } from '@/lib/api/types';
+import { adminListProducts } from '@/lib/api/admin-products';
+import { ImageUploadField } from '@/components/admin/image-upload-field';
+import type { AdminCollection, CollectionType, Product } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
 
 const selectClassName =
@@ -29,9 +31,12 @@ const EMPTY_FORM = {
   slug: '',
   type: 'SEASONAL' as CollectionType,
   description: '',
+  heroImageRef: '',
+  heroImageUrl: '',
   startsAt: '',
   endsAt: '',
   isFeatured: false,
+  productIds: [] as string[],
 };
 
 /** `datetime-local` gives "2026-11-01T09:00"; the API wants a full ISO string. */
@@ -52,6 +57,7 @@ function scheduleLabel(collection: AdminCollection): string {
 export default function AdminCollectionsPage() {
   const token = useAuthStore((state) => state.token);
   const [collections, setCollections] = useState<AdminCollection[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,6 +71,24 @@ export default function AdminCollectionsPage() {
 
   useEffect(load, [load]);
 
+  // The picker offers everything an admin could curate, published or not — a
+  // collection is often assembled before its pieces go live.
+  useEffect(() => {
+    if (!token) return;
+    adminListProducts(token, { pageSize: 100 })
+      .then((result) => setProducts(result.items))
+      .catch(() => setProducts([]));
+  }, [token]);
+
+  function toggleProduct(productId: string) {
+    setForm((f) => ({
+      ...f,
+      productIds: f.productIds.includes(productId)
+        ? f.productIds.filter((id) => id !== productId)
+        : [...f.productIds, productId],
+    }));
+  }
+
   async function handleCreate() {
     if (!token || !form.name.trim()) return;
     setBusy(true);
@@ -75,9 +99,13 @@ export default function AdminCollectionsPage() {
         slug: form.slug.trim() || undefined,
         type: form.type,
         description: form.description.trim() || undefined,
+        heroImageRef: form.heroImageRef || undefined,
         isFeatured: form.isFeatured,
         startsAt: toIso(form.startsAt),
         endsAt: toIso(form.endsAt),
+        // Order of selection becomes the display order — the API assigns
+        // sortOrder by array index.
+        productIds: form.productIds.length > 0 ? form.productIds : undefined,
       });
       setForm(EMPTY_FORM);
       load();
@@ -220,6 +248,49 @@ export default function AdminCollectionsPage() {
               />
             </div>
           </div>
+
+          <ImageUploadField
+            label="Hero image (optional)"
+            folder="collections"
+            token={token}
+            value={form.heroImageRef || null}
+            previewUrl={form.heroImageUrl || null}
+            onChange={(storageRef, previewUrl) =>
+              setForm((f) => ({ ...f, heroImageRef: storageRef ?? '', heroImageUrl: previewUrl ?? '' }))
+            }
+            disabled={busy}
+          />
+
+          <fieldset>
+            <legend className="mb-1 text-xs font-medium">
+              Products {form.productIds.length > 0 && `(${form.productIds.length} selected)`}
+            </legend>
+            {products.length === 0 ? (
+              <p className="text-xs text-ink-muted">No products available to add.</p>
+            ) : (
+              <div className="max-h-56 overflow-y-auto rounded-s border border-border p-2">
+                {products.map((product) => (
+                  <label key={product.id} className="flex items-center gap-2 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.productIds.includes(product.id)}
+                      onChange={() => toggleProduct(product.id)}
+                    />
+                    <span>{product.name}</span>
+                    {product.status !== 'PUBLISHED' && (
+                      // Selectable but flagged: the public collection page
+                      // lists published products only, so an unpublished
+                      // pick simply won't appear to shoppers yet.
+                      <span className="text-xs text-ink-muted">({product.status.toLowerCase()})</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-ink-muted">
+              The order you tick them in is the order they appear in the collection.
+            </p>
+          </fieldset>
 
           <label className="flex items-center gap-2 text-sm">
             <input
