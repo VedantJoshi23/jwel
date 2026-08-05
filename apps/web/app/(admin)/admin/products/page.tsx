@@ -25,7 +25,7 @@ const PAGE_SIZE = 50;
 
 // useSearchParams() opts the subtree into client-side rendering, and Next
 // requires a Suspense boundary around it or the build fails on this route.
-// Same shape as app/login/page.tsx.
+// Same shape as app/(storefront)/login/page.tsx.
 export default function AdminProductsPage() {
   return (
     <Suspense>

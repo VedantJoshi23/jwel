@@ -3,7 +3,6 @@ import { Fraunces, IBM_Plex_Mono, Inter } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
-import { SiteChrome } from '@/components/layout/site-chrome';
 import { brand } from '@/lib/brand';
 
 // To swap fonts for a white-label: change these three Google Font imports
@@ -44,12 +43,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           data-gr-* attributes onto <body> before React hydrates, which is a
           client-only DOM mutation React can't and shouldn't try to reconcile. */}
       <body className="flex min-h-screen flex-col" suppressHydrationWarning>
+        {/* Stays here so it is the first focusable element on every page. Each
+            route group supplies its own #main-content target: the storefront's
+            via SiteChrome, the admin's on its own <main>. */}
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
-        <QueryProvider>
-          <SiteChrome>{children}</SiteChrome>
-        </QueryProvider>
+        <QueryProvider>{children}</QueryProvider>
         <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
