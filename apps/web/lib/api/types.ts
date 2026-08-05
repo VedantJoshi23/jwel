@@ -230,6 +230,19 @@ export interface Banner {
   endsAt: string | null;
 }
 
+/**
+ * What `GET /cms/banners` returns: a Banner plus the resolved `imageUrl`.
+ *
+ * Separate from `Banner` rather than an optional field on it, because the
+ * admin endpoints genuinely do not return `imageUrl` — only the public feed
+ * resolves refs. An optional field would let a storefront component read
+ * `banner.imageUrl` off an admin response and get `undefined` at runtime with
+ * no type error.
+ */
+export interface ActiveBanner extends Banner {
+  imageUrl: string;
+}
+
 export interface TopProduct {
   productId: string;
   name: string;
