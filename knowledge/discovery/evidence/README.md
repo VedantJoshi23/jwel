@@ -1432,6 +1432,73 @@ claims:
 
 ---
 
+## EVD-014
+
+```yaml
+id: EVD-014
+type: conversation
+source: Client feedback relayed by the product owner, 2026-08-06
+received: 2026-08-06
+summary: >
+  Client has confirmed COD will not be offered. The owner concludes fraud risk
+  scoring is not required. Amends DISC-003 (Frozen) — see its Amendments
+  section.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-109
+    statement: >
+      Cash on Delivery will not be available. The client has decided against
+      it, making the storefront prepaid-only by intent rather than by
+      omission.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-014]
+    investigation: business-vision
+    notes: >
+      Resolves the ambiguity in KC-105: the system's prepaid-only behaviour was
+      correct and the FAQ copy was wrong, not the reverse.
+  - id: KC-110
+    statement: >
+      Fraud risk scoring is not required. With COD ruled out, the fraud vector
+      ADR-0004 was written against — COD abuse and RTO — cannot occur.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-014]
+    investigation: feature-inventory
+    notes: >
+      Supersedes KC-106's "deferred pending client feedback" for the fraud half:
+      the feedback arrived and the answer is no. The subscription half of
+      KC-106 is unaffected and remains deferred-pending.
+  - id: KC-111
+    statement: >
+      The FAQ's COD claim is now a confirmed factual error on the storefront
+      rather than an unresolved discrepancy, since the client has ruled COD out.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-014, EVD-011]
+    investigation: hidden-business-rules
+    notes: >
+      One of the four launch-gating promises in DISC-003. Unlike the others it
+      needs no feature to resolve it — only a copy correction.
+  - id: KC-112
+    statement: >
+      Prepaid-only removes the COD/RTO fraud vector but not all fraud exposure:
+      refund abuse through the returns flow, coupon abuse, account takeover and
+      card chargebacks remain possible, and chargeback liability sits partly
+      with the merchant even on gateway-processed payments.
+    status: inference
+    confidence: 80
+    evidence_ids: [EVD-014, EVD-011]
+    investigation: technical-debt
+    notes: >
+      Recorded for completeness, not as dissent from KC-110. These residual
+      vectors are volume-dependent and none justifies building the DOM-RISK
+      engine now; ADR-0004's remaining revisit triggers still stand.
+```
+
+---
+
 ## Investigation Coverage
 
 Per `OV-000`'s exit checklist — every one of the ten M1 investigation areas
@@ -1455,7 +1522,7 @@ claim. `recommendations` remains mostly a synthesis output per `OV-001` —
 Keep/Improve/Remove lines roll up from the other nine investigations — but
 KC-054 seeds it directly.
 
-Per `OV-000`, the intake gate is met: 13 evidence items logged, 108 claims, and
+Per `OV-000`, the intake gate is met: 14 evidence items logged, 112 claims, and
 ten of ten areas covered.
 
 ## Open Gaps (per OV-000 gap-detection protocol)

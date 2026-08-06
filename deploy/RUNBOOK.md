@@ -568,6 +568,36 @@ failure than not booting at all.
 Work top to bottom; the storefront should never be reachable in a state where
 it takes real card details while still displaying the demo banner.
 
+0. **Content review — every customer-facing claim is true.** Steps 1-9 below
+   make the store *work*; this step makes it *honest*, and it is numbered zero
+   because a store that takes real money while promising things it cannot
+   deliver is worse than one that is merely down. The demo banner is currently
+   the only thing preventing customers from relying on copy that is known to be
+   wrong — so the change that removes the banner must clear this list, not a
+   later one.
+
+   Known outstanding as of 2026-08-06 (`knowledge/discovery/DISC-003-feature-inventory.md`):
+
+   | Claim | Where | Reality |
+   |---|---|---|
+   | Cash on Delivery available | FAQ | Client has ruled COD out — prepaid only |
+   | Monthly "Jewel Box" subscription | `/subscriptions` + every footer | No model, no module; deferred pending client feedback |
+   | "WhatsApp us" | Footer | Email-only notifications; blocked on client credentials |
+   | Free shipping over ₹999 / on all orders | Sale bar, PDP, checkout | Three different promises, no backing rule |
+   | Dispatched within 24 hours | Checkout | No dispatch SLA enforced anywhere |
+   | Customisation available | FAQ | No customisation capability exists |
+   | Live order tracking | FAQ, profile | Status timeline only; no shipment reference until Shiprocket lands |
+
+   `apps/web/app/(storefront)/faq/page.tsx` and `apps/web/lib/brand.ts` both
+   carry in-file placeholder markers listing what is unreviewed. Neither file
+   should reach production with those markers still present.
+
+   This step exists because the rest of this checklist verifies *mechanism* —
+   that the gateway is live, the banner is gone, the bundle is clean — and none
+   of it can detect a page promising a service that was never built. That gap
+   was found during Discovery, not in production, which is the only reason it
+   is written here rather than learned from a customer.
+
 1. **Gateway account.** Created and activated by the **client**, in their
    legal entity's name — payouts, tax and chargeback liability follow the
    account holder. Get restricted API keys, or ask to be added as a developer

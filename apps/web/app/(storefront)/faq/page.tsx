@@ -7,6 +7,37 @@ export const metadata: Metadata = {
   description: `Answers to common questions about ordering, shipping and returns at ${brand.name}.`,
 };
 
+/**
+ * PLACEHOLDER CONTENT — NOT REVIEWED, MUST NOT GO LIVE AS-IS.
+ *
+ * Every answer below makes a factual commitment to a customer, and several are
+ * currently false. Flagged rather than rewritten (same discipline as brand.ts's
+ * pending-copy TODOs) because the real answers are the client's to give, not
+ * ours to invent. Audited 2026-08-06 against the system — see
+ * knowledge/discovery/DISC-003-feature-inventory.md:
+ *
+ *   1. COD          — FALSE. The client has confirmed COD will not be offered
+ *                     (KC-109). PaymentProvider is RAZORPAY only; no
+ *                     cash-on-delivery logic exists anywhere. Delete or rewrite.
+ *   2. Delivery     — UNBACKED. "Ships within 24 hours", "3-6 business days".
+ *                     Shipping is not implemented (Shiprocket blocked on the
+ *                     client's account, KC-101); no dispatch SLA is enforced
+ *                     anywhere in code (KC-013).
+ *   3. Returns      — PARTLY BACKED. The returns flow exists, but the 7-day
+ *                     window and "unworn, original packaging" conditions are
+ *                     not validated by any rule in the system.
+ *   4. Tarnish      — PRODUCT CLAIM. Not verifiable from the system; needs the
+ *                     client to stand behind it.
+ *   5. Customisation— FALSE. No customisation capability exists (FR-12/FR-13
+ *                     are unbuilt), and the fallback is an unstaffed promise to
+ *                     "confirm feasibility" via the Contact page.
+ *   6. Tracking     — PARTLY TRUE. Order status timeline exists; live shipment
+ *                     tracking does not, because shipping is unbuilt (FR-10).
+ *
+ * The demo-store banner is the only thing currently preventing customers from
+ * relying on any of this. Whatever change removes that banner must resolve this
+ * list first — see deploy/RUNBOOK.md "Going live: the checklist" step 0.
+ */
 const faqs = [
   {
     q: 'Do you offer Cash on Delivery?',

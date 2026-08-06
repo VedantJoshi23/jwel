@@ -30,32 +30,37 @@ complexity: Medium
 
 ## Feature: Order Fraud/Risk Scoring & Review Queue
 
-> **Deferred 2026-08-06 — proposed, awaiting client feedback.** Recorded via
-> `DISC-003` (KC-103, KC-106) after the client was consulted. Status stays
-> `Proposal`; this note records *why* it is not being built now, so the
-> document is not mistaken for settled-but-neglected work.
+> **NOT REQUIRED — closed 2026-08-06.** Client feedback confirms **Cash on
+> Delivery will not be offered** (KC-109), so the storefront is prepaid-only by
+> intent. The owner has concluded this feature is not required (KC-110).
+> Recorded via `DISC-003` Amendment A1.
 >
-> **Rationale.** `ADR-0004` was decided when COD was assumed live and cites the
-> ₹25,000 first-order COD rule as the existing control. The storefront is
-> prepaid-only through Razorpay (KC-105) — COD appears in FAQ copy but exists
-> nowhere in the system — so the dominant Indian fraud vectors, COD abuse and
-> RTO, are not currently in play. The product is also prelaunch with no real
-> orders (KC-001), and §9 requires thresholds tuned against real data; shipping
-> untuned thresholds would produce false positives against the first genuine
-> customers.
+> **Why this closes it.** `ADR-0004` was written when COD was assumed live and
+> cites the ₹25,000 first-order COD rule as the existing control. COD abuse and
+> RTO — the dominant fraud vectors in Indian e-commerce, and the ones this
+> design targets — **cannot occur on a prepaid-only store**. The threat model
+> that justified the feature no longer exists.
 >
-> **Revisit triggers** — any one is sufficient:
-> 1. COD is actually implemented (changes the risk profile immediately).
-> 2. Order volume is sufficient to calibrate thresholds against real data.
-> 3. A first real fraud incident.
+> **`ADR-0004` is NOT reversed.** Rule-based in-house scoring remains the chosen
+> approach should scoring ever be needed. This document stays at `status:
+> Proposal` rather than being deleted: per `ADR-0007` and `OV-000`, superseded
+> work is retained, not erased. The design is sound and would be the starting
+> point for any future revisit.
 >
-> **Keep cheap in the meantime.** No pre-work is required beyond ensuring the
-> `order.confirmed` event payload retains enough detail — account linkage and
-> timestamps — for velocity to be reconstructed retrospectively, so scores can
-> be backfilled over real history whenever this is switched on.
+> **Residual exposure prepaid-only does not remove** (KC-112, recorded for
+> completeness — none of it justifies building this now):
+> - refund abuse through the returns flow
+> - coupon and promotion abuse
+> - account takeover
+> - card chargebacks, whose liability sits partly with the merchant even on
+>   gateway-processed payments
 >
-> `ADR-0004` is **not** reversed: rule-based in-house scoring remains the
-> chosen approach when this is built.
+> **Revisit triggers** — the COD trigger is void; two remain:
+> 1. Order volume sufficient to calibrate thresholds against real data.
+> 2. A first real fraud incident of any kind.
+>
+> If COD is ever reintroduced, this feature should be reconsidered immediately
+> and before COD goes live, not after.
 
 ### 1. Overview
 

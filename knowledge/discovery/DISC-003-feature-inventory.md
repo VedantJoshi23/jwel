@@ -1,7 +1,7 @@
 ---
 id: DISC-003
 title: Discovery — Feature Inventory
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -249,7 +249,7 @@ system behind them and, after this decision, no scheduled delivery date:
 | --- | --- | --- |
 | Monthly Jewel Box subscription | `/subscriptions` + every footer | No model, no module; deferred |
 | "WhatsApp us" | Footer | Email-only notifications; credential-blocked |
-| COD under ₹10,000 | FAQ | Prepaid-only; no COD anywhere (KC-105) |
+| COD under ₹10,000 | FAQ | Prepaid-only **by client decision** (KC-109); copy is simply wrong — fix is one line, see Amendment A1 |
 | Free shipping / 24-hour dispatch | Sale bar, PDP, checkout | No backing rule (KC-012, KC-013) |
 
 The "Demo store — orders are for preview only" banner is the **only** thing
@@ -282,6 +282,45 @@ its highest-priority item.
   owns feature specification, and Discovery inventories rather than designs.
 - **Remove** — nothing built. The removal candidates are *promises*, not code —
   see the launch-gating table above.
+
+## Amendments
+
+Per `KC-054`, a Frozen document changes only by explicit navigation with the
+change recorded. The body below is left as Frozen at v1.0.0; amendments are
+additive and dated.
+
+### A1 — 2026-08-06, COD ruled out and fraud scoring closed (EVD-014)
+
+**Trigger.** Client feedback: Cash on Delivery will not be offered (KC-109).
+The owner concludes fraud risk scoring is not required (KC-110).
+
+**What changes.**
+
+1. **Question 3's answer is upgraded** from "deferred pending client feedback"
+   to **closed**. The feedback arrived; the answer is no. `FEAT-FRAUD-RISK-
+   SCORING`'s header note is updated accordingly.
+2. **KC-105's ambiguity is resolved in the system's favour.** The FAQ/reality
+   discrepancy was read at v1.0.0 as an open contradiction. It is now settled:
+   prepaid-only was correct, and the FAQ copy is wrong (KC-111).
+3. **The launch-gating table's COD row is downgraded in difficulty.** It is the
+   only one of the four resolvable by a copy correction alone, with no feature
+   dependency and no client decision outstanding.
+
+**What does not change.** The inventory itself — 83 endpoints, the FR-1…FR-23
+coverage map, the three ADR-backed gaps — is unaffected. No observed fact in
+this document is altered, which is why this is an amendment rather than a
+re-opened investigation.
+
+**`ADR-0004` is still not reversed.** Rule-based in-house scoring remains the
+chosen approach *if* scoring is ever needed. Two of its three revisit triggers
+survive — sufficient order volume to calibrate, and a first real incident — and
+KC-112 records the residual vectors prepaid-only does not remove: refund abuse
+via the returns flow, coupon abuse, account takeover, and card chargebacks
+whose liability sits partly with the merchant. None justifies building the
+engine now.
+
+**Confidence unchanged at 89%.** The amendment resolves a disposition, not an
+observation.
 
 ## Architecture Review
 

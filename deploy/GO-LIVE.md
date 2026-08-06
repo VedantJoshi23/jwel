@@ -28,6 +28,13 @@ each block on one of them:
 - [ ] **Razorpay live account**, activated, in the client's legal entity's
       name — see RUNBOOK §13 step 1 for why this must be the client's
       account, not yours.
+- [ ] **Sign-off on every customer-facing claim** — FAQ answers, shipping and
+      dispatch promises, subscription and WhatsApp copy. These are commitments
+      the client makes to their customers, so only the client can approve
+      them, and several are currently **known to be false**. Full list and
+      current status: RUNBOOK §13 **step 0**. This is a Phase 0 item because
+      chasing copy approval takes longer than any technical step in this
+      checklist, and Phase 3 cannot complete without it.
 - [ ] Decide **now**, not during the cutover, what happens to the ops
       subdomains (`grafana.`, `metabase.`) — see the callout in Phase 1.
 - [ ] *(Optional)* A Sentry account/project if error tracking is wanted on
@@ -102,8 +109,10 @@ tool (in which case the staging host is simpler and this step is a no-op).
 
 ## Phase 3 — Payments go-live
 
-**Full checklist: RUNBOOK §13 "Going live: the checklist."** Nine numbered
-steps — gateway account, webhook registration, credential swap, web image
+**Full checklist: RUNBOOK §13 "Going live: the checklist."** A step 0 plus
+nine numbered steps — content review (every customer-facing claim is true;
+the demo banner is what currently stands between shoppers and copy known to
+be wrong), gateway account, webhook registration, credential swap, web image
 rebuild *without* the demo-mode build arg, a bundle-content verification
 that actually works (RUNBOOK §13 step 5 explains why the naive version of
 this check is worthless), deploy, confirm the simulated-payments flag is
