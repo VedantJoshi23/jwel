@@ -1,3 +1,7 @@
+# `packages/*` was declared here and never created. Removed 2026-08-06 per
+# DISC-001: the workspace advertised a home for shared code that did not
+# exist. Note apps/web/lib/api/types.ts still hand-duplicates API types and
+# names `packages/types` as the intended fix — reinstate this glob if that
+# package is ever built.
 packages:
   - "apps/*"
-  - "packages/*"

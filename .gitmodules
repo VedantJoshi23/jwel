@@ -1,0 +1,3 @@
+[submodule ".oriveda-framework"]
+	path = .oriveda-framework
+	url = https://github.com/VedantJoshi23/Oriveda.git

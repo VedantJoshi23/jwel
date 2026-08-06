@@ -30,6 +30,33 @@ complexity: Medium
 
 ## Feature: Order Fraud/Risk Scoring & Review Queue
 
+> **Deferred 2026-08-06 — proposed, awaiting client feedback.** Recorded via
+> `DISC-003` (KC-103, KC-106) after the client was consulted. Status stays
+> `Proposal`; this note records *why* it is not being built now, so the
+> document is not mistaken for settled-but-neglected work.
+>
+> **Rationale.** `ADR-0004` was decided when COD was assumed live and cites the
+> ₹25,000 first-order COD rule as the existing control. The storefront is
+> prepaid-only through Razorpay (KC-105) — COD appears in FAQ copy but exists
+> nowhere in the system — so the dominant Indian fraud vectors, COD abuse and
+> RTO, are not currently in play. The product is also prelaunch with no real
+> orders (KC-001), and §9 requires thresholds tuned against real data; shipping
+> untuned thresholds would produce false positives against the first genuine
+> customers.
+>
+> **Revisit triggers** — any one is sufficient:
+> 1. COD is actually implemented (changes the risk profile immediately).
+> 2. Order volume is sufficient to calibrate thresholds against real data.
+> 3. A first real fraud incident.
+>
+> **Keep cheap in the meantime.** No pre-work is required beyond ensuring the
+> `order.confirmed` event payload retains enough detail — account linkage and
+> timestamps — for velocity to be reconstructed retrospectively, so scores can
+> be backfilled over real history whenever this is switched on.
+>
+> `ADR-0004` is **not** reversed: rule-based in-house scoring remains the
+> chosen approach when this is built.
+
 ### 1. Overview
 
 Adds a rule-based risk score to every placed order (velocity, order
