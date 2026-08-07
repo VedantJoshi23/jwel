@@ -111,6 +111,12 @@ export interface CollectionWithProducts extends Collection {
 }
 
 export interface Product {
+  /**
+   * Present only on the response that just published this product
+   * (FEAT-PUBLISH-COMPLETENESS). Not persisted — recomputed each publish, so a
+   * stored copy could not go stale.
+   */
+  publishWarnings?: string[];
   id: string;
   name: string;
   slug: string;

@@ -40,6 +40,7 @@ function AdminProductsPageInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState('');
+  const [publishWarnings, setPublishWarnings] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -65,8 +66,17 @@ function AdminProductsPageInner() {
 
   async function handleStatusChange(product: Product, status: Product['status']) {
     if (!token) return;
+    setError('');
+    setPublishWarnings([]);
     try {
-      await adminUpdateProductStatus(token, product.id, status);
+      // FEAT-PUBLISH-COMPLETENESS: a publish can succeed *and* have something
+      // worth saying. A warning nobody sees is not a warning, so the response
+      // is read rather than discarded. Refusals arrive as a 400 and land in
+      // `error` via the catch below, carrying every blocker in one message.
+      const updated = await adminUpdateProductStatus(token, product.id, status);
+      if (updated.publishWarnings?.length) {
+        setPublishWarnings(updated.publishWarnings);
+      }
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to update status');
@@ -124,6 +134,17 @@ function AdminProductsPageInner() {
       </div>
 
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
+
+      {publishWarnings.length > 0 && (
+        <div className="mb-4 rounded-s border border-border-warm bg-surface-alt p-3">
+          <p className="text-sm font-medium">Published, with warnings</p>
+          <ul className="mt-1 space-y-1 text-sm text-ink-secondary">
+            {publishWarnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {importResult && (
         <Card className="mb-6">
