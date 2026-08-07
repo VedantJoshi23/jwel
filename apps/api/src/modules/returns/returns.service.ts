@@ -15,6 +15,8 @@ import { Role } from '../../common/enums/role.enum';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { SettingsService } from '../settings/settings.service';
+import { checkReturnWindow } from './returns-eligibility';
 
 // `user: { select: ... }`, never `include: { user: true }` — a bare include
 // pulls the full User row (passwordHash and all) straight into the API
@@ -52,6 +54,7 @@ export class ReturnsService {
     private readonly paymentsService: PaymentsService,
     private readonly eventBus: EventBusService,
     private readonly auditLogService: AuditLogService,
+    private readonly settings: SettingsService,
   ) {}
 
   async create(userId: string, dto: CreateReturnDto) {
@@ -70,6 +73,23 @@ export class ReturnsService {
     }
     if (orderItem.returnRequest) {
       throw new ConflictException('A return has already been requested for this item');
+    }
+
+    // Invariant 3: the window, measured from the DELIVERED history entry and
+    // evaluated at request time. Checked after the duplicate check so a second
+    // request on the same item still reports the clearer 409 (§8.4).
+    const deliveredEntry = await this.prisma.orderStatusHistory.findFirst({
+      where: { orderId: orderItem.orderId, status: OrderStatus.DELIVERED },
+      orderBy: { occurredAt: 'desc' },
+    });
+    const windowDays = await this.settings.get('returns.window_days');
+    const eligibility = checkReturnWindow(
+      deliveredEntry?.occurredAt ?? null,
+      windowDays,
+      new Date(),
+    );
+    if (!eligibility.eligible) {
+      throw new BadRequestException(eligibility.reason);
     }
 
     const returnRequest = await this.prisma.returnRequest.create({

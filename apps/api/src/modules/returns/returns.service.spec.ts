@@ -8,11 +8,13 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { SettingsService } from '../settings/settings.service';
 
 const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 type MockPrisma = {
   orderItem: { findUnique: jest.Mock };
+  orderStatusHistory: { findFirst: jest.Mock };
   returnRequest: { create: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock; update: jest.Mock };
 };
 
@@ -22,23 +24,29 @@ describe('ReturnsService', () => {
   let payments: { refundForOrder: jest.Mock };
   let eventBus: { emit: jest.Mock };
   let auditLog: { record: jest.Mock };
+  let settings: { get: jest.Mock };
   let service: ReturnsService;
 
   beforeEach(() => {
     prisma = {
       orderItem: { findUnique: jest.fn() },
+      orderStatusHistory: { findFirst: jest.fn() },
       returnRequest: { create: jest.fn(), findUnique: jest.fn(), findMany: jest.fn(), update: jest.fn() },
     };
     inventory = { restock: jest.fn() };
     payments = { refundForOrder: jest.fn() };
     eventBus = { emit: jest.fn() };
     auditLog = { record: jest.fn() };
+    // Delivered just now, so the window is open unless a test says otherwise.
+    prisma.orderStatusHistory.findFirst.mockResolvedValue({ occurredAt: new Date() });
+    settings = { get: jest.fn().mockResolvedValue(10) };
     service = new ReturnsService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
       payments as unknown as PaymentsService,
       eventBus as unknown as EventBusService,
       auditLog as unknown as AuditLogService,
+      settings as unknown as SettingsService,
     );
   });
 
@@ -87,6 +95,81 @@ describe('ReturnsService', () => {
         userEmail: 'a@b.com',
         productName: 'Gold Ring',
       });
+    });
+  });
+
+  describe('create — the return window (DOM-RETURNS Invariant 3)', () => {
+    const deliveredItem = {
+      order: { userId: 'u1', status: OrderStatus.DELIVERED, user: { email: 'a@b.com' } },
+      returnRequest: null,
+      orderId: 'o1',
+      productNameSnapshot: 'Gold Ring',
+    };
+
+    it('refuses an order delivered outside the window', async () => {
+      prisma.orderItem.findUnique.mockResolvedValue(deliveredItem);
+      prisma.orderStatusHistory.findFirst.mockResolvedValue({
+        occurredAt: new Date(Date.now() - 11 * 86_400_000),
+      });
+
+      await expect(service.create('u1', { orderItemId: 'oi1', reason: 'x' } as any)).rejects.toThrow(
+        /10-day return window/,
+      );
+      expect(prisma.returnRequest.create).not.toHaveBeenCalled();
+      // A refused request must not tell the customer a return is on its way.
+      expect(eventBus.emit).not.toHaveBeenCalled();
+    });
+
+    it('uses the configured window, not a hardcoded 10', async () => {
+      prisma.orderItem.findUnique.mockResolvedValue(deliveredItem);
+      prisma.orderStatusHistory.findFirst.mockResolvedValue({
+        occurredAt: new Date(Date.now() - 20 * 86_400_000),
+      });
+      settings.get.mockResolvedValue(30);
+      prisma.returnRequest.create.mockResolvedValue({ id: 'r1' });
+
+      await expect(service.create('u1', { orderItemId: 'oi1', reason: 'x' } as any)).resolves.toBeDefined();
+      expect(settings.get).toHaveBeenCalledWith('returns.window_days');
+    });
+
+    it('measures from the DELIVERED history entry, not Order.updatedAt (§8.1)', async () => {
+      prisma.orderItem.findUnique.mockResolvedValue({
+        ...deliveredItem,
+        order: { ...deliveredItem.order, updatedAt: new Date() },
+      });
+      prisma.orderStatusHistory.findFirst.mockResolvedValue({
+        occurredAt: new Date(Date.now() - 40 * 86_400_000),
+      });
+
+      await expect(service.create('u1', { orderItemId: 'oi1', reason: 'x' } as any)).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.orderStatusHistory.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { orderId: 'o1', status: OrderStatus.DELIVERED } }),
+      );
+    });
+
+    it('refuses when no DELIVERED entry exists rather than inventing a date', async () => {
+      prisma.orderItem.findUnique.mockResolvedValue(deliveredItem);
+      prisma.orderStatusHistory.findFirst.mockResolvedValue(null);
+
+      await expect(service.create('u1', { orderItemId: 'oi1', reason: 'x' } as any)).rejects.toThrow(
+        /contact support/i,
+      );
+    });
+
+    it('still reports the duplicate 409 ahead of the window (§8.4)', async () => {
+      prisma.orderItem.findUnique.mockResolvedValue({
+        ...deliveredItem,
+        returnRequest: { id: 'existing' },
+      });
+      prisma.orderStatusHistory.findFirst.mockResolvedValue({
+        occurredAt: new Date(Date.now() - 99 * 86_400_000),
+      });
+
+      await expect(service.create('u1', { orderItemId: 'oi1', reason: 'x' } as any)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 

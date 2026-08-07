@@ -807,6 +807,31 @@ model Banner {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
+// SETTINGS (FEAT-SETTINGS-STORE)
+// ──────────────────────────────────────────────────────────────────────────
+
+// Admin-editable configuration. Shared infrastructure, not a bounded context —
+// same category as audit_logs: this table owns no business concept, and each
+// consuming domain owns the meaning and default of its own keys.
+//
+// `value` is TEXT for every setting, because a typed column per setting means a
+// migration per setting, which defeats the point of a general mechanism. The
+// type is therefore enforced by the registry in
+// `modules/settings/settings.registry.ts`, not by the database — documented
+// here per STD-DATABASE r6 rather than left to be discovered.
+//
+// A row exists ONLY for a setting someone has overridden. Defaults live in the
+// registry, in code, so a fresh environment needs no seed and deleting a row
+// resets to default.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 // AUDIT LOG — Milestone 14 (ADR-0006)
 // ──────────────────────────────────────────────────────────────────────────
 
