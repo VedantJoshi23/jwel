@@ -61,7 +61,7 @@ not when it is discovered.**
 Discovery's job was to *find* the fourteen contexts. It does not follow that
 all fourteen need documents now.
 
-### Tiering as of 2026-08-06
+### Tiering as of 2026-08-06 *(withdrawn — see Amendment A1)*
 
 | Tier | Contexts | Rationale |
 | --- | --- | --- |
@@ -103,6 +103,42 @@ documentation gap arose.
 that are not implemented (KC-162). Per `ADR-0007` neither body is rewritten —
 a status note is the correct instrument, and neither is deleted, because
 superseded work is retained.
+
+## Amendment A1 — 2026-08-07, superseded by OV-006's depth tiers
+
+**This ADR's tiering is withdrawn.** `OV-006` requires **one Domain
+Specification per declared bounded context, with no applicability filtering**:
+*"if it wasn't worth specifying, it shouldn't have been declared a boundary in
+the first place."* What varies is **depth** — a Full or Thin tier — not whether
+a spec exists.
+
+**Why the original reasoning does not survive contact with `OV-006`.** This ADR
+was authored before `OV-006` was read. Its evidence was that speculative specs
+rot: `DOM-SHIPPING` and `DOM-RISK` describe capabilities that do not exist. That
+evidence is still true, but it is **narrower than this ADR assumed**. What
+rotted in those two documents was *invented invariants* — rules for behaviour
+nobody had built. It was not *declared ownership*.
+
+A Thin spec stating "Search owns the index, owns no product state, derives from
+Catalog, invariants N/A" cannot rot, because it asserts only what `DISC-006`
+measured. The rot risk attaches to specifying rules ahead of the work, not to
+recording boundaries that already exist.
+
+**What still stands from this ADR:**
+
+- **Depth follows work.** Returns and Shopping are authored **Full** because
+  they have imminent, non-trivial change. Contexts nobody is touching are
+  specified at whatever depth is honest for them, and their Invariants sections
+  record what Discovery measured rather than anticipating future rules.
+- **The annotations on `DOM-SHIPPING` and `DOM-RISK`** (KC-162) are unaffected.
+  Neither is a context in `ARCH-001` §1 — shipping has no context yet, and risk
+  is closed — so neither is superseded by this amendment.
+- **Running `PRM-DOMAIN` before M2/M3 completed** was the other half of this
+  ADR, and it became moot: M2 and M3 completed first anyway, so no out-of-order
+  run occurred.
+
+*Recorded per Constitution Law 3 — a commitment changes by explicit navigation,
+never by going quiet.*
 
 ## Consequences
 

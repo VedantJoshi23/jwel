@@ -1,8 +1,8 @@
 ---
 id: DOM-NOTIFICATION
 title: Jwel — Domain: Notification
-version: 0.1.0
-status: Proposal
+version: 1.0.0
+status: Frozen
 owner: Architecture
 reviewers: []
 created: 2026-07-09
@@ -27,6 +27,52 @@ complexity: Medium
 ---
 
 # Domain: Notification
+
+**Depth tier: Full** — this domain carries independent business rules
+(channel fallback ordering, opt-in policy) and specifies its own tables. It is
+not a Thin projection despite being a pure event consumer today.
+
+> **Adopted into the M5 Domain series 2026-08-07**, under `PRM-DOMAIN` /
+> `OV-006`. Authored pre-Oriveda (2026-07-09) and **not rewritten** — per
+> `ADR-0007`, an advisory document that holds up is adopted, not re-authored.
+> It already follows `OV-006`'s eight-section structure.
+>
+> **Reconciled against `DISC-003`, `DISC-006` and `ARCH-001`:**
+>
+> **What is true today.** The notifications module is **Resend email only**
+> (KC-097). It owns **no tables** — `DISC-006`'s table-access measurement found
+> it touching no Prisma model at all (KC-153). It is a pure consumer of three
+> events: `order.confirmed`, `return.requested`, `return.refunded` (KC-150). It
+> has no controller and exposes no HTTP surface.
+>
+> **What this document specifies but does not yet exist:** WhatsApp and SMS
+> channels, `notification_preferences`, `notification_delivery_log`, and the
+> multi-channel fallback of Invariant 1. `ADR-0003` selected a provider;
+> nothing was built.
+>
+> **This is committed work, not abandoned** (KC-102) — blocked on the client
+> supplying mail and WhatsApp credentials, and planned as a separate session.
+> That distinguishes it from `DOM-SHIPPING` (blocked externally) and
+> `DOM-RISK` (closed as not required).
+>
+> **One architectural constraint this document predates.** `ARCH-001` §3.1
+> establishes that the event bus is **in-process and at-most-once**, with no
+> persistence, retry or dead-letter path (KC-165). A lost `order.confirmed`
+> therefore means **no notification is sent and nothing records that one was
+> missed** — Invariant 1's "never a silent drop" holds *within* a delivery
+> attempt, but cannot hold if the triggering event never arrives. This is the
+> gap `ADR-0010` defers behind named triggers, and **WhatsApp going live is
+> trigger 1**: a dropped order confirmation stops being one lost email and
+> becomes a support call. `notification_delivery_log` is a useful partial
+> mitigation, since a missing row is at least detectable.
+>
+> **One dependency worth flagging.** `DOM-RETURNS` Invariant 6 routes all
+> return exceptions — no cancellation, no re-request after rejection — to
+> out-of-band contact "by email or WhatsApp" (KC-146, KC-148). Only email
+> exists, so that policy currently rests on one of its two stated channels.
+>
+> Status moves `Proposal` → `Review` with the rest of the series. No rule
+> changed.
 
 **Tier:** Full — as of this revision it owns real data (channel
 preference, delivery log) and real invariants (fallback ordering,
