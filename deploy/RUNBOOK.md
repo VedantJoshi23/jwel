@@ -587,10 +587,21 @@ it takes real card details while still displaying the demo banner.
    | Dispatched within 24 hours | Checkout | No dispatch SLA enforced anywhere |
    | Customisation available | FAQ | No customisation capability exists |
    | Live order tracking | FAQ, profile | Status timeline only; no shipment reference until Shiprocket lands |
+   | "Start a return from your order history" | FAQ | Customers cannot initiate returns — the API exists but no storefront UI reaches it; admin-only today |
+   | Wishlist, "recommended for you", search autosuggest | Implied by nav//UI slots | Built server-side, no storefront surface wired |
+   | "Returns within 7 days of delivery" | FAQ | Wrong twice — the agreed rule is **10 days**, and no window was enforced at all until it is built (KC-186) |
+   | Customisation available | FAQ | No customisation capability exists |
+   | Tarnish-resistant plating | FAQ | Product claim — needs the client to stand behind it |
 
    `apps/web/app/(storefront)/faq/page.tsx` and `apps/web/lib/brand.ts` both
    carry in-file placeholder markers listing what is unreviewed. Neither file
    should reach production with those markers still present.
+
+   **Two different kinds of fix.** The FAQ is *placeholder copy* — both its
+   questions and its answers are provisional and need authoring with the
+   client, not correcting (KC-193). The sale bar, checkout copy, footer links
+   and `/subscriptions` page are *live product surfaces* whose claims must be
+   reconciled against what the system does. Same gate, different work.
 
    This step exists because the rest of this checklist verifies *mechanism* —
    that the gateway is live, the banner is gone, the bundle is clean — and none

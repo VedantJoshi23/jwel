@@ -1,7 +1,7 @@
 ---
 id: DISC-003
 title: Discovery — Feature Inventory
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -321,6 +321,39 @@ engine now.
 
 **Confidence unchanged at 89%.** The amendment resolves a disposition, not an
 observation.
+
+### A2 — 2026-08-06, four FR ratings corrected by DISC-004 (EVD-015)
+
+**Trigger.** `DISC-004` enumerated every `apiFetch` call site in the web app
+against this document's own route inventory and found five built capabilities
+with no storefront UI reaching them (KC-115).
+
+**What changes.** Four ratings in the FR coverage table above are **too
+generous**. They are corrected here rather than in the table, which stays as
+Frozen at v1.0.0:
+
+| FR | v1.0.0 rating | Corrected | Why |
+| --- | --- | --- | --- |
+| FR-3 Search | Built | **Built, not wired** | Storefront uses `/products?q=` trigram fallback; the Elasticsearch endpoints are never called, no autosuggest (KC-116) |
+| FR-6 Wishlist | Built | **Built, not wired** | 4 endpoints incl. share token; zero UI references (KC-115) |
+| FR-11 Returns | Built | **Admin only** | Customers cannot initiate a return; the FAQ says they can (KC-117) |
+| FR-15 AI recommendations | Built | **Built, not wired** | 6 endpoints, zero UI references — and this is the MVP differentiator (KC-118) |
+
+**This is the Hidden Assumption coming due.** v1.0.0 recorded it explicitly:
+*"Endpoint existence is treated as capability. 83 routes were counted, not
+exercised."* The assumption was stated honestly and it was wrong in four
+places. The inventory method — counting controller routes — cannot see whether
+anything calls them; only `DISC-004`'s call-site enumeration could.
+
+**A new launch-gating entry.** KC-117 adds a seventh row to step 0's table: the
+FAQ instructs customers to *"Start a return from your order history"*, which is
+not possible. Recorded in `deploy/RUNBOOK.md` step 0 as part of the same class.
+
+**Confidence: 89% → 85%.** Lowered, not held. Four of twenty-three FR ratings
+were wrong in the same direction, which is a systematic method limitation
+rather than four independent slips. The endpoint inventory, event-bus finding
+and unbuilt-capability findings are unaffected — those were verified by other
+means.
 
 ## Architecture Review
 

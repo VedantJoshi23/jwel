@@ -1499,6 +1499,1303 @@ claims:
 
 ---
 
+## EVD-015
+
+```yaml
+id: EVD-015
+type: repository
+source: >
+  Journey-level read of the current tree for DISC-004 — storefront route
+  behaviour, checkout auth gating, cart persistence, and an exhaustive
+  comparison of API endpoints against the paths the web app actually calls.
+  2026-08-06.
+received: 2026-08-06
+summary: >
+  Establishes how customers and admins actually move through the product, and
+  finds a systematic gap between built API capability and reachable UI.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-113
+    statement: >
+      Checkout requires authentication. An unauthenticated visitor reaching
+      /checkout sees "Please log in to continue to checkout" and a link to
+      /login?next=/checkout — a deliberate, graceful gate, not a failure.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-015]
+    investigation: user-journeys
+    notes: >
+      Contradicts PRODUCT.md FR-1, which specifies guest checkout. The gate is
+      intentional; the requirement is unmet.
+  - id: KC-114
+    statement: >
+      The cart is client-side only — a zustand store persisted to
+      localStorage. The web app never calls the API's cart endpoints, and
+      cart-store.ts records the reason: "Backend (apps/api) has no persisted
+      Cart API yet ... so no server-side cart round-trip is needed for MVP."
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-015]
+    investigation: user-journeys
+    notes: >
+      The comment is now stale: the API does have a cart module with five
+      endpoints and Cart/CartItem models. The consequence stands regardless —
+      carts do not survive a device change or a cleared browser store.
+  - id: KC-115
+    statement: >
+      Five built API capabilities have no storefront UI reaching them —
+      wishlist (4 endpoints incl. share token), recommendations (6 endpoints),
+      customer-initiated returns, the server-side cart (5 endpoints), and the
+      Elasticsearch-backed search endpoints (3).
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-015]
+    investigation: feature-inventory
+    notes: >
+      Verified by enumerating every apiFetch path in apps/web/lib/api and
+      comparing against the controller route inventory (KC-093), then
+      confirming absence of any component or storefront route referencing the
+      capability. This is the strongest correction to DISC-003, whose FR table
+      read endpoint existence as capability — a limitation that document
+      recorded explicitly as a Hidden Assumption.
+  - id: KC-116
+    statement: >
+      Storefront search does not use the search module. The search page calls
+      getProducts with a `q=` parameter against /products, whose DTO documents
+      that path as the "Postgres trigram fallback — Elasticsearch is the
+      primary search path". There is no autocomplete surface.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-015]
+    investigation: user-journeys
+    notes: >
+      FR-3 specifies typo-tolerant Elasticsearch search with autosuggest. The
+      capability is built and the UI reaches the fallback instead.
+  - id: KC-117
+    statement: >
+      Customers cannot initiate a return. The returns API exists and admin
+      returns management is wired, but no storefront route or component calls
+      it — the only storefront occurrences of "returns" are static copy pages.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-015]
+    investigation: user-journeys
+    notes: >
+      The FAQ tells customers to "Start a return from your order history",
+      which is not possible. A seventh entry for the launch-gating table, and
+      the FAQ placeholder marker's item 3 understated this as "partly backed".
+  - id: KC-118
+    statement: >
+      Recommendations have no storefront surface. Six endpoints exist —
+      trending, frequently-bought-together, personalised, recently-viewed —
+      and no component or page calls any of them.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-015]
+    investigation: feature-inventory
+    notes: >
+      FR-15 is the single AI differentiator PRODUCT.md designated for MVP, and
+      the wireframe reserved homepage and PDP slots for it. Fully built
+      server-side, entirely invisible to customers.
+  - id: KC-119
+    statement: >
+      The admin journey is fully wired end to end: admin pages call ~14
+      distinct admin API paths covering products, categories, collections,
+      coupons, orders, returns, users, inventory, CMS and analytics.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-015]
+    investigation: user-journeys
+    notes: >
+      The API/UI gap is a storefront phenomenon, not a system-wide one.
+```
+
+---
+
+## EVD-016
+
+```yaml
+id: EVD-016
+type: repository
+source: >
+  apps/web/e2e/ — the three Playwright specs (storefront, auth, admin), read
+  in full for DISC-004 Question 5. 2026-08-06.
+received: 2026-08-06
+summary: >
+  Independent check on DISC-004's negative claims. The suite corroborates them
+  and surfaces a coverage gap of its own.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-120
+    statement: >
+      The e2e suite is 159 lines across three files covering 12 tests —
+      storefront browsing (homepage, search, product detail, 404, add-to-bag),
+      admin RBAC (three redirect cases), and authentication (register, duplicate
+      email, wrong password, re-login). No test is skipped or marked fixme.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-016]
+    investigation: user-journeys
+  - id: KC-121
+    statement: >
+      No e2e test exercises checkout, payment, order confirmation, returns,
+      wishlist or recommendations. The suite stops at add-to-bag.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-016]
+    investigation: technical-debt
+    notes: >
+      Corroborates KC-115-118 independently: had a wishlist or recommendations
+      journey existed, an e2e spec would have been the likely place to find it.
+      Separately, this means the most business-critical path — checkout through
+      payment to confirmation — has no automated end-to-end coverage, despite
+      CI running an E2E job against a real stack. It was verified manually
+      instead (KC-052).
+  - id: KC-122
+    statement: >
+      The e2e search test drives the header search box to /search?q=Diamond,
+      which internally resolves through /products?q= — confirming KC-116's
+      finding that the storefront search path never touches the search module.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-016]
+    investigation: user-journeys
+```
+
+---
+
+## EVD-017
+
+```yaml
+id: EVD-017
+type: conversation
+source: Discovery session with the product owner, 2026-08-06 (DISC-004 Discussion)
+received: 2026-08-06
+summary: >
+  Owner's decisions on the four unwired capabilities and on guest checkout.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-123
+    statement: >
+      Recommendations and customer-initiated returns are to be made accessible
+      from the frontend.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-017]
+    investigation: user-journeys
+  - id: KC-124
+    statement: >
+      Storefront search is to move to the Elasticsearch path, conditional on
+      Elasticsearch being present.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-017]
+    investigation: user-journeys
+    notes: >
+      The conditional matters — deploy/docker-compose.elasticsearch.yml exists
+      and CI deliberately exercises the Postgres fallback, so the fallback must
+      remain a working path, not be removed.
+  - id: KC-125
+    statement: >
+      Guest checkout is explicitly unwanted. Requiring registration before
+      checkout is a deliberate decision to grow the customer database and to
+      enable post-checkout functionality.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-017]
+    investigation: business-vision
+    notes: >
+      Supersedes PRODUCT.md FR-1's guest-checkout clause. The built behaviour
+      (KC-113) is correct and the requirement is obsolete — advisory per
+      ADR-0007. Accepted trade-off: registration friction before payment,
+      against a customer record for every order.
+  - id: KC-126
+    statement: >
+      The cart is to move server-side so it persists across devices, using the
+      existing cart API.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-017]
+    investigation: user-journeys
+    notes: Delivers PRODUCT.md Journey C's cross-device continuity and retires KC-114's stale comment.
+  - id: KC-127
+    statement: >
+      No decision was given on surfacing the wishlist, which remains built
+      server-side (4 endpoints incl. share token) with no storefront UI.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-017]
+    investigation: user-journeys
+    notes: >
+      Recorded as undecided rather than assumed either way. FR-6 also specifies
+      a shareable wishlist link, which PRODUCT.md Journey A treats as an
+      acquisition channel.
+```
+
+---
+
+## EVD-018
+
+```yaml
+id: EVD-018
+type: conversation
+source: Discovery session with the product owner, 2026-08-06 (DISC-004 close-out)
+received: 2026-08-06
+summary: >
+  Owner's decision on the wishlist and on shareable links. Surfaces the first
+  genuinely new capability found during Discovery.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-128
+    statement: >
+      The wishlist is to be surfaced in the UI, including its shareable link.
+      Both are frontend work against the existing API — 4 endpoints including
+      GET /wishlist/shared/:shareToken.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-018]
+    investigation: user-journeys
+    notes: Resolves KC-127. Completes FR-6 as specified, including Journey A's sharing loop.
+  - id: KC-129
+    statement: >
+      A shareable cart is also wanted — a link that opens the sender's shopping
+      bag for a recipient.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-018]
+    investigation: feature-inventory
+    notes: >
+      NEW CAPABILITY. Unlike every other gap found in Discovery, this is neither
+      built-and-unwired nor specified-and-unbuilt — it appears in no FR, no ADR
+      and no model. The Cart aggregate has no share token and there is no public
+      cart read endpoint. It requires backend work and a FEAT specification
+      through PRM-FEATURE; it was not designed here.
+  - id: KC-130
+    statement: >
+      A shareable cart interacts with three decisions already taken: the
+      server-side cart move (KC-126) is a prerequisite, since a localStorage
+      cart cannot be shared; the no-guest-checkout rule (KC-125) means a
+      recipient must register before checking out; and cart contents can drift
+      in price or stock between share and open.
+    status: inference
+    confidence: 85
+    evidence_ids: [EVD-018, EVD-017]
+    investigation: hidden-business-rules
+    notes: >
+      Recorded as constraints for whoever specifies the feature, not as a
+      design. The merge-or-replace rule when a recipient already has a cart,
+      and whether a shared cart is a snapshot or a live view, are open
+      questions a FEAT spec must answer.
+```
+
+---
+
+## EVD-019
+
+```yaml
+id: EVD-019
+type: database
+source: >
+  apps/api/src/prisma/schema.prisma (761 lines) read in full, plus the six
+  migration files' CHECK constraints and the reviews service's aggregate
+  write-through. 2026-08-06, for DISC-005.
+received: 2026-08-06
+summary: >
+  Full read of the data model: 27 models, 15 enums, six migrations. The schema
+  carries its own design rationale inline, including decisions recorded as
+  resolved against DATABASE.md's open questions.
+pipeline: database
+processed: true
+claims:
+  - id: KC-131
+    statement: >
+      Money is stored exclusively as integer minor units (paise) across every
+      model — Order, OrderItem, Cart, Coupon, Payment, ReturnRequest — with the
+      schema header stating "never Float/Decimal for currency". No monetary
+      float or decimal column exists.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-132
+    statement: >
+      Immutable snapshots are taken at every historical boundary: Order stores
+      shippingAddress as a JSON snapshot rather than an FK to Address;
+      OrderItem stores productNameSnapshot, variantSnapshot and
+      unitPriceMinorUnits; CartItem stores priceSnapshotMinorUnits.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+    notes: >
+      The Order.shippingAddress choice is annotated "RESOLVED (was open in
+      DATABASE.md Milestone 2)" with its rationale — historical accuracy
+      survives the user editing or deleting a saved address.
+  - id: KC-133
+    statement: >
+      Five append-only ledgers exist — CouponRedemption, OrderStatusHistory,
+      ReturnStatusHistory, ProductView and AuditLog. CouponRedemption is
+      explicitly append-only so redemption limits are enforced by COUNT()
+      rather than a mutable counter, avoiding races under concurrent checkout.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-134
+    statement: >
+      Five named DB-level CHECK constraints enforce invariants in Postgres, not
+      only in application code — non_negative_stock, positive_quantity,
+      reserved_not_exceeding_on_hand, rating_range (1-5), valid_date_range
+      (coupon valid_to > valid_from).
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: hidden-business-rules
+  - id: KC-135
+    statement: >
+      Indexes are chosen against stated access patterns, including a BRIN index
+      on Order.createdAt for date-range reporting, a GIN trigram index on
+      Product.name, and composite indexes matching the PDP review read path and
+      the admin low-stock dashboard.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-136
+    statement: >
+      Wishlist already carries a unique shareToken column, so the shareable
+      wishlist decided in KC-128 requires no schema change — the capability is
+      fully modelled and exposed at GET /wishlist/shared/:shareToken.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-137
+    statement: >
+      Cart carries no share token and there is no public cart read path, so the
+      shareable cart (KC-129) needs a schema change. Wishlist.shareToken is an
+      exact in-repo precedent for the pattern.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-138
+    statement: >
+      Cart.guestToken exists and is unique-nullable alongside a unique-nullable
+      userId, so the model already supports a pre-login guest cart that can
+      later be claimed by a user.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-019]
+    investigation: data-model
+    notes: >
+      Not made obsolete by the no-guest-checkout decision (KC-125): a visitor
+      still fills a cart before registering, and guestToken is how that cart
+      survives until they do. It supports guest *carts*, not guest *checkout*.
+  - id: KC-139
+    statement: >
+      Gift wrap is modelled per line item — CartItem.giftWrap and
+      CartItem.giftNote — while the storefront presents it as a single
+      cart-level toggle.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-019, EVD-002]
+    investigation: hidden-business-rules
+    notes: >
+      Latent mismatch, harmless while the cart is client-side. It must be
+      resolved when the cart moves server-side (KC-126) — either the UI becomes
+      per-item or the write path sets the flag on every line.
+  - id: KC-140
+    statement: >
+      Order.userId is non-nullable, so an order cannot exist without a
+      registered user — the schema already encodes the no-guest-checkout rule
+      decided in KC-125.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: data-model
+  - id: KC-141
+    statement: >
+      ReturnRequest.orderItemId is unique, so each order item can have at most
+      one return request for its lifetime.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-019]
+    investigation: hidden-business-rules
+    notes: >
+      Enables partial returns cleanly. But a REJECTED return is terminal per
+      item — the customer cannot re-request, even if the rejection was an error
+      or new information appears. Not evidently deliberate.
+  - id: KC-142
+    statement: >
+      Product.avgRating and ratingCount are denormalized aggregates. The schema
+      comment says they are recomputed "via trigger or application-layer
+      write-through"; no migration creates any trigger or function, and
+      reviews.service.ts performs the write-through, so it is application-layer
+      only.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-019]
+    investigation: data-model
+    notes: >
+      Any path that writes reviews outside that service — a seed script, a bulk
+      import, a manual SQL fix — silently desynchronises the aggregates, and
+      they feed search ranking's popularity signal.
+  - id: KC-143
+    statement: >
+      Two invariants are documented as enforceable only in the application
+      layer because Prisma cannot express them: ProductView's XOR between
+      userId and anonymousId, and Coupon.value's type-dependent meaning
+      (0-100 for PERCENTAGE, minor units for FLAT/FIRST_ORDER).
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-019]
+    investigation: hidden-business-rules
+  - id: KC-144
+    statement: >
+      Product.searchVector is an Unsupported("tsvector") column whose GIN index
+      is created in a hand-authored raw-SQL migration, so part of the schema is
+      invisible to Prisma's model and to any drift check Prisma performs.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-019]
+    investigation: technical-debt
+  - id: KC-145
+    statement: >
+      The Inventory index comment describes a "partial index", but the
+      declaration is a plain composite index on (quantityOnHand,
+      quantityReserved) — Prisma cannot express partial indexes.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-019]
+    investigation: technical-debt
+    notes: Minor comment/implementation mismatch; the index is real, its description is not.
+```
+
+---
+
+## EVD-020
+
+```yaml
+id: EVD-020
+type: conversation
+source: Discovery session with the product owner, 2026-08-06 (DISC-005 Discussion)
+received: 2026-08-06
+summary: >
+  Owner's decisions on return-request lifecycle and gift-wrap granularity.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-146
+    statement: >
+      A return request cannot be cancelled by the customer, and a rejected
+      return cannot be re-requested. Both are deliberate. Exceptions are handled
+      out of band — the customer contacts the business by email or WhatsApp.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-020]
+    investigation: hidden-business-rules
+    notes: >
+      Confirms KC-141's unique constraint on ReturnRequest.orderItemId as
+      intentional rather than incidental. Adds a rule the schema does not
+      encode: no customer-side cancellation. The returns UI to be wired under
+      KC-123 must therefore expose request and status only — never a cancel
+      control.
+  - id: KC-147
+    statement: >
+      Gift wrap is per line item, matching CartItem.giftWrap and
+      CartItem.giftNote as modelled.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-020]
+    investigation: hidden-business-rules
+    notes: >
+      Resolves KC-139 in the data model's favour. The storefront's single
+      cart-level toggle is the side that must change, and it must change as part
+      of the server-side cart move (KC-126), not after it.
+  - id: KC-148
+    statement: >
+      The stated out-of-band channel for return exceptions is email or
+      WhatsApp, and WhatsApp notifications are not yet implemented (KC-097,
+      KC-102) — so email is the only working channel for this fallback today.
+    status: inference
+    confidence: 85
+    evidence_ids: [EVD-020, EVD-011]
+    investigation: hidden-business-rules
+    notes: >
+      Not an objection to the policy, which is sound for the volume expected.
+      Recorded because the policy's viability depends on a channel that is
+      currently one of two promised and one delivered.
+```
+
+---
+
+## EVD-021
+
+```yaml
+id: EVD-021
+type: repository
+source: >
+  Coupling analysis of apps/api/src/modules for DISC-006 — cross-module
+  imports, event publish/subscribe call sites, and the set of Prisma models
+  each module's service reads or writes. 2026-08-06.
+received: 2026-08-06
+summary: >
+  Establishes the real bounded-context map by measuring coupling three ways:
+  compile-time imports, runtime events, and table access.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-149
+    statement: >
+      Direct cross-module imports form a shallow graph. Orders is the hub,
+      importing audit-log, coupons, inventory and payments. Returns imports
+      audit-log, inventory and payments. Ten modules import nothing from a
+      sibling.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+  - id: KC-150
+    statement: >
+      The full event map is - publishers - payments emits payment.succeeded;
+      orders emits order.confirmed; returns emits return.requested and
+      return.refunded; products emits product.upserted and product.deleted;
+      reviews emits product.upserted. Subscribers - orders consumes
+      payment.succeeded; notifications consumes order.confirmed,
+      return.requested and return.refunded; recommendations consumes
+      order.confirmed; search consumes product.upserted and product.deleted.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+    notes: >
+      Completes OV-001's mandatory domain/integration-events check with
+      producer/consumer pairs, not just a declared list.
+  - id: KC-151
+    statement: >
+      Orders and Payments are coupled in both directions but without a
+      compile-time cycle - orders imports PaymentsService synchronously to
+      initiate payment, and payments returns control asynchronously by emitting
+      payment.succeeded, which orders consumes to confirm the order.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+    notes: Command in, event out - a deliberate pattern rather than accidental coupling.
+  - id: KC-152
+    statement: >
+      The Reviews module writes to Product - reviews.service.ts line 86 issues
+      prisma.product.update to maintain avgRating and ratingCount - and then
+      emits product.upserted so Search reindexes.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+    notes: >
+      The clearest boundary breach found - a cross-context write plus emission
+      of another context's event. Explains KC-142's fragility - the aggregate
+      column is owned by Catalog but its value is owned by Reviews.
+  - id: KC-153
+    statement: >
+      Seventeen modules touch Prisma directly. Eight own exactly one aggregate
+      cleanly - audit-log, cms, inventory, payments, wishlist, search
+      read-only, auth and users. The rest read across boundaries.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+  - id: KC-154
+    statement: >
+      Recommendations has the widest table reach of any module - order,
+      orderItem, product, productCoOccurrence, productVariant and productView,
+      spanning Ordering and Catalog as well as its own models.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+  - id: KC-155
+    statement: >
+      Ports-and-adapters structure exists in exactly two modules - payments and
+      storage - each with ports/ and providers/ directories, and these are the
+      two boundaries where an external vendor sits.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: technical-architecture
+    notes: Implements NFR-9's no-vendor-lock-in requirement precisely where it applies.
+  - id: KC-156
+    statement: >
+      Three modules are shared infrastructure rather than domains - audit-log,
+      metrics and storage are imported by many modules and own no business
+      concept. Health is an operational probe.
+    status: inference
+    confidence: 90
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+  - id: KC-157
+    statement: >
+      Coupons reads the Order table directly to count a user's prior orders
+      when enforcing FIRST_ORDER eligibility and per-user redemption limits.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-021]
+    investigation: domain-discovery
+```
+
+---
+
+## EVD-022
+
+```yaml
+id: EVD-022
+type: conversation
+source: Discovery session with the product owner, 2026-08-06 (DISC-006 Discussion)
+received: 2026-08-06
+summary: >
+  Owner accepts both engineering recommendations on cross-context aggregate
+  ownership and on domain-specification sequencing.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-158
+    statement: >
+      Rating-aggregate ownership moves to Catalog. Reviews will call a
+      Catalog-owned recompute command synchronously; Catalog performs the write
+      and emits product.upserted. Reviews stops writing prisma.product and stops
+      emitting a Catalog event.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-022]
+    investigation: domain-discovery
+    notes: >
+      Resolves KC-152 by mirroring the Orders-Payments seam (KC-151) rather
+      than inventing a second pattern. Kept synchronous deliberately - an
+      eventually-consistent rating would be a visible regression on a value
+      read on every PDP and PLP.
+  - id: KC-159
+    statement: >
+      The recompute operation is to be idempotent and derive the aggregate from
+      scratch rather than incrementing, so the same function can be run in bulk
+      to reconcile every product.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-022]
+    investigation: technical-debt
+    notes: >
+      This is the fix for KC-142, and it is independent of the boundary fix.
+      Ownership makes the value correct by construction; bulk reconciliation
+      makes it recoverable when construction is bypassed by a seed script, bulk
+      import or manual SQL.
+  - id: KC-160
+    statement: >
+      Domain specifications are to be written when a context is about to be
+      worked on, not when it is discovered. Two are authored now - Shopping
+      (cart and wishlist) and Returns - with the remaining twelve contexts
+      deferred until work reaches them.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-022]
+    investigation: recommendations
+    notes: >
+      Resolves KC-149's documentation gap. The rationale is the project's own
+      history - two of three existing DOM- specs describe capabilities that do
+      not exist, having been written ahead of work.
+  - id: KC-161
+    statement: >
+      PRM-DOMAIN is authorised to run out of milestone order for Shopping and
+      Returns, ahead of M2 Constitution and M3 Architecture, because imminent
+      implementation work reaches both contexts first.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-022]
+    investigation: recommendations
+    notes: >
+      Explicit navigation per KC-048, recorded as ADR-0009 rather than taken
+      silently.
+  - id: KC-162
+    statement: >
+      DOM-SHIPPING and DOM-RISK are to be annotated as specifying contexts that
+      are not implemented - shipping blocked on the client's Shiprocket account,
+      risk superseded by the closure of fraud scoring.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-022]
+    investigation: recommendations
+```
+
+---
+
+## EVD-023
+
+```yaml
+id: EVD-023
+type: repository
+source: >
+  Runtime and deployment architecture read for DISC-007 — deploy/ compose
+  files, Caddyfile, monitoring provisioning, apps/api main.ts and app.module.ts,
+  common/ cross-cutting layers, env validation, and the web app's SEO and
+  accessibility surfaces. 2026-08-06.
+received: 2026-08-06
+summary: >
+  Establishes the deployed architecture and measures the ten declared NFRs
+  against it.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-163
+    statement: >
+      The system is a modular monolith - one NestJS process containing 22
+      modules communicating through an in-process event bus - plus a Next.js
+      SSR app, deployed as Docker Compose services on a single VM sharing one
+      bridge network (jwel-net), behind Caddy with automatic TLS.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-164
+    statement: >
+      Deployment is split across five compose files - api (api, web, migrate,
+      create-admin), postgres, elasticsearch, metabase and monitoring
+      (prometheus, grafana) - each joining the same network, so components can
+      be started and stopped independently on one host.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-165
+    statement: >
+      The event bus is explicitly documented as decoupling publishers from
+      subscribers "within a single process (modular monolith)". It is
+      fire-and-forget with no persistence, no retry and no dead-letter path.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-023, EVD-021]
+    investigation: technical-architecture
+    notes: >
+      Delivery is at-most-once - an event emitted immediately before a crash is
+      lost, and its handler never runs. Consequence - a confirmed order whose
+      notification or co-occurrence update is dropped has no recovery path.
+  - id: KC-166
+    statement: >
+      Security middleware is layered - helmet, a CORS allowlist from
+      CORS_ALLOWED_ORIGINS, a global ValidationPipe, a global ThrottlerGuard at
+      120 requests per 60 seconds, plus JWT, optional-JWT and roles guards.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-167
+    statement: >
+      Swagger is disabled outside development in main.ts, and Caddy
+      independently returns 404 for /docs on the API host - the same exposure
+      blocked twice, in the application and at the edge.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-168
+    statement: >
+      Environment configuration is validated at boot, including a minimum JWT
+      secret length and explicit rejection of a known placeholder secret.
+      Validated vars include DATABASE_URL, JWT_SECRET, CORS_ALLOWED_ORIGINS,
+      NODE_ENV, PUBLIC_BASE_URL, STORAGE_PROVIDER and PAYMENTS_MODE.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-169
+    statement: >
+      Observability is layered and self-hosted - a correlation-id middleware, a
+      logging interceptor and a metrics interceptor in the API; a Prometheus
+      endpoint reachable only on the internal Docker network; Grafana with
+      provisioned datasources, a dashboard and alerting rules; and Sentry in
+      both apps.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-170
+    statement: >
+      NFR-7 SEO is substantially implemented - the web app has robots.ts,
+      sitemap.ts and JSON-LD structured data on the product detail page,
+      alongside server-rendered category and product pages.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+  - id: KC-171
+    statement: >
+      NFR-5 accessibility has no automated verification - no axe, jest-axe or
+      equivalent appears anywhere in the web app's dependencies or tests,
+      despite WCAG 2.1 AA being declared non-optional for MVP.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-023]
+    investigation: technical-debt
+  - id: KC-172
+    statement: >
+      NFR-1 performance targets (P95 under 2.5s on 4G, search under 300ms) and
+      NFR-2 availability (99.9%) have no evidence of ever being measured - no
+      load test, synthetic check, uptime monitor or performance budget exists
+      in the repository.
+    status: inference
+    confidence: 85
+    evidence_ids: [EVD-023]
+    investigation: technical-debt
+  - id: KC-173
+    statement: >
+      The deployment cannot structurally meet NFR-2's 99.9% availability - a
+      single VM with one Postgres container, one API container and no
+      replication or failover has no redundancy, and container restarts during
+      deploys are unmasked downtime.
+    status: inference
+    confidence: 85
+    evidence_ids: [EVD-023]
+    investigation: technical-architecture
+```
+
+---
+
+## EVD-024
+
+```yaml
+id: EVD-024
+type: conversation
+source: Discovery session with the product owner, 2026-08-06 (DISC-007 Discussion)
+received: 2026-08-06
+summary: >
+  Owner's decisions on reliability targets, event-bus durability and
+  accessibility verification.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-174
+    statement: >
+      NFR-2 (99.9% availability) and NFR-3 (ECS with Redis caching) are to be
+      restated to describe the system actually being built - a single-node
+      modular monolith - rather than the system being changed to match them.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-024]
+    investigation: technical-architecture
+    notes: >
+      Fourth instance of the same pattern - implementation made the better
+      decision and the specification was left describing the abandoned one.
+      Previous three - gold-rate pricing (KC-071), guest checkout (KC-125),
+      deployment topology (KC-074).
+  - id: KC-175
+    statement: >
+      Event-bus durability is deferred with a named trigger - it will be built
+      if and when WhatsApp notifications require it, and not before.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-024]
+    investigation: technical-architecture
+    notes: >
+      Conditional commitment rather than open deferral. The reasoning holds -
+      a dropped email today is one customer's confirmation; a dropped WhatsApp
+      message once that channel is the primary one becomes a support call. Until
+      then the preferred mitigation is re-derivable effects (ADR-0008's
+      reconciliation pattern), not durability.
+  - id: KC-176
+    statement: >
+      An accessibility check (axe or equivalent) is to be added to the existing
+      Playwright suite, giving NFR-5's WCAG 2.1 AA commitment its first
+      verification.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-024]
+    investigation: technical-debt
+```
+
+---
+
+## EVD-025
+
+```yaml
+id: EVD-025
+type: repository
+source: >
+  Business-rule extraction for DISC-008 — service-layer validation and
+  transition logic across orders, returns, coupons, inventory, reviews and
+  products, read against the DB constraints from EVD-019. 2026-08-07.
+received: 2026-08-07
+summary: >
+  Recovers the rules that govern this system's behaviour and exist only in
+  code - transition tables, eligibility checks and validation gaps.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-177
+    statement: >
+      Order status transitions are governed by an explicit table - PLACED to
+      CONFIRMED or CANCELLED; CONFIRMED to PROCESSING or CANCELLED; PROCESSING
+      to SHIPPED or CANCELLED; SHIPPED to DELIVERED only; DELIVERED, CANCELLED
+      and REFUNDED terminal. Invalid transitions are rejected.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+  - id: KC-178
+    statement: >
+      OrderStatus.REFUNDED is unreachable through the order state machine - no
+      transition targets it, and refunds are handled entirely on the
+      ReturnRequest lifecycle. An order containing a refunded item remains
+      DELIVERED.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      The admin Orders list will therefore never show REFUNDED, while the enum,
+      the web type union and the customer's order history all imply it can.
+  - id: KC-179
+    statement: >
+      Return eligibility has exactly two conditions - the order must be
+      DELIVERED, and each order item may have at most one return request. There
+      is NO time window in code.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      The FAQ states returns are accepted "within 7 days of delivery". No such
+      check exists - a customer could request a return years later and the
+      system would accept it. Eighth entry for the launch-gating promises table.
+  - id: KC-180
+    statement: >
+      Return transitions are REQUESTED to APPROVED or REJECTED; APPROVED to
+      REFUND_PROCESSING; REFUND_PROCESSING to REFUNDED; REJECTED and REFUNDED
+      terminal. A refund amount is mandatory when marking REFUNDED.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: Matches KC-146 exactly - no cancellation path, no re-request after rejection.
+  - id: KC-181
+    statement: >
+      Coupon validation applies six checks in order - coupon exists, is not
+      soft-deleted and is active; now falls within validFrom and validTo;
+      subtotal meets minOrderAmount; global redemptions below maxRedemptions;
+      this user's redemptions below maxRedemptionsPerUser; and for FIRST_ORDER
+      type, the user has zero prior orders.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+  - id: KC-182
+    statement: >
+      FIRST_ORDER eligibility counts every order the user has ever placed
+      regardless of status, so a customer whose only previous order was
+      CANCELLED is permanently ineligible for a first-order coupon.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      A real customer-facing consequence that appears in no specification. The
+      cancelled-order rate in the seeded data is high, so this is reachable.
+  - id: KC-183
+    statement: >
+      Inventory reservation is concurrency-safe by construction - reserve,
+      release and commit go through conditional raw UPDATEs whose WHERE clause
+      carries the invariant (quantity_on_hand - quantity_reserved >= n), so an
+      oversell fails at the database rather than being checked then acted upon.
+      Release clamps with GREATEST(...,0) and adjustment is guarded by
+      quantity_on_hand + delta >= quantity_reserved.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+  - id: KC-184
+    statement: >
+      Anyone may review any product without having bought it. verifiedPurchase
+      is a computed badge - true when the user has a DELIVERED order containing
+      the product - not a gate. Reviews are created PENDING and only APPROVED
+      reviews are displayed or counted in rating aggregates.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      Resolves PRODUCT.md's own Open Question 3, which asked whether reviews
+      should require purchase verification at launch. The implemented answer is
+      no - moderate instead.
+  - id: KC-185
+    statement: >
+      Products are created DRAFT and the storefront reads only PUBLISHED,
+      non-deleted products. Publishing has NO validation - status is a plain
+      optional field on UpdateProductDto with no check on price, name,
+      description, media or variants.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      Closes the residual question from DISC-002 - the DRAFT to PUBLISHED
+      transition enforces nothing. This is how a zero-priced placeholder named
+      "Untitled Draft 1041" became shoppable (KC-015, KC-052). Harmless when
+      the publisher is the owner testing; the catalog is about to be handed to
+      a client publishing 1,045 placeholders.
+```
+
+---
+
+## EVD-026
+
+```yaml
+id: EVD-026
+type: conversation
+source: Discovery session with the product owner, 2026-08-07 (DISC-008 Discussion)
+received: 2026-08-07
+summary: >
+  Owner's decisions on the four hidden-rule questions - return window, publish
+  validation, first-order eligibility and refunded order status.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-186
+    statement: >
+      A return window of 10 days from delivery is to be enforced. It is a
+      blanket rule - global, not per product or per category - and must be
+      editable from the admin panel rather than fixed in code.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-026]
+    investigation: hidden-business-rules
+    notes: >
+      Closes KC-179's unbounded liability. Also corrects the FAQ, which claims
+      7 days. Note the FAQ figure is now wrong in a second way - both the number
+      and the fact that nothing enforced it.
+  - id: KC-187
+    statement: >
+      An admin-editable return window requires a settings store, which does not
+      exist. No Setting, Config or AppSetting model appears among the 27 Prisma
+      models, and no return-window constant exists anywhere in either app.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-026, EVD-019]
+    investigation: data-model
+    notes: >
+      NEW CAPABILITY, the second Discovery has surfaced after the shareable
+      cart (KC-129). Needs a persisted settings mechanism, an admin surface and
+      a read path in ReturnsService. Requires a FEAT specification through
+      PRM-FEATURE - it was not designed here.
+  - id: KC-188
+    statement: >
+      Publish-time completeness validation will NOT be added. Publishing
+      remains an unguarded admin action, and correctness of published product
+      data is the admin's responsibility rather than the system's.
+    status: fact
+    confidence: 85
+    evidence_ids: [EVD-026]
+    investigation: hidden-business-rules
+    superseded_by: KC-192
+    notes: >
+      WRONG - superseded by KC-192. Read from the owner's "all dependent on
+      admin", which was confirming the finding rather than accepting it. The
+      claim was recorded at 85% with the ambiguity flagged explicitly, and the
+      flag did its job. Retained per OV-000.
+  - id: KC-189
+    statement: >
+      FIRST_ORDER eligibility counting cancelled orders is deliberate. A
+      customer who cancels their first order does not regain first-order
+      benefits on their next one.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-026]
+    investigation: hidden-business-rules
+    notes: >
+      Confirms KC-182 as intended rather than incidental. It is an
+      anti-abuse rule - place, cancel, repeat would otherwise farm the discount
+      indefinitely. Worth stating wherever coupons are documented for the
+      client, since it is invisible to the customer who triggers it.
+  - id: KC-190
+    statement: >
+      OrderStatus.REFUNDED is to be made reachable rather than removed from the
+      enum.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-026]
+    investigation: hidden-business-rules
+  - id: KC-191
+    statement: >
+      Making REFUNDED reachable requires a rule that does not yet exist -
+      returns are per order item, so an order with some items refunded needs a
+      defined condition for the order itself becoming REFUNDED, and whether a
+      partially refunded order stays DELIVERED.
+    status: inference
+    confidence: 90
+    evidence_ids: [EVD-026, EVD-025]
+    investigation: hidden-business-rules
+    notes: >
+      Not a design decision taken here. Belongs in DOM-RETURNS per ADR-0009.
+      The natural candidate - the order becomes REFUNDED when every order item
+      has a REFUNDED return - is stated as a starting point, not a conclusion.
+```
+
+---
+
+## EVD-027
+
+```yaml
+id: EVD-027
+type: conversation
+source: Discovery session with the product owner, 2026-08-07 (DISC-008 correction)
+received: 2026-08-07
+summary: >
+  Owner corrects the publish-validation reading, clarifies the standing of FAQ
+  content, and confirms the settings store should be a general mechanism.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-192
+    statement: >
+      Publish-time completeness checks ARE to be added. The owner's earlier
+      statement confirmed the finding rather than accepting the current
+      behaviour.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-027]
+    investigation: hidden-business-rules
+    notes: >
+      Supersedes KC-188, which recorded the opposite at 85% confidence with the
+      ambiguity flagged. The flag was warranted and the reading was wrong.
+      Proposed check set as a starting point, not a final specification -
+      non-zero price on every variant, a name that is not an auto-generated
+      placeholder, a non-placeholder description, at least one variant, and at
+      least one image.
+  - id: KC-193
+    statement: >
+      The FAQ contents are placeholder copy, not exact question-and-answer
+      pairs the business stands behind. Both the questions and the answers are
+      subject to replacement.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-027]
+    investigation: hidden-business-rules
+    notes: >
+      Reframes four entries in the launch-gating promises table. FAQ-sourced
+      claims - COD, the return window, "start a return from your order
+      history", customisation, tarnish resistance - are placeholder copy to be
+      rewritten rather than commitments to honour or retract. The non-FAQ
+      entries are unaffected - the sale bar, checkout copy, footer links and
+      /subscriptions page are live product surfaces, not placeholders.
+  - id: KC-194
+    statement: >
+      The settings store required by the admin-editable return window is to be
+      built as a general mechanism rather than a single return-window column.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-027]
+    investigation: technical-architecture
+    notes: >
+      Confirms KC-187's recommendation. Anticipated early consumers beyond the
+      return window - free shipping threshold, dispatch SLA, low-stock
+      threshold - each of which is currently hardcoded or unbacked.
+```
+
+---
+
+## EVD-028
+
+```yaml
+id: EVD-028
+type: repository
+source: >
+  Technical-debt pass for DISC-009 - TODO density, dependency currency,
+  coverage-gate configuration and exclusions, dead-code detection, type
+  strictness and suppression counts. 2026-08-07.
+received: 2026-08-07
+summary: >
+  Fresh debt scan, complementing the queue inherited from DISC-001 to DISC-008.
+pipeline: repository
+processed: true
+claims:
+  - id: KC-195
+    statement: >
+      TODO/FIXME/HACK density across both apps is three occurrences, all of
+      them deliberate pending-decision markers in brand.ts and the FAQ page
+      rather than abandoned work.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+    notes: Unusually low for a codebase of this size - roughly one per 10k lines of source.
+  - id: KC-196
+    statement: >
+      Both apps enable TypeScript strict mode. The API additionally sets
+      strictNullChecks and noImplicitAny explicitly, and disables
+      strictPropertyInitialization (a normal NestJS accommodation for
+      dependency injection).
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+  - id: KC-197
+    statement: >
+      Type-system suppressions total four occurrences of ts-ignore,
+      ts-expect-error or eslint-disable across both apps' source, and
+      non-test 'any' usage totals eleven.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+  - id: KC-198
+    statement: >
+      Both coverage gates are configured at 90% for statements, branches,
+      functions and lines - Jest global thresholds in the API, Vitest
+      thresholds in the web app.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+    notes: >
+      The API's are declared under a "global" key, so coverage is aggregate
+      across the codebase rather than enforced per file. A well-tested module
+      can mask an untested one without failing the gate.
+  - id: KC-199
+    statement: >
+      The web coverage gate excludes components/cinematic/** and
+      components/vision/**. The latter does not exist. The former is 3 files
+      and 145 lines - macro-scene.tsx, parallax-hero.tsx, scroll-reveal.tsx -
+      which no route or component imports.
+    status: fact
+    confidence: 95
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+    notes: >
+      145 lines of dead code carved out of the coverage gate, plus a stale
+      exclusion pointing at a directory that was removed. The exclusion hides
+      the fact that the code is unused.
+  - id: KC-200
+    statement: >
+      Framework dependencies are one major version behind current on the API
+      side - NestJS 10 and Prisma 5 - while the web app is current with Next 15
+      and React 19. Both apps share TypeScript 5.5 and Sentry 10.
+    status: fact
+    confidence: 90
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+  - id: KC-201
+    statement: >
+      No unused runtime dependencies were found in the web app. The only two
+      flagged by import scanning - @sentry/nextjs and react-dom - are both
+      referenced through instrumentation config files and framework internals
+      rather than direct imports.
+    status: inference
+    confidence: 85
+    evidence_ids: [EVD-028]
+    investigation: technical-debt
+```
+
+---
+
 ## Investigation Coverage
 
 Per `OV-000`'s exit checklist — every one of the ten M1 investigation areas
@@ -1522,7 +2819,7 @@ claim. `recommendations` remains mostly a synthesis output per `OV-001` —
 Keep/Improve/Remove lines roll up from the other nine investigations — but
 KC-054 seeds it directly.
 
-Per `OV-000`, the intake gate is met: 14 evidence items logged, 112 claims, and
+Per `OV-000`, the intake gate is met: 28 evidence items logged, 201 claims, and
 ten of ten areas covered.
 
 ## Open Gaps (per OV-000 gap-detection protocol)
