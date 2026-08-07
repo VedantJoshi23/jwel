@@ -1,4 +1,5 @@
 import { brand } from '@/lib/brand';
+import type { SizeOption } from '@/lib/api/types';
 
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
@@ -38,6 +39,11 @@ function CheckmarkOption({
  * Plain GET form — filters work without JS (progressive enhancement).
  * Only surfaces filters the backend can actually apply (price range, metal —
  * matching the real MetalType enum) rather than decorative, non-functional rows.
+ *
+ * Size follows the same rule and adds one of its own: it renders only when the
+ * category has a sizing scheme (FEAT-SIZE-TAXONOMY). An empty size selector on
+ * a pair of earrings is worse than no selector, because it implies a choice
+ * that does not exist.
  */
 export function FilterForm({
   basePath,
@@ -45,12 +51,17 @@ export function FilterForm({
   defaultSort,
   defaultPriceMin,
   defaultPriceMax,
+  sizeOptions = [],
+  defaultSize,
 }: {
   basePath: string;
   defaultMetal?: string;
   defaultSort?: string;
   defaultPriceMin?: string;
   defaultPriceMax?: string;
+  /** Empty for categories with no sizing scheme — the section is then omitted. */
+  sizeOptions?: SizeOption[];
+  defaultSize?: string;
 }) {
   const metalSection = brand.filterSections.find((s) => s.key === 'metal');
 
@@ -109,6 +120,31 @@ export function FilterForm({
               />
             ))}
             <CheckmarkOption name="metal" value="" label="Any metal" checked={!defaultMetal} />
+          </div>
+        </div>
+      )}
+
+      {/* Size — only for categories that have a sizing scheme */}
+      {sizeOptions.length > 0 && (
+        <div className="py-7">
+          <p className="mb-4 text-sm font-semibold" id="size-filter-label">
+            Size
+          </p>
+          <div
+            className="flex flex-col gap-3.5 text-sm text-ink-secondary"
+            role="group"
+            aria-labelledby="size-filter-label"
+          >
+            {sizeOptions.map((opt) => (
+              <CheckmarkOption
+                key={opt.value}
+                name="size"
+                value={opt.value}
+                label={opt.label}
+                checked={defaultSize === opt.value}
+              />
+            ))}
+            <CheckmarkOption name="size" value="" label="Any size" checked={!defaultSize} />
           </div>
         </div>
       )}

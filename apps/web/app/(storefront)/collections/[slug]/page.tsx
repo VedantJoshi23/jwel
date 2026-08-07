@@ -7,6 +7,7 @@ import { Pagination } from '@/components/common/pagination';
 import { brand } from '@/lib/brand';
 import { getCategoryBannerImage } from '@/lib/jewellery-images';
 import { safeGetCollectionBySlug } from '@/lib/api/collections';
+import { safeGetSizes } from '@/lib/api/sizes';
 import { CollectionView } from '@/components/collection/collection-view';
 
 // Answered by this route itself, ahead of any lookup: `all` is the whole
@@ -23,6 +24,7 @@ interface CollectionPageProps {
     page?: string;
     priceMin?: string;
     priceMax?: string;
+    size?: string;
   }>;
 }
 
@@ -98,6 +100,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       {
         category,
         metal: resolvedSearchParams.metal || undefined,
+        size: resolvedSearchParams.size || undefined,
         priceMin,
         priceMax,
         sort,
@@ -109,6 +112,13 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   } catch {
     result = { items: [], page: 1, pageSize: 12, total: 0 };
   }
+
+  // The category's sizing scheme is read off the products themselves — every
+  // product in a category listing shares it, and `category: true` on the API's
+  // product include already carries it. An empty listing yields no scheme and
+  // therefore no size filter, which is correct: there is nothing to filter.
+  const sizeScheme = result.items[0]?.category?.sizeScheme ?? null;
+  const sizeOptions = await safeGetSizes(sizeScheme);
 
   const collectionTitle = titleCase(resolvedParams.slug);
 
@@ -172,6 +182,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                   defaultSort={resolvedSearchParams.sort}
                   defaultPriceMin={resolvedSearchParams.priceMin}
                   defaultPriceMax={resolvedSearchParams.priceMax}
+            sizeOptions={sizeOptions}
+            defaultSize={resolvedSearchParams.size}
                 />
               </div>
             </details>
@@ -182,6 +194,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                 defaultSort={resolvedSearchParams.sort}
                 defaultPriceMin={resolvedSearchParams.priceMin}
                 defaultPriceMax={resolvedSearchParams.priceMax}
+            sizeOptions={sizeOptions}
+            defaultSize={resolvedSearchParams.size}
               />
             </div>
           </aside>

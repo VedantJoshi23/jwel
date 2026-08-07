@@ -6,6 +6,11 @@ export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popularity';
 export interface ProductQuery {
   category?: string;
   metal?: string;
+  /**
+   * Size value (FEAT-SIZE-TAXONOMY). Scheme-specific — "16" is a ring size,
+   * "450" a chain length in mm — so normally sent alongside `category`.
+   */
+  size?: string;
   priceMin?: number;
   priceMax?: number;
   sort?: ProductSort;

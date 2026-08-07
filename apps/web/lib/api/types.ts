@@ -36,6 +36,8 @@ export interface ProductMedia {
 }
 
 export interface Category {
+  /** Null means the category has no size dimension, or inherits one. */
+  sizeScheme?: SizeScheme | null;
   id: string;
   name: string;
   slug: string;
@@ -44,6 +46,35 @@ export interface Category {
 }
 
 export type CollectionType = 'GOLD' | 'DIAMOND' | 'SEASONAL' | 'EDITORIAL';
+
+/**
+ * FEAT-SIZE-TAXONOMY. `NONE` is a real value meaning "this category has no
+ * size", as distinct from a null column meaning "inherit from parent" — see
+ * DOM-CATALOG inv. 9. Both resolve to "show no size UI" on the client, but the
+ * server needs the distinction to walk the category tree.
+ */
+export type SizeScheme =
+  | 'NONE'
+  | 'RING_INDIA'
+  | 'BANGLE_INDIA'
+  | 'CHAIN_LENGTH_MM'
+  | 'BRACELET_LENGTH_MM';
+
+export interface SizeOption {
+  scheme: SizeScheme;
+  /** Canonical value, matched against ProductVariant.size and the `size` filter. */
+  value: string;
+  /** What a customer reads — "16" for a ring, "45 cm (18\")" for a chain. */
+  label: string;
+  /**
+   * Authoritative measurement. Serialised as a string, not a number: it is a
+   * fixed-scale decimal and JSON numbers would drop the trailing zero.
+   */
+  circumferenceMm: string;
+  diameterMm: string | null;
+  usEquivalent: string | null;
+  ukEquivalent: string | null;
+}
 
 /**
  * A curated set that cuts across categories ("Diwali Edit", "Bridal

@@ -1,13 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProductForm } from './product-form';
 import type { Category, Product } from '@/lib/api/types';
+import * as sizesApi from '@/lib/api/sizes';
 
+// Only leaf categories are selectable (see `selectableCategories`), so the
+// sized case is exercised through Solitaire — which is also the more
+// interesting one, since it *inherits* Rings' scheme through a null rather
+// than declaring its own (FEAT-SIZE-TAXONOMY).
+//
+// Anklets stays unsized so the pre-existing submission tests keep their
+// original meaning: they never touched size, and should not have to now.
 const CATEGORIES: Category[] = [
-  { id: 'c-rings', name: 'Rings', slug: 'rings', parentId: null },
-  { id: 'c-solitaire', name: 'Solitaire', slug: 'solitaire', parentId: 'c-rings' },
-  { id: 'c-anklets', name: 'Anklets', slug: 'anklets', parentId: null },
+  { id: 'c-rings', name: 'Rings', slug: 'rings', parentId: null, sizeScheme: 'RING_INDIA' },
+  { id: 'c-solitaire', name: 'Solitaire', slug: 'solitaire', parentId: 'c-rings', sizeScheme: null },
+  { id: 'c-anklets', name: 'Anklets', slug: 'anklets', parentId: null, sizeScheme: null },
 ];
 
 function fakeProduct(overrides: Partial<Product> = {}): Product {
@@ -228,7 +236,8 @@ describe('ProductForm', () => {
       await user.type(screen.getByLabelText('SKU'), 'SKU-7');
       await user.selectOptions(screen.getByLabelText('Metal'), 'PLATINUM');
       await user.type(screen.getByLabelText('Purity (optional)'), '950');
-      await user.type(screen.getByLabelText('Size (optional)'), '7');
+      // Size is no longer a free-text field — it is a constrained selector,
+      // covered by its own describe block below (FEAT-SIZE-TAXONOMY).
       await user.type(screen.getByLabelText('Weight (grams)'), '1.5');
       await user.type(screen.getByLabelText('Price (₹)'), '900');
       await user.click(screen.getByRole('button', { name: 'Create product' }));
@@ -238,7 +247,6 @@ describe('ProductForm', () => {
           certificationType: 'IGI',
           metal: 'PLATINUM',
           purity: '950',
-          size: '7',
           weightGrams: '1.5',
         }),
       );
@@ -265,5 +273,125 @@ describe('ProductForm', () => {
 
       expect(screen.getByRole('button')).toBeDisabled();
     });
+  });
+});
+
+describe('ProductForm — size selector (FEAT-SIZE-TAXONOMY)', () => {
+  const RING_OPTIONS = [
+    {
+      scheme: 'RING_INDIA' as const,
+      value: '16',
+      label: '16',
+      circumferenceMm: '56.3',
+      diameterMm: '17.93',
+      usEquivalent: '8',
+      ukEquivalent: 'P½',
+    },
+  ];
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('hides the size field until a category is chosen', () => {
+    render(
+      <ProductForm
+        mode="create"
+        categories={CATEGORIES}
+        submitting={false}
+        error=""
+        onSubmit={vi.fn()}
+      />,
+    );
+    expect(screen.queryByLabelText('Size')).not.toBeInTheDocument();
+  });
+
+  it('hides the size field for a category with no scheme', async () => {
+    const user = userEvent.setup();
+    render(
+      <ProductForm
+        mode="create"
+        categories={CATEGORIES}
+        submitting={false}
+        error=""
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'c-anklets');
+    expect(screen.queryByLabelText('Size')).not.toBeInTheDocument();
+  });
+
+  it('shows a constrained selector once a sized category is chosen', async () => {
+    vi.spyOn(sizesApi, 'safeGetSizes').mockResolvedValue(RING_OPTIONS);
+    const user = userEvent.setup();
+    render(
+      <ProductForm
+        mode="create"
+        categories={CATEGORIES}
+        submitting={false}
+        error=""
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'c-solitaire');
+
+    const field = await screen.findByLabelText('Size');
+    // A select, not a text input — free text is what produced the inconsistent
+    // vocabulary this feature replaces.
+    expect(field.tagName).toBe('SELECT');
+    await waitFor(() => expect(screen.getByRole('option', { name: '16' })).toBeInTheDocument());
+  });
+
+  it('resolves an inherited scheme for a sub-category', async () => {
+    const spy = vi.spyOn(sizesApi, 'safeGetSizes').mockResolvedValue(RING_OPTIONS);
+    const user = userEvent.setup();
+    render(
+      <ProductForm
+        mode="create"
+        categories={CATEGORIES}
+        submitting={false}
+        error=""
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    // Solitaire has a null scheme and sits under Rings, so it inherits.
+    await user.selectOptions(screen.getByLabelText('Category'), 'c-solitaire');
+
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('RING_INDIA'));
+  });
+
+  it('clears a stale size when switching to an unsized category', async () => {
+    vi.spyOn(sizesApi, 'safeGetSizes').mockResolvedValue(RING_OPTIONS);
+    const onSubmit = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ProductForm
+        mode="create"
+        categories={CATEGORIES}
+        submitting={false}
+        error=""
+        onSubmit={onSubmit}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'c-solitaire');
+    await waitFor(() => expect(screen.getByRole('option', { name: '16' })).toBeInTheDocument());
+    await user.selectOptions(await screen.findByLabelText('Size'), '16');
+
+    // Without the clear, the stale "16" would be submitted for an earring and
+    // the API would reject the whole product over a field the form no longer
+    // shows.
+    await user.selectOptions(screen.getByLabelText('Category'), 'c-anklets');
+    await waitFor(() => expect(screen.queryByLabelText('Size')).not.toBeInTheDocument());
+
+    await user.type(screen.getByLabelText('Name'), 'Studs');
+    await user.type(screen.getByLabelText('Description'), 'Nice');
+    await user.type(screen.getByLabelText('SKU'), 'SKU-1');
+    await user.type(screen.getByLabelText('Weight (grams)'), '1');
+    await user.type(screen.getByLabelText('Price (₹)'), '100');
+    await user.click(screen.getByRole('button', { name: 'Create product' }));
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ size: '' }));
   });
 });
