@@ -46,14 +46,18 @@ correct state for anything not yet reached.
 
 ## Constitution
 
-**Status: not yet authored.** [knowledge/constitution/](knowledge/constitution/)
-is empty — this project has not run `PRM-CONSTITUTION` yet, so there are no
-Laws to bind work against.
+This project's Constitution is at
+[knowledge/constitution/CONSTITUTION.md](knowledge/constitution/CONSTITUTION.md).
 
-Once a Constitution is Frozen there, this section must be updated to point at
-it, and to state: **its Laws must never be silently violated.** If a task
-appears to require breaking a Law, stop and raise it — an explicit amendment
-or a recorded exception is the only acceptable path, never a quiet one.
+**Its Laws must never be silently violated.** If a task appears to require
+breaking one, stop and raise it — an explicit amendment or a recorded exception
+is the only acceptable path, never a quiet one. Amending a Frozen Constitution
+requires an ADR *and* a remediation statement; that bar is deliberate.
+
+Read it rather than assuming its contents. In particular it fixes three things
+an agent would otherwise guess at: the engineering rigor level, the AI
+collaboration mode this project expects, and the system boundary that makes the
+single-tenant data model correct rather than incomplete.
 
 ## Which documents bind
 
