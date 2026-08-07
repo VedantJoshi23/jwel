@@ -1,8 +1,8 @@
 ---
 id: DISC-009
 title: Discovery — Technical Debt
-version: 0.1.0
-status: Discussion
+version: 1.0.0
+status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
@@ -136,13 +136,21 @@ not the one CI uses. Each is a five-minute fix. Together they mean **the root
 unenforced** — a developer trusting the documented interface gets less than
 they think, which is the same failure shape as the coverage gate.
 
-**Media durability (item 11) deserves re-weighting under `ADR-0010`.** That ADR
-accepted single-node topology and put the reliability burden on backup and
-restore. Product imagery lives in a Docker volume moved by rsync — for a
-jewellery store, where imagery *is* the product, losing it is not degraded
-service but catastrophic inventory loss. `ADR-0010`'s acceptance of single-node
-risk implicitly assumed restores work; nothing indicates the restore path has
-been exercised.
+**Media durability (item 11) is now the top operational risk in the project.**
+`ADR-0010` accepted single-node topology *on the explicit basis* that recovery
+relies on the documented backup and restore procedure rather than on
+redundancy. **That restore has never been performed** (KC-205).
+
+So the reasoning chain is: no redundancy, accepted because backups cover it;
+backups never restored, so their sufficiency is unknown. Product imagery lives
+in one Docker volume moved by rsync, and for a jewellery store **imagery is the
+product** — losing it is not degraded service but catastrophic inventory loss
+that no amount of order data recovers.
+
+This re-weights above every other item here, including the payment e2e gap.
+A missing test means a bug ships; an unverified restore means the business may
+not survive a disk failure. It is also the cheapest to close — restore into a
+scratch environment once and record that it worked.
 
 ## Hidden Assumptions
 
@@ -181,8 +189,9 @@ been exercised.
   exclusion for a directory that no longer exists.
 - **The payment path has no automated end-to-end test** (KC-121) — the highest
   unresolved item on the list.
-- **Restore has not been demonstrated**, while `ADR-0010` leans on it for the
-  reliability the topology does not provide.
+- **Restore has never been performed** (KC-205), while `ADR-0010` leans on it
+  for the reliability the topology deliberately does not provide. The single
+  largest operational risk found in Discovery.
 - **Two framework majors behind on the API**, with compounding upgrade cost.
 - **Build tooling advertises more than it delivers** — a no-op `typecheck`, an
   unenforced lint, two lockfiles.
@@ -190,18 +199,24 @@ been exercised.
 
 ## Questions
 
-1. **Should the payment path get e2e coverage before launch?** → **owner
-   decision**; my recommendation is yes, and first.
-2. **Delete `components/cinematic`, or wire it?** 145 lines, imported by
-   nothing. → **owner decision**.
-3. **Should the API coverage threshold move from global to per-file?** →
-   **owner decision**; it would likely fail initially, which is the point.
-4. **When do NestJS 10 → 11 and Prisma 5 → 6 happen?** → **owner decision**;
-   not urgent, but cheaper now than later.
-5. **Has a restore from backup ever been performed?** → **owner decision** /
-   operational. `ADR-0010` depends on the answer.
-6. Should the build-tooling trio (no-op typecheck, unrun lint, dual lockfiles)
-   be fixed as one small pass? → `recommendations`.
+1. ~~Should the payment path get e2e coverage?~~ → **RESOLVED** (KC-202):
+   yes, agreed and to be automated.
+2. ~~Delete `components/cinematic`, or wire it?~~ → **RESOLVED** (KC-203):
+   deleted. Both it and `components/vision` existed to help the client choose a
+   design direction; that purpose is served. **Acted on** — the directory and
+   both coverage exclusions are gone, and the suite verified green afterwards
+   (KC-204).
+3. ~~Should the API coverage threshold move from global to per-file?~~ →
+   **Partly answered by measurement** (KC-204): the web app achieves 96.98%
+   against a 90% gate, so the aggregate threshold is absorbing far less slack
+   than feared. The API's achieved figure is still unmeasured — carried to
+   `recommendations` as a cheap check rather than a change.
+4. **When do NestJS 10 → 11 and Prisma 5 → 6 happen?** → still open;
+   **owner decision**, not urgent.
+5. ~~Has a restore ever been performed?~~ → **RESOLVED** (KC-205): **no.**
+   See the re-weighting below.
+6. ~~Should the build-tooling trio be fixed as one pass?~~ → linting confirmed
+   not performed (KC-206). Carried to `recommendations` as a single small pass.
 
 ## Recommendations
 
@@ -209,18 +224,19 @@ been exercised.
   TODOs used as deliberate flags rather than abandonment markers.
 - **Keep** — coverage gates in CI, while correcting what they are believed to
   guarantee.
-- **Improve** — add e2e coverage for checkout → payment → confirmation. The
-  single highest-value item here.
-- **Improve** — delete `components/cinematic` and the two stale coverage
-  exclusions, or wire the components and test them. Not both states at once.
-- **Improve** — exercise a restore from backup once, and record that it was
-  done. `ADR-0010` rests on it.
+- **Improve — first** — exercise a restore from backup, and record that it was
+  done (KC-205). `ADR-0010`'s acceptance of single-node risk rests entirely on
+  a procedure nobody has run.
+- **Improve** — add e2e coverage for checkout → payment → confirmation
+  (KC-202).
+- **Done** — `components/cinematic` deleted, both stale coverage exclusions
+  removed, suite verified at 96.98% afterwards (KC-203, KC-204).
 - **Improve** — fix the build-tooling trio in one pass; each is minutes, and
   together they restore trust in the documented commands.
 - **Improve** — schedule the NestJS and Prisma majors deliberately rather than
   letting the gap widen.
-- **Remove** — `components/cinematic` (pending Question 2) and the
-  `components/vision` exclusion, which points at nothing.
+- **Removed** — `components/cinematic` and both coverage exclusions, done
+  during this investigation's Discussion pass.
 
 ### Debt this investigation does *not* re-litigate
 
@@ -229,21 +245,43 @@ reopened: rating desync (`ADR-0008`), event-bus durability (`ADR-0010`,
 deferred with triggers), placeholder publishing (KC-192), accessibility
 (KC-176), and `OrderStatus.REFUNDED` (KC-190).
 
+## Architecture Review
+
+- **Does it hold up?** Yes, and one item was re-ranked on new evidence rather
+  than defended: KC-205 moved media durability above the payment e2e gap.
+- **Does it contradict another investigation?** It **qualifies** several.
+  Every prior investigation that cited "90% coverage enforced in CI" as
+  evidence of quality inherits KC-198's clarification that the API threshold is
+  aggregate. KC-204 measures the web side and finds the concern small there.
+- **Interaction with a prior decision.** `ADR-0010` accepted single-node
+  topology on the basis of backup and restore. KC-205 establishes that basis is
+  untested — the ADR is not wrong, but its central assumption is unverified.
+- **Scope discipline.** Dead code was deleted because the owner authorised it
+  during the pass; nothing else was changed. The e2e specs, restore drill and
+  tooling fixes are recorded, not performed.
+
+**Frozen 2026-08-07** by owner sign-off. Revision requires the full
+Discussion → Review cycle (KC-054).
+
 ## Confidence Level
 
-**High (86%).**
+**High (89%)** after the Discussion pass, raised from 86%.
 
 Configuration and scan facts are direct observation at 95–100% — TODO counts,
 tsconfig flags, coverage thresholds and exclusions, dependency versions, and
 the absence of imports for `components/cinematic`.
 
-Two things cap it. **Severity ratings are judgement**, not measurement — the
+One cap lifted during Discussion: coverage is no longer read from
+configuration alone. The web suite was **run** (KC-204) — 330 tests, 96.98%
+statements — which closes the question of how much slack the aggregate
+threshold absorbs, at least for the web app. The API's achieved figure remains
+unmeasured.
+
+What still caps this: **severity ratings are judgement**, not measurement. The
 inherited queue's High/Medium/Low column reflects my weighting of blast radius
 and reversibility against no agreed rubric, and a different engineer could
-reasonably reorder it. And **coverage was read from configuration rather than
-from a run** (KC-198): the gate's *shape* is established, but the actual
-achieved percentages, and therefore how much slack the aggregate threshold is
-absorbing, are unknown.
+reasonably reorder it — as the Discussion pass demonstrated, when KC-205 moved
+media durability above the payment e2e gap that had been ranked first.
 
 Per `OV-001` the investigation cannot exceed its weakest load-bearing claim.
 The severity ordering is what `DISC-010` will build its Improve list on, and it

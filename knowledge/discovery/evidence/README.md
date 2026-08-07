@@ -2796,80 +2796,135 @@ claims:
 
 ---
 
+## EVD-029
+
+```yaml
+id: EVD-029
+type: conversation
+source: >
+  Discovery session with the product owner, 2026-08-07 (DISC-009 Discussion),
+  plus a verified test run after acting on the dead-code decision.
+received: 2026-08-07
+summary: >
+  Owner's answers on e2e automation, the concept-pitch components, backup
+  restore and linting - plus the first measured coverage figure in Discovery.
+pipeline: vision
+processed: true
+claims:
+  - id: KC-202
+    statement: >
+      End-to-end coverage of the checkout-to-payment-to-confirmation path is
+      agreed and to be automated.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-029]
+    investigation: technical-debt
+    notes: Closes the highest-ranked unresolved item in DISC-009.
+  - id: KC-203
+    statement: >
+      components/cinematic and components/vision existed to help the client
+      choose a design direction, that purpose is served, and both are safe to
+      delete. Acted on - components/cinematic/ deleted and both coverage
+      exclusions removed 2026-08-07.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-029]
+    investigation: technical-debt
+    notes: >
+      Git history confirms the origin - commit 276133a "Retire homepage concept
+      pages" removed app/vision and app/cinematic but left the components and
+      their coverage exclusions behind.
+  - id: KC-204
+    statement: >
+      With both exclusions removed, the web suite runs 61 test files and 330
+      tests, all passing, at 96.98% statements and 98.28% branches - well above
+      the 90% gate.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-029]
+    investigation: technical-debt
+    notes: >
+      First measured coverage figure in Discovery; every prior reference was to
+      the configured threshold. KC-198's aggregate-threshold concern is
+      therefore much smaller than feared for the web app - there is ~7 points of
+      headroom, not a module scraping past on another's back. The API's
+      achieved figure remains unmeasured.
+  - id: KC-205
+    statement: >
+      A restore from backup has never been performed.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-029]
+    investigation: technical-debt
+    notes: >
+      ADR-0010 accepted single-node topology on the explicit basis that
+      recovery relies on the documented backup and restore procedure rather
+      than redundancy. That basis is currently untested. For a jewellery store
+      whose product imagery lives in one Docker volume moved by rsync, an
+      unverified restore is the largest single operational risk in the project.
+  - id: KC-206
+    statement: >
+      Linting is not performed - confirming KC-062 from the owner's side, not
+      only from CI configuration.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-029]
+    investigation: technical-debt
+```
+
+---
+
 ## Investigation Coverage
 
-Per `OV-000`'s exit checklist — every one of the ten M1 investigation areas
-needs at least one fact/inference-tier claim, or an explicit gap entry.
+**M1 Discovery complete — all ten investigations Frozen, 2026-08-07.**
 
-| Investigation | Claims | Strongest tier | Status |
+| # | Investigation | Document | Confidence |
 | --- | --- | --- | --- |
-| `repo-structure` | KC-018, KC-040, KC-041, KC-044, KC-051, KC-053 | fact | Covered |
-| `business-vision` | KC-001, KC-004, KC-005, KC-039, KC-045–KC-050 | fact | Covered |
-| `feature-inventory` | KC-006–KC-008, KC-016, KC-027, KC-028–KC-029, KC-034–KC-038 | fact | Covered |
-| `user-journeys` | KC-002, KC-003, KC-009, KC-010, KC-014 | fact | Covered |
-| `data-model` | KC-019, KC-020, KC-021 | fact | Covered |
-| `domain-discovery` | KC-022, KC-043 | inference | Weak — see Gap 4 |
-| `technical-architecture` | KC-017, KC-023, KC-024, KC-042 | fact | Covered |
-| `hidden-business-rules` | KC-011, KC-012, KC-013, KC-033 | fact | Covered |
-| `technical-debt` | KC-025, KC-026, KC-030–KC-032, KC-052 (KC-015 superseded) | fact | Covered |
-| `recommendations` | KC-054 | fact | Seeded; mostly produced by the other nine |
+| 1 | `repo-structure` | `DISC-001` v1.0.0 | 96% |
+| 2 | `business-vision` | `DISC-002` v1.0.0 | 94% |
+| 3 | `feature-inventory` | `DISC-003` v1.2.0 | 85% |
+| 4 | `user-journeys` | `DISC-004` v1.0.0 | 93% |
+| 5 | `data-model` | `DISC-005` v1.0.0 | 95% |
+| 6 | `domain-discovery` | `DISC-006` v1.0.0 | 90% |
+| 7 | `technical-architecture` | `DISC-007` v1.0.0 | 87% |
+| 8 | `hidden-business-rules` | `DISC-008` v1.1.0 | 89% |
+| 9 | `technical-debt` | `DISC-009` v1.0.0 | 89% |
+| 10 | `recommendations` | `DISC-010` v1.0.0 | 91% |
 
-All ten investigation areas now carry at least one fact- or inference-tier
-claim. `recommendations` remains mostly a synthesis output per `OV-001` —
-Keep/Improve/Remove lines roll up from the other nine investigations — but
-KC-054 seeds it directly.
+29 evidence items, 206 claims, every investigation area covered by fact- or
+inference-tier claims.
 
-Per `OV-000`, the intake gate is met: 28 evidence items logged, 201 claims, and
-ten of ten areas covered.
+### Superseded claims
 
-## Open Gaps (per OV-000 gap-detection protocol)
+Retained per `OV-000` rather than deleted — each remains readable with its
+correction:
 
-1. ~~**Payment handoff mechanics**~~ — **CLOSED** during DISC-001 by reading
-   `apps/web/lib/razorpay-checkout.ts` (EVD-003): the app injects Razorpay's
-   hosted `checkout.js` and opens it as an **embedded modal** after "Place
-   Order", handling `razorpay_order_id` in a callback. KC-014 stands and is
-   upgraded to fact tier by this reading.
+| Claim | Superseded by | What was wrong |
+| --- | --- | --- |
+| KC-015 | KC-052 | Read a deliberate payment test as a publish-path defect |
+| KC-082 | KC-089 | Read a deliberate scope boundary as the largest gap in Discovery |
+| KC-188 | KC-192 | Read "all dependent on admin" as accepting the status quo |
+| KC-050 | revised by KC-086 | Read flagged-pending copy as unnoticed drift |
 
-2. ~~**Business intent vs. planning documents**~~ — **CLOSED** by EVD-006
-   (KC-045–KC-049): everyday/imitation jewellery buyer, commercial and
-   portfolio build simultaneously, all recorded capabilities are live
-   commitments, revisable only by explicit navigation. Pricing and margin
-   reality remain unstated but do not block Discovery.
+All four were interpretation errors, not observation errors — the underlying
+facts held in every case. KC-188 was the only one recorded below full
+confidence (85%, with the ambiguity flagged), and it was the only one whose
+correction could not have been caught by re-reading the evidence.
 
-3. ~~**Media storage path**~~ — **CLOSED** during DISC-001 by `.gitignore`'s
-   own rationale (EVD-003): uploaded product media "lives in a Docker named
-   volume in production and is moved onto the VM with rsync (see
-   deploy/RUNBOOK.md §9)". So local disk **is** the production path, not a dev
-   fallback — there is no object store. KC-026 is upgraded to fact tier.
-   Durability of all product imagery therefore rests on one VM volume plus
-   rsync; carry this to `technical-debt` as a risk, not an open question.
+### Open gaps at close of Discovery
 
-4. **Bounded contexts** (`domain-discovery`). The weakest area: KC-022 infers
-   contexts from NestJS module names at 70%, and KC-043 shows only three of a
-   plausible twelve documented. A real context map needs inter-module coupling
-   read from source. Blocks `PRM-ARCHITECTURE` and every `PRM-DOMAIN` run, so
-   it is the highest-value gap to close from evidence already in hand.
+1. ~~Payment handoff mechanics~~ — closed (DISC-001).
+2. ~~Business intent~~ — closed (EVD-006).
+3. ~~Media storage path~~ — closed (DISC-001); became KC-205's operational risk.
+4. ~~Bounded contexts~~ — closed (DISC-006, measured three ways).
+5. ~~Non-functional requirements~~ — closed (KC-073, DISC-007 scorecard).
+6. ~~Domain/integration events~~ — closed (KC-150).
+7. ~~DRAFT-published product~~ — closed (KC-052), rule gap closed by KC-192.
+8. **Standing caveat** — EVD-002 and EVD-004 are superseded screenshots whose
+   source files were deleted after extraction. Claims derived from them are
+   point-in-time; `DISC-004` re-derived the journey layer from source rather
+   than inheriting them.
 
-5. **Non-functional requirements** (`business-vision`,
-   `technical-architecture`). Per `OV-001`'s cross-cutting extraction
-   checklist, NFRs must be explicitly checked for. Not yet extracted — EVD-005
-   is `processed: false` and may contain them. To be resolved when EVD-005 is
-   processed, not assumed absent.
-
-6. **Domain/integration events** (`domain-discovery`). Per the same checklist,
-   producer/consumer event pairs must be checked for. KC-021 hints at
-   status-history records but no event catalog has been extracted. Deferred to
-   the `domain-discovery` investigation.
-
-7. ~~**A DRAFT-labelled product is PUBLISHED and shoppable**~~ — **CLOSED**
-   by EVD-007 (KC-052): it was published deliberately by the owner to test the
-   payment and refund flow end to end. Not a defect and not a leak in the
-   publish path. KC-015 is superseded. The residual question — whether
-   DRAFT → PUBLISHED enforces any completeness rule at all (price > 0, real
-   title, description) — is a genuine one but is now an open design question
-   for `hidden-business-rules`, not evidence of a fault.
-
-8. **Evidence captured mid-flight** (cross-cutting). Per KC-051 the codebase
-   moved during intake. Screenshot-derived claims are point-in-time; any that
-   become load-bearing for a Frozen spec must be re-verified against source
-   first. Not a gap to close so much as a standing caveat on EVD-002/EVD-004.
+**Remaining unmeasured**: API achieved coverage (web measured at 96.98%,
+KC-204); NFR-1 performance; NFR-2 availability; NFR-6 mobile-first; NFR-10
+locale-readiness. None blocks M2.

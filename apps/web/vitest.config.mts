@@ -16,20 +16,16 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text'],
       include: ['lib/**', 'components/**'],
-      // `components/vision/**` is the "unlisted concept pitch... not the
-      // live storefront" cinematic redesign (see app/vision/page.tsx's own
-      // metadata: `robots: { index: false, follow: false }`) — it shipped
-      // with zero tests and was silently dragging global coverage down to
-      // ~64%, failing the gate for reasons unrelated to whatever a given
-      // PR actually touches. Excluded from the *gate*, not deleted — real
-      // production code under `lib/**`/`components/**` still requires
-      // coverage; a throwaway concept pitch doesn't need retroactive tests
-      // written for it to satisfy a threshold it was never going to justify.
-      // `components/cinematic/**` is used exclusively by the same vision
-      // concept-pitch pages (app/vision/**, app/cinematic/page.tsx) as
-      // `components/vision/**` above — same reasoning, just a sibling
-      // directory that was missed the first time.
-      exclude: ['lib/api/types.ts', '**/*.d.ts', 'components/vision/**', 'components/cinematic/**'],
+      // The `components/vision/**` and `components/cinematic/**` exclusions
+      // that used to sit here are gone (2026-08-07, DISC-009). They covered a
+      // concept-pitch redesign whose pages were retired in 276133a; the
+      // components were left behind and, per KC-199, the exclusion was the
+      // reason nobody noticed they had become dead code. The owner confirmed
+      // the pitch had served its purpose, so `components/cinematic/` is
+      // deleted and both exclusions removed rather than carried forward.
+      // Everything under `lib/**` and `components/**` now counts toward the
+      // gate — if something is excluded again, delete it or test it instead.
+      exclude: ['lib/api/types.ts', '**/*.d.ts'],
       thresholds: {
         statements: 90,
         branches: 90,
