@@ -23,6 +23,22 @@ cd "$DEPLOY_DIR"
 docker compose -f docker-compose.postgres.yml exec -T postgres \
     pg_dump -U jwel jwel | gzip > "$OUT/db-$STAMP.sql.gz"
 
+# Roles are CLUSTER-level and are NOT in a single-database pg_dump — but the
+# dump's GRANT statements reference them by name. Restoring db-*.sql.gz into a
+# fresh Postgres therefore aborts with `role "metabase_ro" does not exist`,
+# which the 2026-08-07 restore drill found (RUNBOOK §11b). The data restores
+# fine; the grants at the end of the file do not.
+#
+# Dump the role definitions alongside, so a restore is self-sufficient.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+    pg_dumpall -U jwel --roles-only | gzip > "$OUT/roles-$STAMP.sql.gz"
+
+# This file contains SCRAM password hashes for every role, including `jwel`,
+# which is SUPERUSER. They are hashes rather than plaintext, but they are
+# credential material and offline-crackable — unlike the data dumps, which
+# contain no secrets beyond customer PII. Owner-only.
+chmod 600 "$OUT/roles-$STAMP.sql.gz"
+
 # Addressed by volume name, not by container — this keeps working across a
 # redeploy that replaces the api container.
 docker run --rm -v jwel_uploads:/data -v "$OUT":/out alpine \
@@ -46,7 +62,7 @@ fi
 # A zero-byte dump means pg_dump failed but gzip still produced a file, so the
 # pipeline's exit status was gzip's. Catch it here rather than discovering it
 # during a restore.
-for f in "$OUT/db-$STAMP.sql.gz" "$OUT/uploads-$STAMP.tar.gz"; do
+for f in "$OUT/db-$STAMP.sql.gz" "$OUT/roles-$STAMP.sql.gz" "$OUT/uploads-$STAMP.tar.gz"; do
     if [[ ! -s $f ]]; then
         echo "backup FAILED: $f is empty" >&2
         exit 1
@@ -60,5 +76,6 @@ fi
 find "$OUT" -name 'db-*.sql.gz' -mtime +$RETAIN_DAYS -delete
 find "$OUT" -name 'uploads-*.tar.gz' -mtime +$RETAIN_DAYS -delete
 find "$OUT" -name 'metabase-db-*.sql.gz' -mtime +$RETAIN_DAYS -delete
+find "$OUT" -name 'roles-*.sql.gz' -mtime +$RETAIN_DAYS -delete
 
 echo "backup ok: $(du -h "$OUT/db-$STAMP.sql.gz" | cut -f1) db, $(du -h "$OUT/uploads-$STAMP.tar.gz" | cut -f1) uploads$([[ -f "$OUT/metabase-db-$STAMP.sql.gz" ]] && echo ", $(du -h "$OUT/metabase-db-$STAMP.sql.gz" | cut -f1) metabase-db")"

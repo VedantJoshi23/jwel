@@ -375,6 +375,275 @@ A backup nobody has restored is a hypothesis, not a backup.
 
 ---
 
+## 11a. Data-rewriting scripts (read before running one)
+
+Most scripts in `apps/api/src/prisma/` are additive — seeds that upsert
+reference data and change nothing else. **Some rewrite existing product data**,
+and those are not a `docker compose exec` away from being safe.
+
+The rule: **take a backup, verify it is readable, run the script, read its
+report.** In that order, every time. Step 11's daily cron is not enough on its
+own — it runs at 03:00, and you want a dump from *minutes* before the change,
+not from last night.
+
+### Before running any data-rewriting script
+
+```bash
+cd ~/jwel/deploy
+
+# 1. Fresh dump — not last night's cron output.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  pg_dump -U jwel jwel | gzip > backups/db-pre-$(date +%F-%H%M%S).sql.gz
+
+# 2. Confirm it is readable. A dump that will not gunzip is not a backup.
+gzip -t backups/db-pre-*.sql.gz && echo 'dump is readable'
+
+# 3. Note the row counts you expect the script to touch, so the report can be
+#    checked against something rather than believed.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d jwel -c "SELECT count(*) FROM product_variants WHERE size IS NOT NULL;"
+```
+
+### `normalise-variant-sizes.ts`
+
+Brings legacy free-text `product_variants.size` values into the vocabulary
+introduced by `FEAT-SIZE-TAXONOMY`. **It writes to `product_variants` and
+inserts into `size_options`.**
+
+```bash
+docker compose -f docker-compose.api.yml exec api \
+  npx ts-node --transpile-only src/prisma/normalise-variant-sizes.ts
+```
+
+Three outcomes per variant, and **rounding is not one of them**:
+
+| Case | Action |
+| --- | --- |
+| Value matches a curated size after trivial cleanup (`Size 18` → `18`) | Normalised |
+| Value is non-empty but matches nothing (`16.5`, `Free size`) | Preserved verbatim as a **custom** option |
+| Category has no size dimension but the variant has a size | Cleared to `NULL` |
+
+A ring genuinely made at 16.5 is not a 16. Clubbing it with a neighbour would
+silently change what the product physically is, which is why the script
+preserves rather than rounds.
+
+**Read the report.** It ends with a review queue — every custom value and how
+many variants carry it. That queue is the client's work: each entry is a value
+someone typed that is not standard, to be either promoted into the vocabulary
+or corrected on the product. The script is idempotent, and the queue is a
+standing list rather than a diff, so re-running is safe and does not make
+outstanding work appear to vanish.
+
+**Prerequisites**, or it will do the wrong thing quietly:
+
+1. The size migration is applied (`20260807124440_add_size_taxonomy`).
+2. `seed-size-options.ts` has run — without the curated vocabulary, *every*
+   existing size becomes a custom option.
+3. Categories have their schemes assigned. A category whose scheme has not been
+   set yet resolves to unsized, and its variants' sizes are **cleared**.
+
+Run those in order first:
+
+```bash
+docker compose -f docker-compose.api.yml exec api npm run prisma:seed:sizes
+```
+
+### Why the normalisation script has no npm alias
+
+`seed-size-options.ts` has one (`prisma:seed:sizes`) because it is additive and
+idempotent — re-running it is harmless. `normalise-variant-sizes.ts`
+deliberately does **not**, and the full `ts-node` path above is not an
+oversight.
+
+A script in `package.json` is discoverable and easy to run, which is exactly
+right for a seed and exactly wrong for something that rewrites product data. If
+running it requires looking up this section, the backup above gets taken.
+
+### Known limitation
+
+**There is no dry-run mode.** The script reports what it did, not what it would
+do. The backup in the section above is the mitigation, and it is the reason
+that section is not optional. If this script is going to be run against a large
+catalogue more than once, adding `--dry-run` is worth the hour.
+
+---
+
+## 11b. Restore drill (do this, and record that you did)
+
+A backup nobody has restored is a hypothesis. `ADR-0010` accepted single-node
+topology **on the explicit basis** that recovery relies on this procedure
+rather than on redundancy — so an unexercised restore is not a gap in
+diligence, it is the load-bearing assumption of the deployment being untested.
+Constitution **Law 6** makes exercising it non-optional.
+
+**The drill never writes to production.** Production is read from — a dump and
+some `SELECT count(*)` — and everything else happens in a scratch container.
+
+### The procedure
+
+```bash
+cd ~/jwel/deploy
+
+# 1. Integrity of the pair you intend to restore. Both, always: a database
+#    without its uploads leaves every product_media row pointing at a missing
+#    file, which is a restore that "succeeded" into a catalogue of broken
+#    images.
+gzip -t backups/db-<DATE>.sql.gz && gzip -t backups/uploads-<DATE>.tar.gz
+
+# 2. Record what production currently holds, to compare against.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d jwel -tAF'|' -c "
+    SELECT 'products', count(*) FROM products
+    UNION ALL SELECT 'product_media', count(*) FROM product_media
+    UNION ALL SELECT 'orders', count(*) FROM orders
+    UNION ALL SELECT 'users', count(*) FROM users ORDER BY 1;" > /tmp/prod-counts.txt
+
+# 3. Scratch Postgres on a DIFFERENT port. Never 5432.
+#
+#    Bootstrap it as `postgres`, NOT as `jwel`. The roles dump contains
+#    `CREATE ROLE jwel`, so a container that already has that role fails at
+#    step 4 with `role "jwel" already exists`. Bootstrapping as postgres also
+#    mirrors real recovery: a fresh cluster where every application role comes
+#    from the dump rather than from the container's environment.
+docker run -d --rm --name jwel-restore-drill \
+  -e POSTGRES_PASSWORD=drill -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres \
+  -p 127.0.0.1:5434:5432 postgres:16
+
+# 4. Roles first. Without this the database restore aborts on its GRANTs.
+zcat backups/roles-<DATE>.sql.gz | \
+  docker exec -i jwel-restore-drill psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q
+echo "exit=$?"     # must be 0
+
+# 5. The database itself does not exist yet in a fresh cluster.
+docker exec jwel-restore-drill psql -U postgres -d postgres \
+  -c "CREATE DATABASE jwel OWNER jwel;"
+
+# 6. Restore, stopping on the first error rather than limping on.
+zcat backups/db-<DATE>.sql.gz | \
+  docker exec -i jwel-restore-drill psql -U postgres -d jwel -v ON_ERROR_STOP=1 -q
+echo "exit=$?"     # must be 0
+
+# 7. Compare against production.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAF'|' -c "<same query as step 2>" \
+  > /tmp/drill-counts.txt
+diff /tmp/prod-counts.txt /tmp/drill-counts.txt && echo 'row counts identical'
+
+# 8. The grants that failed the first drill actually landed.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAc \
+  "SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='metabase_ro';"
+
+# 9. The pairing check — every media row must have its file.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAc \
+  "SELECT replace(storage_ref,'local:','') FROM product_media ORDER BY 1;" \
+  | sed 's|^|./|' | sort > /tmp/db-refs.txt
+tar tzf backups/uploads-<DATE>.tar.gz | grep -v '/$' | sort > /tmp/archive-files.txt
+comm -23 /tmp/db-refs.txt /tmp/archive-files.txt | wc -l   # must be 0
+
+# 10. Tear down.
+docker rm -f jwel-restore-drill
+```
+
+**If you are re-running the backup script to produce a fresh set first**, note
+that it overwrites the same day's files. Copy the pair you already trust
+somewhere outside `backups/` before doing so.
+
+Optional but worth doing once: apply `prisma migrate deploy` against the
+scratch database and boot the API against it. A restore that satisfies the
+schema but that the application cannot serve is not a recovery.
+
+### What the drill found — 2026-08-07
+
+**The restore failed on a clean Postgres.**
+
+```
+ERROR:  role "metabase_ro" does not exist
+```
+
+`pg_dump` of a single database does **not** include role definitions — those
+are cluster-level — but the dump's trailing `GRANT ... TO metabase_ro`
+statements reference one by name. The role was created for Metabase reporting
+and nothing ever dumped it.
+
+The failure mode is worse than it first looks. The grants sit at the **end** of
+the file, after the data, so:
+
+- with `ON_ERROR_STOP=1` the restore aborts non-zero, and an operator following
+  a script sees failure at the very last step;
+- **without** it, `psql` carries on and exits 0, leaving a database that looks
+  restored but has no reporting grants — a silent partial recovery.
+
+**Fix applied**: `backup.sh` now also writes `roles-$STAMP.sql.gz` via
+`pg_dumpall --roles-only`, retained on the same 14-day schedule, covered by the
+zero-byte guard, and `chmod 600` — it contains SCRAM password hashes for every
+role including `jwel`, which is `SUPERUSER`. Hashes rather than plaintext, but
+credential material nonetheless, and unlike the data dumps it is not merely
+PII.
+
+### What the second drill found — 2026-08-07, same day
+
+Re-run after the fix, against a backup set produced by the **real script**
+rather than by hand. It failed too — this time in the procedure written above:
+
+```
+ERROR:  role "jwel" already exists
+```
+
+`pg_dumpall --roles-only` includes the bootstrap role, and the drill container
+had been created with `POSTGRES_USER=jwel`. The first version of step 3 above
+was wrong.
+
+Fixed by bootstrapping the scratch cluster as `postgres` and letting **every**
+application role come from the dump — which is also closer to real recovery,
+where you would not hand-create `jwel` before restoring it.
+
+Two drills, two defects, neither visible without running one.
+
+### Result — 2026-08-07
+
+Everything below was verified against `db-2026-08-07.sql.gz` and
+`uploads-2026-08-07.tar.gz`, restored into a scratch container.
+
+| Check | Result |
+| --- | --- |
+| Archive integrity, both files | pass |
+| Restore exit code, roles pre-created | 0, no errors |
+| Row counts vs production | identical across 9 tables |
+| Tables / indexes / CHECK constraints | 28 / 81 / 7 |
+| Migrations recorded | 6, all finished |
+| `products.search_vector` populated | 1047 rows — the generated column survives |
+| Media rows vs archived files | 1047 / 1047 |
+| References with no file | **0** |
+| Files with no reference | **0** |
+| Extracted files that are zero-byte | **0** |
+| Extracted files are real images | verified via `file` |
+| Pending migrations apply on top | yes |
+| API boots and serves restored data | yes — `/health/ready` 200, catalogue served |
+
+### Result — second drill, after the fix
+
+Against a backup set produced by the real `backup.sh`, following the corrected
+procedure above:
+
+| Check | Result |
+| --- | --- |
+| Roles restore, `ON_ERROR_STOP` | exit 0 |
+| Database restore, `ON_ERROR_STOP` | exit 0, no manual role creation |
+| Row counts vs production | identical across 9 tables |
+| `metabase_ro` table grants | **28** — the ones that aborted the first drill |
+| Roles present | 3 (`jwel`, `metabase`, `metabase_ro`) |
+| Tables | 28 |
+| `products.search_vector` populated | 1047 |
+
+**Conclusion: the backups are restorable and self-sufficient.** They were
+neither until these drills ran, and the procedure for restoring them was wrong
+until the second one.
+
+Re-run after any change to the backup script, the schema, or the storage
+provider — the first drill was invalidated by a change to the backup script
+within the hour, which is the rate this actually moves at.
+
+---
+
 ## 12. Changing the domain
 
 Expected at least once: the staging deployment runs on a domain you already

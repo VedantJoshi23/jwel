@@ -112,7 +112,10 @@ reconciliation pattern `ADR-0008` establishes for rating aggregates.
    does not become an item that silently never happens.
 5. **Backup and restore carry the reliability burden** that redundancy would
    otherwise carry, which raises the importance of `deploy/RUNBOOK.md`'s
-   restore procedure actually being exercised.
+   restore procedure actually being exercised. **Exercised 2026-08-07** and
+   recorded in `RUNBOOK` §11b — it found the dump was not self-sufficient
+   (missing role definitions) and that defect is fixed. This ADR's central
+   assumption is now evidenced rather than assumed.
 
 ## Alternatives Considered
 
