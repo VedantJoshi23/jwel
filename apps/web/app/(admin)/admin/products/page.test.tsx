@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import AdminProductsPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminListProducts } from '@/lib/api/admin-products';
+import { adminListProducts, adminUpdateProductStatus } from '@/lib/api/admin-products';
+import { ApiError } from '@/lib/api/client';
 
 let searchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
@@ -112,5 +114,91 @@ describe('AdminProductsPage', () => {
     // them is what produces React's act() warning.
     expect(await screen.findByText('Untitled Draft a')).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+  });
+});
+
+describe('AdminProductsPage — publish gate (FEAT-PUBLISH-COMPLETENESS)', () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+    listProducts.mockReset();
+    listProducts.mockResolvedValue(pageOf(1) as never);
+    vi.mocked(adminUpdateProductStatus).mockReset();
+    useAuthStore.getState().setSession('token-1', {
+      id: 'u1',
+      email: 'a@b.c',
+      name: 'Admin',
+      role: 'ADMIN',
+    });
+  });
+
+  it('shows warnings when a publish succeeds with them', async () => {
+    // A warning nobody sees is not a warning — the response is read, not
+    // discarded.
+    vi.mocked(adminUpdateProductStatus).mockResolvedValue({
+      ...product('p1'),
+      status: 'PUBLISHED',
+      publishWarnings: ['This product has no images. It will publish, but customers will see an empty gallery.'],
+    } as never);
+
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+
+    expect(await screen.findByText('Published, with warnings')).toBeInTheDocument();
+    expect(screen.getByText(/no images/)).toBeInTheDocument();
+  });
+
+  it('shows nothing extra when a publish succeeds cleanly', async () => {
+    vi.mocked(adminUpdateProductStatus).mockResolvedValue({
+      ...product('p1'),
+      status: 'PUBLISHED',
+      publishWarnings: [],
+    } as never);
+
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+
+    await waitFor(() => expect(adminUpdateProductStatus).toHaveBeenCalled());
+    expect(screen.queryByText('Published, with warnings')).not.toBeInTheDocument();
+  });
+
+  it('surfaces every blocker from a refused publish', async () => {
+    // The API returns one message listing all failures, so the client fixes
+    // them in one pass rather than one round trip each.
+    vi.mocked(adminUpdateProductStatus).mockRejectedValue(
+      new ApiError(
+        'Cannot publish "Untitled Draft 1041": Name is still the generated placeholder. Variant "SKU-1" has no price.',
+        400,
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+
+    expect(await screen.findByText(/generated placeholder/)).toBeInTheDocument();
+    expect(screen.getByText(/has no price/)).toBeInTheDocument();
+  });
+
+  it('clears a previous warning when a later publish is clean', async () => {
+    vi.mocked(adminUpdateProductStatus)
+      .mockResolvedValueOnce({ ...product('p1'), publishWarnings: ['no images'] } as never)
+      .mockResolvedValueOnce({ ...product('p1'), publishWarnings: [] } as never);
+
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+    expect(await screen.findByText('Published, with warnings')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Publish' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Published, with warnings')).not.toBeInTheDocument(),
+    );
   });
 });

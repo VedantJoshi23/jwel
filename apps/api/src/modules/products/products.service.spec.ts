@@ -208,7 +208,12 @@ describe('ProductsService', () => {
     it('adminUpdate emits product.upserted on success', async () => {
       prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
       prisma.product.update.mockResolvedValue(fakeProduct('p1', 100));
-      await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
+      // A rename, not a publish. This test is about the event, and since
+      // FEAT-PUBLISH-COMPLETENESS a publish transition runs a completeness gate
+      // that this minimal fixture would fail — entangling the two would make
+      // an event assertion depend on catalogue-data rules. The gate has its own
+      // tests below.
+      await service.adminUpdate('p1', { name: 'Renamed' } as any);
       expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
     });
 
@@ -524,5 +529,138 @@ describe('ProductsService', () => {
       expect(arg.where).toEqual({ id: 'c1' });
       expect(arg.data.deletedAt).toBeInstanceOf(Date);
     });
+  });
+});
+
+describe('ProductsService — publish gate (FEAT-PUBLISH-COMPLETENESS)', () => {
+  let prisma: any;
+  let eventBus: any;
+  let sizes: any;
+  let service: ProductsService;
+
+  const publishable = (over: any = {}) => ({
+    id: 'p1',
+    name: 'Dazzle Band Silver Ring',
+    description: 'A studded band in 92.5 sterling silver.',
+    status: 'DRAFT',
+    categoryId: 'cat-1',
+    media: [{ id: 'm1', storageRef: 'local:products/a.png', sortOrder: 0 }],
+    variants: [{ id: 'v1', sku: 'SKU-1', basePriceMinorUnits: 249900, size: '16' }],
+    ...over,
+  });
+
+  beforeEach(() => {
+    prisma = {
+      product: { findUnique: jest.fn(), update: jest.fn() },
+      productVariant: { findUnique: jest.fn(), update: jest.fn() },
+      category: { findUnique: jest.fn().mockResolvedValue({ sizeScheme: 'RING_INDIA', parentId: null }) },
+      $transaction: jest.fn((fn: any) => (typeof fn === 'function' ? fn(prisma) : Promise.all(fn))),
+    };
+    eventBus = { emit: jest.fn() };
+    sizes = { valuesFor: jest.fn().mockResolvedValue(new Set(['16'])) };
+    const storage = { resolveUrl: (r: string) => `https://cdn/${r}`, upload: jest.fn(), delete: jest.fn() };
+    service = new ProductsService(prisma, eventBus, storage as any, sizes);
+  });
+
+  it('publishes a complete product and returns no warnings', async () => {
+    prisma.product.findUnique.mockResolvedValue(publishable());
+    prisma.product.update.mockResolvedValue(publishable({ status: 'PUBLISHED' }));
+
+    const result: any = await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
+
+    expect(result.publishWarnings).toEqual([]);
+    expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
+  });
+
+  it('refuses to publish a generated placeholder draft', async () => {
+    prisma.product.findUnique.mockResolvedValue(
+      publishable({
+        name: 'Untitled Draft 1041',
+        description: 'Pending — placeholder draft created from an uploaded image. Edit before publishing.',
+        variants: [{ id: 'v1', sku: 'DRAFT-x', basePriceMinorUnits: 0, size: null }],
+      }),
+    );
+
+    await expect(service.adminUpdate('p1', { status: 'PUBLISHED' } as any)).rejects.toThrow(
+      /Cannot publish/,
+    );
+  });
+
+  it('does not emit product.upserted when a publish is refused', async () => {
+    // Nothing changed, so nothing downstream should reindex or react.
+    prisma.product.findUnique.mockResolvedValue(publishable({ name: 'Untitled Draft 3' }));
+
+    await expect(service.adminUpdate('p1', { status: 'PUBLISHED' } as any)).rejects.toThrow();
+
+    expect(eventBus.emit).not.toHaveBeenCalled();
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it('returns warnings when publishing a product with no images', async () => {
+    prisma.product.findUnique.mockResolvedValue(publishable({ media: [] }));
+    prisma.product.update.mockResolvedValue(publishable({ status: 'PUBLISHED', media: [] }));
+
+    const result: any = await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
+
+    expect(result.publishWarnings).toEqual([expect.stringContaining('no images')]);
+    expect(eventBus.emit).toHaveBeenCalled();
+  });
+
+  it('runs the gate on ARCHIVED -> PUBLISHED too (§7.3)', async () => {
+    // A product may have been archived precisely because it was wrong.
+    prisma.product.findUnique.mockResolvedValue(
+      publishable({ status: 'ARCHIVED', name: 'Untitled Draft 9' }),
+    );
+
+    await expect(service.adminUpdate('p1', { status: 'PUBLISHED' } as any)).rejects.toThrow();
+  });
+
+  it('does NOT re-run the gate when editing an already-published product (§7.2)', async () => {
+    // Blocking here would refuse edits to products published before the gate
+    // existed. That is a separate rule, recorded as a gap.
+    prisma.product.findUnique.mockResolvedValue(
+      publishable({ status: 'PUBLISHED', name: 'Untitled Draft 4' }),
+    );
+    prisma.product.update.mockResolvedValue(publishable({ status: 'PUBLISHED' }));
+
+    const result: any = await service.adminUpdate('p1', { status: 'PUBLISHED' } as any);
+
+    expect(result.publishWarnings).toBeUndefined();
+  });
+
+  it('validates against a price set in the SAME request', async () => {
+    // "Set the price and publish" in one call must not be refused for a price
+    // it is about to have.
+    prisma.product.findUnique.mockResolvedValue(
+      publishable({ variants: [{ id: 'v1', sku: 'SKU-1', basePriceMinorUnits: 0, size: '16' }] }),
+    );
+    prisma.productVariant.findUnique.mockResolvedValue({ id: 'v1', productId: 'p1' });
+    prisma.product.update.mockResolvedValue(publishable({ status: 'PUBLISHED' }));
+
+    await expect(
+      service.adminUpdate('p1', {
+        status: 'PUBLISHED',
+        variantPriceUpdates: [{ variantId: 'v1', basePriceMinorUnits: 249900 }],
+      } as any),
+    ).resolves.toBeDefined();
+  });
+
+  it('does not demand a size for an unsized category', async () => {
+    prisma.category.findUnique.mockResolvedValue({ sizeScheme: null, parentId: null });
+    prisma.product.findUnique.mockResolvedValue(
+      publishable({ variants: [{ id: 'v1', sku: 'E-1', basePriceMinorUnits: 100, size: null }] }),
+    );
+    prisma.product.update.mockResolvedValue(publishable({ status: 'PUBLISHED' }));
+
+    await expect(service.adminUpdate('p1', { status: 'PUBLISHED' } as any)).resolves.toBeDefined();
+  });
+
+  it('leaves a non-publish update untouched by the gate', async () => {
+    prisma.product.findUnique.mockResolvedValue(publishable({ name: 'Untitled Draft 2' }));
+    prisma.product.update.mockResolvedValue(publishable({ name: 'Renamed' }));
+
+    const result: any = await service.adminUpdate('p1', { name: 'Renamed' } as any);
+
+    expect(result.publishWarnings).toBeUndefined();
   });
 });
