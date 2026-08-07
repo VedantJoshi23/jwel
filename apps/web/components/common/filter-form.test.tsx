@@ -53,6 +53,7 @@ describe('FilterForm — size (FEAT-SIZE-TAXONOMY)', () => {
       diameterMm: '17.93',
       usEquivalent: '8',
       ukEquivalent: 'P½',
+      isCustom: false,
     },
     {
       scheme: 'RING_INDIA' as const,
@@ -62,6 +63,7 @@ describe('FilterForm — size (FEAT-SIZE-TAXONOMY)', () => {
       diameterMm: '18.54',
       usEquivalent: '9',
       ukEquivalent: 'R½',
+      isCustom: false,
     },
   ];
 

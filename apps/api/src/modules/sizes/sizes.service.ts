@@ -12,7 +12,13 @@ export interface SizeOptionResponse {
    * FEAT-SIZE-TAXONOMY §6. Serialised as a string because it is a
    * Prisma Decimal; JSON numbers would lose the fixed scale.
    */
-  circumferenceMm: string;
+  circumferenceMm: string | null;
+  /**
+   * True for values recovered from legacy free-text data. Real and
+   * filterable, but never offered when creating a new product — see
+   * FEAT-SIZE-TAXONOMY criterion 10.
+   */
+  isCustom: boolean;
   diameterMm: string | null;
   usEquivalent: string | null;
   ukEquivalent: string | null;
@@ -29,9 +35,17 @@ export interface SizeOptionResponse {
 export class SizesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(scheme?: SizeScheme): Promise<SizeOptionResponse[]> {
+  /**
+   * @param curatedOnly excludes custom options. The admin creation form passes
+   *   true — offering a custom value there would let the free-text vocabulary
+   *   this feature replaces creep back in one product at a time.
+   */
+  async findAll(scheme?: SizeScheme, curatedOnly = false): Promise<SizeOptionResponse[]> {
     const options = await this.prisma.sizeOption.findMany({
-      where: scheme ? { scheme } : undefined,
+      where: {
+        ...(scheme ? { scheme } : {}),
+        ...(curatedOnly ? { isCustom: false } : {}),
+      },
       orderBy: [{ scheme: 'asc' }, { sortOrder: 'asc' }],
     });
 
@@ -39,14 +53,22 @@ export class SizesService {
       scheme: option.scheme,
       value: option.value,
       label: option.label,
-      circumferenceMm: option.circumferenceMm.toString(),
+      circumferenceMm: option.circumferenceMm?.toString() ?? null,
+      isCustom: option.isCustom,
       diameterMm: option.diameterMm?.toString() ?? null,
       usEquivalent: option.usEquivalent,
       ukEquivalent: option.ukEquivalent,
     }));
   }
 
-  /** Canonical values for a scheme, for validating a variant's size. */
+  /**
+   * Values accepted for a scheme when validating a variant.
+   *
+   * Includes custom options: a product already carrying "16.5" must survive an
+   * unrelated edit. What stops new drift is the admin form not *offering*
+   * custom values (criterion 10), not the validator refusing them — refusing
+   * would make every legacy product unsaveable.
+   */
   async valuesFor(scheme: SizeScheme): Promise<Set<string>> {
     const options = await this.prisma.sizeOption.findMany({
       where: { scheme },

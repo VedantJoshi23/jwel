@@ -286,6 +286,7 @@ describe('ProductForm — size selector (FEAT-SIZE-TAXONOMY)', () => {
       diameterMm: '17.93',
       usEquivalent: '8',
       ukEquivalent: 'P½',
+      isCustom: false,
     },
   ];
 
@@ -358,7 +359,8 @@ describe('ProductForm — size selector (FEAT-SIZE-TAXONOMY)', () => {
     // Solitaire has a null scheme and sits under Rings, so it inherits.
     await user.selectOptions(screen.getByLabelText('Category'), 'c-solitaire');
 
-    await waitFor(() => expect(spy).toHaveBeenCalledWith('RING_INDIA'));
+    // curatedOnly, because a custom value must never be offered on creation.
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('RING_INDIA', { curatedOnly: true }));
   });
 
   it('clears a stale size when switching to an unsized category', async () => {

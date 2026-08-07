@@ -81,7 +81,11 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
       setSizeOptions([]);
       return;
     }
-    safeGetSizes(sizeScheme).then((options) => {
+    // curatedOnly: a custom value exists because legacy data had it, not
+    // because it is a size anyone should pick going forward. Offering it here
+    // would let the free-text vocabulary creep back one product at a time
+    // (FEAT-SIZE-TAXONOMY criterion 10).
+    safeGetSizes(sizeScheme, { curatedOnly: true }).then((options) => {
       if (!cancelled) setSizeOptions(options);
     });
     return () => {

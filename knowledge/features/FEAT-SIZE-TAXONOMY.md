@@ -1,7 +1,7 @@
 ---
 id: FEAT-SIZE-TAXONOMY
 title: 'Jwel / ELYSIAN — Feature: Category-Aware Size Taxonomy & Filter'
-version: 0.1.0
+version: 0.2.0
 status: Review
 owner: Architecture
 reviewers:
@@ -35,6 +35,12 @@ complexity: Medium
 ---
 
 # FEAT-SIZE-TAXONOMY
+
+> **Amended 2026-08-07 (v0.2.0)** — owner decision on legacy data. Criterion 8
+> originally nulled unmappable sizes; it now preserves them verbatim as
+> **custom** options, and criteria 10–11 were added. Rounding an unmappable
+> value to a nearby seeded size would silently change what a product physically
+> is, which is worse than either keeping it or dropping it.
 
 ## 1. Overview
 
@@ -87,10 +93,18 @@ to them.
    only where the category has a scheme.
 7. The product detail page shows the size, and a **size guide** giving the
    physical measurements and international equivalents.
-8. Existing free-text sizes are normalised or nulled; no unconstrained value
-   survives the migration.
+8. Existing free-text sizes are either **normalised** to a seeded value or
+   **preserved exactly as a custom option**. Nothing is rounded, clubbed with a
+   nearby size, or discarded — a ring genuinely made at 16.5 is not a 16, and
+   changing it would misrepresent a physical product.
 9. Bulk CSV import validates size against the scheme and rejects rows that do
    not match, rather than importing them silently.
+10. A **custom** size is a first-class option for filtering and display, but is
+    **never offered when creating a new product**. Without that exclusion,
+    custom values become the new free text and the vocabulary drifts again.
+11. Every seeded (non-custom) size has a real circumference. A custom size may
+    have none, and the size guide omits rows it cannot measure rather than
+    printing an invented figure.
 
 ## 4. API Surface
 
@@ -126,7 +140,8 @@ All within `DOM-CATALOG`'s Data Ownership.
 **New enum** `SizeScheme` — `RING_INDIA`, `BANGLE_INDIA`, `CHAIN_LENGTH_MM`,
 `BRACELET_LENGTH_MM`. A category with no scheme stores `NULL`.
 
-**New table** `size_options` — seeded reference data:
+**New table** `size_options` — reference data, seeded plus any custom values
+recovered from legacy data:
 
 | Column | Notes |
 | --- | --- |
@@ -137,8 +152,21 @@ All within `DOM-CATALOG`'s Data Ownership.
 | `circumference_mm` | `Decimal(5,2)` — the authoritative physical measure |
 | `us_equivalent`, `uk_equivalent` | nullable strings |
 | `sort_order` | integer |
+| `is_custom` | boolean, default false — recovered from legacy data, not part of the curated vocabulary |
 
 Unique on `(scheme, value)`; indexed on `(scheme, sort_order)`.
+
+**`circumference_mm` is NOT NULL only for non-custom rows**, enforced by a
+CHECK constraint:
+
+```sql
+CHECK ((is_custom = false AND circumference_mm IS NOT NULL) OR is_custom = true)
+```
+
+The guarantee is kept exactly where it matters — every curated size has a real
+measurement — while a custom row is allowed to be honest about not having one.
+`"Free size"` has no circumference, and inventing one would be the fabrication
+Law 1 forbids.
 
 **Changed** — `Category.sizeScheme` (nullable enum). `ProductVariant.size`
 keeps its column but its values become constrained to
@@ -194,9 +222,11 @@ ring has no size.
    sub-category carries no scheme, or the scheme includes an explicit
    `ADJUSTABLE` option. **The sub-category override is preferable** — it keeps
    the size vocabulary physical.
-2. **Existing free-text sizes.** Two published products and 1,045 drafts. Values
-   that map cleanly are normalised; the rest are nulled and surfaced to the
-   client as incomplete. **They must not silently survive** (criterion 8).
+2. **Existing free-text sizes.** Two published products and 1,045 drafts.
+   Values that map cleanly to a seeded option are normalised. The rest are
+   **preserved verbatim as custom options** (criteria 8, 10) and reported to
+   the client as a review queue — not rounded, not clubbed, not nulled.
+   Rounding would silently change what a product physically is.
 3. **Category's scheme changed after variants exist.** Existing variant sizes
    become invalid. The change must be blocked while non-conforming variants
    exist, rather than orphaning data.
@@ -232,24 +262,35 @@ than converting.
 
 ## 9. Definition of Done
 
-- [ ] `SizeScheme` enum, `size_options` table, `Category.sizeScheme` migrated.
-- [ ] Ring sizes 6–26 seeded with circumference, diameter, US and UK values;
+- [x] `SizeScheme` enum, `size_options` table, `Category.sizeScheme` migrated.
+- [x] Ring sizes 6–26 seeded with circumference, diameter, US and UK values;
       seed is idempotent.
-- [ ] Category schemes assigned per §6, including the Adjustable override.
-- [ ] Variant size validated against the category scheme on create, update and
+- [x] Category schemes assigned per §6, including the Adjustable override.
+- [x] Variant size validated against the category scheme on create, update and
       bulk import.
-- [ ] Existing free-text sizes normalised or nulled; count of nulled variants
-      reported to the client.
-- [ ] `GET /sizes` and the `size` filter on `GET /products` implemented and
+- [x] Existing free-text sizes normalised where they map, preserved as custom
+      options where they do not; count of custom options reported to the client
+      as a standing review queue (`normalise-variant-sizes.ts`).
+- [x] Custom options excluded from the admin creation selector, present in
+      filters and display (`curatedOnly`).
+- [x] `GET /sizes` and the `size` filter on `GET /products` implemented and
       tested.
-- [ ] Admin forms use a constrained selector, shown only for sized categories.
-- [ ] Storefront filter and PDP size guide implemented, meeting
+- [x] Admin forms use a constrained selector, shown only for sized categories.
+- [x] Storefront filter and PDP size guide implemented, meeting
       `STD-ACCESSIBILITY`.
-- [ ] Every §7 edge case covered by a test.
-- [ ] `DOM-CATALOG` amended to carry the size invariants (its §3 does not yet
+- [x] Every §7 edge case covered by a test.
+- [x] `DOM-CATALOG` amended to carry the size invariants (its §3 does not yet
       mention sizing).
 - [ ] Client informed that the size vocabulary is fixed before data entry
-      begins.
+      begins, and given the custom-value review queue. **Outstanding — the only
+      remaining item, and it is a conversation rather than code.**
+
+### Not done deliberately
+
+The normalisation script has **not been run against any real database**. It is
+written, tested and verified against a throwaway Postgres container with
+representative legacy data, but running it is a deliberate deploy step against
+live data — see `deploy/RUNBOOK.md`.
 
 ## 10. Sources
 

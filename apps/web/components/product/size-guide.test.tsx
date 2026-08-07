@@ -11,6 +11,7 @@ const ring = (value: string, circ: string, dia: string, us: string, uk: string) 
   diameterMm: dia,
   usEquivalent: us,
   ukEquivalent: uk,
+  isCustom: false,
 });
 
 const chain = (value: string, label: string) => ({
@@ -21,6 +22,7 @@ const chain = (value: string, label: string) => ({
   diameterMm: null,
   usEquivalent: null,
   ukEquivalent: null,
+  isCustom: false,
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -85,6 +87,46 @@ describe('SizeGuide', () => {
 
     // Three dashes: diameter, US and UK on the second row.
     expect(screen.getAllByText('—')).toHaveLength(3);
+  });
+
+  it('omits a custom size with no measurement (criterion 11)', async () => {
+    // The guide exists to give measurements. A custom value recovered from
+    // legacy data has none, and a blank row would read as missing data rather
+    // than as genuinely unknown. It still appears in the filter.
+    vi.spyOn(sizesApi, 'safeGetSizes').mockResolvedValue([
+      ring('16', '56.3', '17.93', '8', 'P½'),
+      {
+        scheme: 'RING_INDIA' as const,
+        value: 'Free size',
+        label: 'Free size',
+        circumferenceMm: null,
+        diameterMm: null,
+        usEquivalent: null,
+        ukEquivalent: null,
+        isCustom: true,
+      },
+    ]);
+    render(await SizeGuide({ scheme: 'RING_INDIA' }));
+
+    expect(screen.getByRole('rowheader', { name: '16' })).toBeInTheDocument();
+    expect(screen.queryByText('Free size')).not.toBeInTheDocument();
+  });
+
+  it('renders nothing when every option is unmeasurable', async () => {
+    vi.spyOn(sizesApi, 'safeGetSizes').mockResolvedValue([
+      {
+        scheme: 'RING_INDIA' as const,
+        value: 'Free size',
+        label: 'Free size',
+        circumferenceMm: null,
+        diameterMm: null,
+        usEquivalent: null,
+        ukEquivalent: null,
+        isCustom: true,
+      },
+    ]);
+    const { container } = render(await SizeGuide({ scheme: 'RING_INDIA' }));
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('advises measuring rather than converting (Law 1)', async () => {

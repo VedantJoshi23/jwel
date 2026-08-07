@@ -7,12 +7,18 @@ import type { SizeOption, SizeScheme } from './types';
  * Read-only by design: sizes are reference data, and letting a client invent
  * one is how the free-text vocabulary this feature replaces came about.
  */
-export function getSizes(scheme?: SizeScheme, revalidate = 3600): Promise<SizeOption[]> {
+export function getSizes(
+  scheme?: SizeScheme,
+  { curatedOnly = false, revalidate = 3600 }: { curatedOnly?: boolean; revalidate?: number } = {},
+): Promise<SizeOption[]> {
   // Cached for an hour rather than per-request: this is seeded data that
   // changes only when someone runs a seed script, and both the collection
   // filter and every PDP read it.
-  const query = scheme ? `?scheme=${encodeURIComponent(scheme)}` : '';
-  return apiFetch<SizeOption[]>(`/sizes${query}`, { revalidate });
+  const params = new URLSearchParams();
+  if (scheme) params.set('scheme', scheme);
+  if (curatedOnly) params.set('curatedOnly', 'true');
+  const query = params.toString();
+  return apiFetch<SizeOption[]>(`/sizes${query ? `?${query}` : ''}`, { revalidate });
 }
 
 /**
@@ -22,10 +28,13 @@ export function getSizes(scheme?: SizeScheme, revalidate = 3600): Promise<SizeOp
  * unreachable the listing must still render, just without the filter. Same
  * posture as `safeGetProducts`.
  */
-export async function safeGetSizes(scheme?: SizeScheme | null): Promise<SizeOption[]> {
+export async function safeGetSizes(
+  scheme?: SizeScheme | null,
+  options: { curatedOnly?: boolean } = {},
+): Promise<SizeOption[]> {
   if (!scheme || scheme === 'NONE') return [];
   try {
-    return await getSizes(scheme);
+    return await getSizes(scheme, options);
   } catch {
     return [];
   }

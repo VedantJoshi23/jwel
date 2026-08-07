@@ -41,7 +41,12 @@ export async function SizeGuide({ scheme }: { scheme: SizeScheme | null | undefi
   const copy = SCHEME_COPY[scheme];
   if (!copy) return null;
 
-  const options = await safeGetSizes(scheme);
+  const all = await safeGetSizes(scheme);
+  // A custom size recovered from legacy data has no measurement, and the guide
+  // exists to give measurements. Listing it with blank cells would suggest the
+  // data is missing rather than genuinely unknown (criterion 11). It still
+  // appears in the filter and on the product itself.
+  const options = all.filter((option) => option.circumferenceMm !== null);
   if (options.length === 0) return null;
 
   // Only render columns the scheme actually populates — chains have no US or

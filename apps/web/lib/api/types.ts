@@ -70,10 +70,16 @@ export interface SizeOption {
    * Authoritative measurement. Serialised as a string, not a number: it is a
    * fixed-scale decimal and JSON numbers would drop the trailing zero.
    */
-  circumferenceMm: string;
+  circumferenceMm: string | null;
   diameterMm: string | null;
   usEquivalent: string | null;
   ukEquivalent: string | null;
+  /**
+   * Recovered from legacy free-text data rather than curated. Real and
+   * filterable — a ring genuinely made at 16.5 is not a 16 — but never offered
+   * when creating a new product (FEAT-SIZE-TAXONOMY criterion 10).
+   */
+  isCustom: boolean;
 }
 
 /**

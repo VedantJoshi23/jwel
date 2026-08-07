@@ -437,14 +437,26 @@ model SizeOption {
   // length scheme can display "45 cm" for a stored "450".
   label            String
   diameterMm       Decimal?   @map("diameter_mm") @db.Decimal(5, 2)
-  circumferenceMm  Decimal    @map("circumference_mm") @db.Decimal(5, 2)
+  // NOT NULL for curated rows, nullable for custom ones — enforced by the
+  // `curated_has_circumference` CHECK constraint. A legacy value like
+  // "Free size" has no measurement, and inventing one to satisfy the column
+  // would be the fabrication Law 1 forbids.
+  circumferenceMm  Decimal?   @map("circumference_mm") @db.Decimal(5, 2)
   usEquivalent     String?    @map("us_equivalent")
   ukEquivalent     String?    @map("uk_equivalent")
   sortOrder        Int        @map("sort_order")
+  // True for values recovered from legacy free-text data that matched no
+  // curated size. They are real — a ring genuinely made at 16.5 is not a 16 —
+  // so they stay filterable and displayable, but they are never offered when
+  // creating a new product, or the vocabulary drifts again (FEAT-SIZE-TAXONOMY
+  // criteria 8, 10).
+  isCustom         Boolean    @default(false) @map("is_custom")
   createdAt        DateTime   @default(now()) @map("created_at")
   updatedAt        DateTime   @updatedAt @map("updated_at")
 
   @@unique([scheme, value])
+  // Admin selector reads curated-only; the filter and guide read everything.
+  @@index([scheme, isCustom])
   // Read path: every option for one scheme, in display order — the filter UI
   // and the PDP size guide both do exactly this query.
   @@index([scheme, sortOrder])

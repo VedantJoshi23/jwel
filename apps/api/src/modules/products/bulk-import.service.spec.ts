@@ -132,3 +132,59 @@ describe('BulkImportService', () => {
     expect(prisma.category.findUnique).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('BulkImportService — size validation (FEAT-SIZE-TAXONOMY criterion 9)', () => {
+  let prisma: MockPrisma;
+  let products: MockProducts;
+  let service: BulkImportService;
+
+  const csv = [
+    'name,slug,category_slug,description,sku,metal,weight_grams,base_price_minor_units,size',
+    'Ring A,ring-a,rings,Nice,SKU-1,SILVER,2,1000,16',
+    'Ring B,ring-b,rings,Nice,SKU-2,SILVER,2,1000,99',
+    'Ring C,ring-c,rings,Nice,SKU-3,SILVER,2,1000,18',
+  ].join('\n');
+
+  beforeEach(() => {
+    prisma = { category: { findUnique: jest.fn().mockResolvedValue({ id: 'cat-1', slug: 'rings' }) } };
+    products = { adminCreate: jest.fn() };
+    service = new BulkImportService(prisma as unknown as PrismaService, products as unknown as ProductsService);
+  });
+
+  it('rejects only the offending row and imports the rest', async () => {
+    // Validation lives in adminCreate, which every row goes through — so
+    // criterion 9 is satisfied by construction rather than by a second
+    // implementation that could drift from the first.
+    products.adminCreate.mockImplementation((dto: { variants: { size?: string }[] }) => {
+      if (dto.variants[0].size === '99') {
+        throw new Error('Variant "SKU-2" has size "99", which is not a valid RING_INDIA value. Valid values: 16, 18.');
+      }
+      return Promise.resolve({ id: 'p1' });
+    });
+
+    const result = await service.importProductsCsv(Buffer.from(csv));
+
+    expect(result.succeeded).toBe(2);
+    expect(result.failed).toBe(1);
+  });
+
+  it('reports the spreadsheet row number alongside the message', async () => {
+    // Across 1,045 rows, "invalid size" with no row is unactionable. The row
+    // number comes free from the per-row error handling; the SKU and the valid
+    // values come from the validator.
+    products.adminCreate.mockImplementation((dto: { variants: { size?: string }[] }) => {
+      if (dto.variants[0].size === '99') {
+        throw new Error('Variant "SKU-2" has size "99", which is not a valid RING_INDIA value. Valid values: 16, 18.');
+      }
+      return Promise.resolve({ id: 'p1' });
+    });
+
+    const result = await service.importProductsCsv(Buffer.from(csv));
+
+    // Row 3: header is row 1, Ring A is row 2 — what a human sees in a sheet.
+    expect(result.errors).toEqual([
+      expect.objectContaining({ row: 3, message: expect.stringContaining('SKU-2') }),
+    ]);
+    expect(result.errors[0].message).toContain('Valid values: 16, 18');
+  });
+});

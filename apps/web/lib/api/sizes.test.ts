@@ -10,6 +10,7 @@ const option = {
   diameterMm: '17.93',
   usEquivalent: '8',
   ukEquivalent: 'P½',
+  isCustom: false,
 };
 
 afterEach(() => vi.restoreAllMocks());
@@ -25,6 +26,23 @@ describe('getSizes', () => {
     const spy = vi.spyOn(client, 'apiFetch').mockResolvedValue([option]);
     await getSizes('CHAIN_LENGTH_MM');
     expect(spy).toHaveBeenCalledWith('/sizes?scheme=CHAIN_LENGTH_MM', expect.anything());
+  });
+
+  it('requests curated-only when asked, for the admin creation form', async () => {
+    const spy = vi.spyOn(client, 'apiFetch').mockResolvedValue([option]);
+    await getSizes('RING_INDIA', { curatedOnly: true });
+    expect(spy).toHaveBeenCalledWith(
+      '/sizes?scheme=RING_INDIA&curatedOnly=true',
+      expect.anything(),
+    );
+  });
+
+  it('omits curatedOnly from the query when false', async () => {
+    // Filters and the size guide want custom values; only the creation form
+    // excludes them.
+    const spy = vi.spyOn(client, 'apiFetch').mockResolvedValue([option]);
+    await getSizes('RING_INDIA');
+    expect(spy).toHaveBeenCalledWith('/sizes?scheme=RING_INDIA', expect.anything());
   });
 });
 
@@ -46,6 +64,15 @@ describe('safeGetSizes', () => {
   it('returns options for a real scheme', async () => {
     vi.spyOn(client, 'apiFetch').mockResolvedValue([option]);
     await expect(safeGetSizes('RING_INDIA')).resolves.toEqual([option]);
+  });
+
+  it('forwards curatedOnly through to the request', async () => {
+    const spy = vi.spyOn(client, 'apiFetch').mockResolvedValue([option]);
+    await safeGetSizes('RING_INDIA', { curatedOnly: true });
+    expect(spy).toHaveBeenCalledWith(
+      '/sizes?scheme=RING_INDIA&curatedOnly=true',
+      expect.anything(),
+    );
   });
 
   it('swallows an API failure so the listing still renders', async () => {

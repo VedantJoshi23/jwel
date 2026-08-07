@@ -52,3 +52,24 @@ ALTER TABLE "size_options"
 ALTER TABLE "size_options"
   ADD CONSTRAINT "diameter_below_circumference"
   CHECK ("diameter_mm" IS NULL OR "diameter_mm" < "circumference_mm");
+
+-- Custom sizes (FEAT-SIZE-TAXONOMY v0.2.0, criteria 8/10/11).
+--
+-- Legacy free-text values that match no curated size are preserved verbatim
+-- rather than rounded to a neighbour — a ring genuinely made at 16.5 is not a
+-- 16, and clubbing it would silently change what the product physically is.
+ALTER TABLE "size_options" ADD COLUMN "is_custom" BOOLEAN NOT NULL DEFAULT false;
+
+-- The column becomes nullable so a custom row can admit it has no measurement.
+-- The guarantee is not lost, only narrowed: the CHECK below re-imposes it for
+-- every curated row, which is where it actually matters.
+ALTER TABLE "size_options" ALTER COLUMN "circumference_mm" DROP NOT NULL;
+
+-- Curated rows must carry the authoritative measurement; custom rows need not,
+-- because a value like "Free size" has none and inventing one would be worse
+-- than admitting it is unknown. Keeps the guarantee exactly where it matters.
+ALTER TABLE "size_options"
+  ADD CONSTRAINT "curated_has_circumference"
+  CHECK ("is_custom" = true OR "circumference_mm" IS NOT NULL);
+
+CREATE INDEX "size_options_scheme_is_custom_idx" ON "size_options"("scheme", "is_custom");
