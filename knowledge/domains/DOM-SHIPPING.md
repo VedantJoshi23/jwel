@@ -28,6 +28,23 @@ complexity: High
 
 # Domain: Shipping
 
+> **NOT IMPLEMENTED — context does not exist in code.** Annotated 2026-08-06
+> per `ADR-0009` (KC-162). No shipping implementation exists anywhere in
+> `apps/api` or `apps/web` — verified by `DISC-003` (KC-095). `ADR-0001`
+> (Shiprocket) still stands as the chosen provider and the work is **committed,
+> not dropped**: it is blocked on an external dependency — the client's
+> Shiprocket account is blocked and an application to restore it is pending
+> (KC-101).
+>
+> Consequences while this remains unbuilt:
+> - FR-10 order tracking is structurally incomplete — a status timeline with no
+>   shipment reference (`DISC-003`).
+> - The storefront's free-shipping and 24-hour-dispatch promises have no
+>   backing rule (KC-012, KC-013).
+>
+> This document describes the intended design, not the running system. Per
+> `ADR-0007` its body is left unrewritten.
+
 **Tier:** Full — owns real data (shipments, tracking events, COD ledger)
 and several invariants of its own; not a derived projection of another
 domain.

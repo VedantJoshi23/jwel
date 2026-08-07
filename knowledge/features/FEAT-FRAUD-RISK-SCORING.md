@@ -30,6 +30,38 @@ complexity: Medium
 
 ## Feature: Order Fraud/Risk Scoring & Review Queue
 
+> **NOT REQUIRED — closed 2026-08-06.** Client feedback confirms **Cash on
+> Delivery will not be offered** (KC-109), so the storefront is prepaid-only by
+> intent. The owner has concluded this feature is not required (KC-110).
+> Recorded via `DISC-003` Amendment A1.
+>
+> **Why this closes it.** `ADR-0004` was written when COD was assumed live and
+> cites the ₹25,000 first-order COD rule as the existing control. COD abuse and
+> RTO — the dominant fraud vectors in Indian e-commerce, and the ones this
+> design targets — **cannot occur on a prepaid-only store**. The threat model
+> that justified the feature no longer exists.
+>
+> **`ADR-0004` is NOT reversed.** Rule-based in-house scoring remains the chosen
+> approach should scoring ever be needed. This document stays at `status:
+> Proposal` rather than being deleted: per `ADR-0007` and `OV-000`, superseded
+> work is retained, not erased. The design is sound and would be the starting
+> point for any future revisit.
+>
+> **Residual exposure prepaid-only does not remove** (KC-112, recorded for
+> completeness — none of it justifies building this now):
+> - refund abuse through the returns flow
+> - coupon and promotion abuse
+> - account takeover
+> - card chargebacks, whose liability sits partly with the merchant even on
+>   gateway-processed payments
+>
+> **Revisit triggers** — the COD trigger is void; two remain:
+> 1. Order volume sufficient to calibrate thresholds against real data.
+> 2. A first real fraud incident of any kind.
+>
+> If COD is ever reintroduced, this feature should be reconsidered immediately
+> and before COD goes live, not after.
+
 ### 1. Overview
 
 Adds a rule-based risk score to every placed order (velocity, order

@@ -30,6 +30,21 @@ complexity: Medium
 
 # Domain: Risk
 
+> **SUPERSEDED — context not required.** Annotated 2026-08-06 per `ADR-0009`
+> (KC-162). Client feedback confirms **Cash on Delivery will not be offered**
+> (KC-109), so the COD-abuse and RTO vectors this domain was designed against
+> cannot occur. The owner has concluded fraud risk scoring is not required
+> (KC-110); see `FEAT-FRAUD-RISK-SCORING`'s header note for the full rationale
+> and the surviving revisit triggers.
+>
+> `ADR-0004` is **not reversed** — rule-based in-house scoring remains the
+> chosen approach if scoring is ever needed, and this design would be the
+> starting point. Retained rather than deleted per `ADR-0007` and `OV-000`:
+> superseded work is kept, not erased.
+>
+> If COD is ever reintroduced, this context should be reconsidered **before**
+> COD goes live, not after.
+
 **Tier:** Full — owns real data (scores, velocity counters, the review
 queue) and real invariants (scoring inputs, advisory-only enforcement
 posture).
