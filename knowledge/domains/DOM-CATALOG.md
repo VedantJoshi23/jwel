@@ -60,6 +60,20 @@ storefront copy, which lives in `brand.ts`.
 | 6 | The rating recompute is **idempotent and bulk-runnable** — derived from the review set, never incremented. | KC-159 |
 | 7 | Prices are integer minor units on `ProductVariant.basePriceMinorUnits`. | KC-131 |
 | 8 | Publication and deletion emit `product.upserted` / `product.deleted` so Search stays consistent. | KC-150 |
+| 9 | A category declares a **sizing scheme** or declares it has none. `NULL` means "inherit from parent"; `SizeScheme.NONE` means "no size at all" and stops inheritance. | `FEAT-SIZE-TAXONOMY` |
+| 10 | A variant in a sized category **must** carry a size drawn from the seeded vocabulary for that scheme; a variant in an unsized category **must not** carry one. | `FEAT-SIZE-TAXONOMY` |
+| 11 | Size values are **seeded reference data**, never user-entered. There is no runtime write path for the vocabulary. | `FEAT-SIZE-TAXONOMY` |
+
+**Invariants 9–11 are implemented** (`FEAT-SIZE-TAXONOMY`). Invariant 10 spans
+`Category` → `Product` → `ProductVariant`, so it cannot be a CHECK constraint;
+it is enforced in `products/size-validation.ts` and the limitation is
+documented at the `SizeOption` model, per `STD-DATABASE` r6.
+
+The `NONE`-versus-`NULL` distinction in Invariant 9 is not decoration. A single
+nullable column cannot express both "inherit" and "explicitly none", and the
+first implementation collapsed them — which made an Adjustable ring
+sub-category inherit `RING_INDIA` from Rings. Caught by running resolution
+against real category rows, not by review.
 
 **Invariant 2 does not exist yet.** Publishing currently validates nothing
 (KC-185) — which is how a ₹0 placeholder named "Untitled Draft 1041" became

@@ -84,6 +84,25 @@ enum CollectionType {
   @@map("collection_type")
 }
 
+// Which sizing vocabulary a category uses, if any. A category with no scheme
+// has no meaningful size dimension (earrings), and its variants must not carry
+// one — see FEAT-SIZE-TAXONOMY. Ring sizes use the Indian numeric scale;
+// lengths are stored in millimetres so one unit serves chains and bracelets.
+enum SizeScheme {
+  // Explicitly "this category has no size", as distinct from a NULL column
+  // which means "inherit from my parent". Without this value a child cannot
+  // override a sized parent — an Adjustable ring under Rings would inherit
+  // RING_INDIA, which is wrong: an adjustable ring fits any finger.
+  // Found by testing resolution against real category rows, not by review.
+  NONE
+  RING_INDIA
+  BANGLE_INDIA
+  CHAIN_LENGTH_MM
+  BRACELET_LENGTH_MM
+
+  @@map("size_scheme")
+}
+
 enum CartStatus {
   ACTIVE
   CONVERTED
@@ -237,6 +256,13 @@ model Category {
   slug      String    @unique
   parentId  String?   @map("parent_id") @db.Uuid
   sortOrder Int       @default(0) @map("sort_order")
+  // NULL means "inherit from my parent"; SizeScheme.NONE means "no size at
+  // all". A root category with NULL resolves to unsized because there is
+  // nothing to inherit — that is how Earrings works. An Adjustable ring under
+  // Rings must use NONE, not NULL, or it inherits RING_INDIA.
+  // Resolution walks the ancestor chain in ProductsService, since a recursive
+  // default cannot be expressed as a column default.
+  sizeScheme SizeScheme? @map("size_scheme")
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
@@ -335,6 +361,9 @@ model ProductVariant {
   sku                 String   @unique
   metal                MetalType
   purity              String? // e.g. "18K", "925"
+  // Constrained to SizeOption.value for the scheme resolved from this
+  // product's category (FEAT-SIZE-TAXONOMY). Null is correct and required for
+  // categories with no scheme. Not an FK — see the SizeOption model comment.
   size                String?
   weightGrams         Decimal  @map("weight_grams") @db.Decimal(6, 2)
   basePriceMinorUnits Int      @map("base_price_minor_units")
@@ -383,6 +412,43 @@ model Inventory {
   // even at catalog scale, since most SKUs are not low-stock at any given time.
   @@index([quantityOnHand, quantityReserved])
   @@map("inventory_items")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// SIZING (FEAT-SIZE-TAXONOMY)
+// ──────────────────────────────────────────────────────────────────────────
+
+// Seeded reference data, not user content — the closed vocabulary a variant's
+// `size` must belong to. Circumference is the authoritative physical measure:
+// published Indian ring charts agree on circumference but differ by ~0.2mm on
+// diameter, because diameter is derived and rounded differently per vendor.
+// See FEAT-SIZE-TAXONOMY §10 for sources.
+//
+// There is deliberately NO foreign key from ProductVariant.size to this table.
+// The valid set depends on the variant's product's category's scheme, which is
+// three joins away — not expressible as an FK. Validation is therefore
+// application-layer in ProductsService, documented per STD-DATABASE r6.
+model SizeOption {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme           SizeScheme
+  // Canonical stored value, matched against ProductVariant.size.
+  value            String
+  // What a customer sees. Usually equal to `value`, but kept separate so a
+  // length scheme can display "45 cm" for a stored "450".
+  label            String
+  diameterMm       Decimal?   @map("diameter_mm") @db.Decimal(5, 2)
+  circumferenceMm  Decimal    @map("circumference_mm") @db.Decimal(5, 2)
+  usEquivalent     String?    @map("us_equivalent")
+  ukEquivalent     String?    @map("uk_equivalent")
+  sortOrder        Int        @map("sort_order")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  @@unique([scheme, value])
+  // Read path: every option for one scheme, in display order — the filter UI
+  // and the PDP size guide both do exactly this query.
+  @@index([scheme, sortOrder])
+  @@map("size_options")
 }
 
 // ──────────────────────────────────────────────────────────────────────────

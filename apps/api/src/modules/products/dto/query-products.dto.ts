@@ -41,6 +41,16 @@ export class QueryProductsDto extends PaginationQueryDto {
   @IsEnum(ProductSort)
   sort?: ProductSort = ProductSort.NEWEST;
 
+  @ApiPropertyOptional({
+    description:
+      'Size value, matched against ProductVariant.size (FEAT-SIZE-TAXONOMY). ' +
+      'Values are scheme-specific — "16" is a ring size, "450" a chain length in mm — ' +
+      'so this is normally sent alongside a category filter.',
+  })
+  @IsOptional()
+  @IsString()
+  size?: string;
+
   @ApiPropertyOptional({ description: 'Free-text search (Postgres trigram fallback — Elasticsearch is the primary search path per ARCHITECTURE.md)' })
   @IsOptional()
   @IsString()

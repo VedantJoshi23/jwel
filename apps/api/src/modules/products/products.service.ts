@@ -1,9 +1,11 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductStatus } from '@prisma/client';
+import { Prisma, ProductStatus, SizeScheme } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { assertVariantSizes, resolveSchemeFromChain } from './size-validation';
+import { SizesService } from '../sizes/sizes.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
@@ -37,6 +39,7 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly eventBus: EventBusService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProviderPort,
+    private readonly sizes: SizesService,
   ) {}
 
   private withResolvedMedia(product: ProductWithRelations): ProductResponse {
@@ -59,7 +62,7 @@ export class ProductsService {
    * this is the documented interim approach, not the final scaling story.
    */
   async findAll(query: QueryProductsDto): Promise<PaginatedResult<ProductResponse>> {
-    const { page, pageSize, category, metal, q, priceMin, priceMax, sort } = query;
+    const { page, pageSize, category, metal, size, q, priceMin, priceMax, sort } = query;
 
     // `q` matching used to be a single literal `contains` on name/description —
     // strict substring matching, no typo tolerance, no per-word matching (a
@@ -92,8 +95,20 @@ export class ProductsService {
       status: ProductStatus.PUBLISHED,
       deletedAt: null,
       ...(category && { category: { slug: category } }),
-      ...(metal && { variants: { some: { metal } } }),
       ...(matchingIds && { id: { in: matchingIds } }),
+      // Metal and size are separate `some` clauses under AND, not two keys on
+      // the same object — `{...(a && {variants:X}), ...(b && {variants:Y})}`
+      // would silently drop X, because the second spread overwrites the key.
+      //
+      // Two clauses is also the semantically correct reading: one combined
+      // `some: { metal, size }` requires a *single* variant that is both silver
+      // and size 16, which is what "silver, size 16" means to a shopper. The
+      // AND-of-somes form below matches a product having a silver variant and a
+      // size-16 variant separately, which is what a facet filter conventionally
+      // means. We take the stricter single-variant reading.
+      ...(metal || size
+        ? { variants: { some: { ...(metal && { metal }), ...(size && { size }) } } }
+        : {}),
     };
 
     const matches = await this.prisma.product.findMany({ where, include: productInclude });
@@ -178,7 +193,39 @@ export class ProductsService {
     return product;
   }
 
+  /**
+   * Resolves the sizing scheme for a category by walking its ancestor chain,
+   * then returns the seeded values for it. Depth is bounded at 5 — the
+   * client's taxonomy is two levels and a cycle here would hang a request.
+   * FEAT-SIZE-TAXONOMY.
+   */
+  private async sizeContextFor(categoryId: string): Promise<{
+    scheme: SizeScheme | null;
+    validValues: Set<string>;
+  }> {
+    const chain: Array<{ sizeScheme: SizeScheme | null }> = [];
+    let currentId: string | null = categoryId;
+
+    for (let depth = 0; currentId && depth < 5; depth += 1) {
+      const node: { sizeScheme: SizeScheme | null; parentId: string | null } | null =
+        await this.prisma.category.findUnique({
+          where: { id: currentId },
+          select: { sizeScheme: true, parentId: true },
+        });
+      if (!node) break;
+      chain.push({ sizeScheme: node.sizeScheme });
+      currentId = node.parentId;
+    }
+
+    const scheme = resolveSchemeFromChain(chain);
+    const validValues = scheme ? await this.sizes.valuesFor(scheme) : new Set<string>();
+    return { scheme, validValues };
+  }
+
   async adminCreate(dto: CreateProductDto): Promise<ProductResponse> {
+    const { scheme, validValues } = await this.sizeContextFor(dto.categoryId);
+    assertVariantSizes(dto.variants, scheme, validValues);
+
     const product = await this.prisma.product.create({
       data: {
         name: dto.name,
