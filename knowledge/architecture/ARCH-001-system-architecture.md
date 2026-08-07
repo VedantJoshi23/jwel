@@ -1,8 +1,8 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 0.1.0
-status: Review
+version: 1.0.0
+status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
@@ -41,7 +41,11 @@ the Constitution, carried forward), `Adapted` (Discovery revised to satisfy the
 Constitution), or `Designed` (no Discovery findings, designed fresh).
 
 **This document describes responsibility and ownership, not technology.** Which
-framework or datastore implements a boundary is `OV-004`'s subject.
+framework or datastore implements a boundary is `OV-004`'s subject —
+`ADR-0011`–`ADR-0017`.
+
+**Frozen 2026-08-07** by owner approval. M3 complete. `PRM-DOMAIN` runs once per
+bounded context declared in §1, in the order `ADR-0009` sets.
 
 ## Source summary
 
