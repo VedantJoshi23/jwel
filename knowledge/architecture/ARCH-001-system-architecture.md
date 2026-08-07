@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -299,7 +299,9 @@ Per `ADR-0010`, superseding `PRODUCT.md`:
   mechanism in this topology delivers one.
 - **Recovery** relies on the documented backup and restore procedure rather
   than redundancy — and Constitution **Law 6** makes exercising that procedure
-  non-optional. It has never been performed (KC-205).
+  non-optional. **Performed and recorded 2026-08-07** (`RUNBOOK` §11b),
+  superseding KC-205. Re-run after any change to the backup script, the schema,
+  or the storage provider.
 
 ### 5.4 Unmeasured
 
@@ -321,12 +323,50 @@ them — per Law 1.
 | 3 — commitments change by explicit navigation | **Satisfied.** §5 carries `ADR-0010`'s restatement rather than silently adopting new targets |
 | 4 — invariants at the lowest enforcing layer | **Satisfied.** §2.2 makes the modelling rules binding |
 | 5 — command in, event out | **Satisfied.** §1 governs every boundary by it; §1.3 records the one known violation and its remedy |
-| 6 — recovery must be exercised | **Surfaced, not satisfied.** §5.3 states the dependency; the restore has not been performed. This is a live non-compliance, correctly visible rather than hidden |
+| 6 — recovery must be exercised | **Satisfied 2026-08-07.** Restore drill performed and recorded in `deploy/RUNBOOK.md` §11b. It found a real defect — the dump was not self-sufficient — which is now fixed |
 
-**Law 6 is not satisfied today.** Per `OV-003`'s rule that conflicts must be
-surfaced rather than resolved in the architecture's favour, it is recorded here
-as an open non-compliance, and it is the first item on `DISC-010`'s Improve
-list.
+**Law 6 was not satisfied when this document was frozen**, and is now. The
+restore drill was performed on 2026-08-07 and recorded in `deploy/RUNBOOK.md`
+§11b: backups restore, row counts match production across nine tables, and
+every one of 1047 `product_media` rows has its file in the paired uploads
+archive.
+
+It also **found a real defect**, which is the point of drilling rather than
+assuming. A single-database `pg_dump` omits cluster-level role definitions
+while still emitting `GRANT ... TO metabase_ro`, so restoring into a clean
+Postgres aborted. Worse, without `ON_ERROR_STOP` it would have exited zero with
+the grants silently missing. `backup.sh` now dumps roles alongside.
+
+§5.3's reliance on backup-and-restore is therefore evidenced rather than
+assumed — which is what `ADR-0010` needed in order to have accepted single-node
+risk honestly.
+
+## Amendments
+
+Per `KC-054`, a Frozen document changes only by explicit navigation with the
+change recorded.
+
+### A1 — 2026-08-07, Law 6 satisfied
+
+**Trigger.** The restore drill this document recorded as outstanding was
+performed (`deploy/RUNBOOK.md` §11b).
+
+**What changes.** §5.3 and the Constitution-compliance table. Law 6 moves from
+*"Surfaced, not satisfied"* to satisfied. Nothing else in this document is
+affected — no boundary, aggregate, event or folder changes.
+
+**What the drill found.** The backups restore, and were **not self-sufficient**
+until it ran. A single-database `pg_dump` omits cluster-level role definitions
+while still emitting `GRANT ... TO metabase_ro`, so restoring into a clean
+Postgres aborted at the last step. Without `ON_ERROR_STOP` it would instead have
+exited zero with the grants silently missing — a partial recovery that looks
+complete. `backup.sh` now dumps roles alongside.
+
+That is the argument for drilling rather than assuming, stated concretely: the
+defect was invisible from the backup side. The files existed, gunzipped
+cleanly, and contained correct data. Only restoring them revealed the gap.
+
+**Confidence unchanged at 91%.** A compliance status changed; no observation did.
 
 ## Technology decisions
 

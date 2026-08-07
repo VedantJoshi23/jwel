@@ -468,6 +468,121 @@ catalogue more than once, adding `--dry-run` is worth the hour.
 
 ---
 
+## 11b. Restore drill (do this, and record that you did)
+
+A backup nobody has restored is a hypothesis. `ADR-0010` accepted single-node
+topology **on the explicit basis** that recovery relies on this procedure
+rather than on redundancy — so an unexercised restore is not a gap in
+diligence, it is the load-bearing assumption of the deployment being untested.
+Constitution **Law 6** makes exercising it non-optional.
+
+**The drill never writes to production.** Production is read from — a dump and
+some `SELECT count(*)` — and everything else happens in a scratch container.
+
+### The procedure
+
+```bash
+cd ~/jwel/deploy
+
+# 1. Integrity of the pair you intend to restore. Both, always: a database
+#    without its uploads leaves every product_media row pointing at a missing
+#    file, which is a restore that "succeeded" into a catalogue of broken
+#    images.
+gzip -t backups/db-<DATE>.sql.gz && gzip -t backups/uploads-<DATE>.tar.gz
+
+# 2. Record what production currently holds, to compare against.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d jwel -tAF'|' -c "
+    SELECT 'products', count(*) FROM products
+    UNION ALL SELECT 'product_media', count(*) FROM product_media
+    UNION ALL SELECT 'orders', count(*) FROM orders
+    UNION ALL SELECT 'users', count(*) FROM users ORDER BY 1;" > /tmp/prod-counts.txt
+
+# 3. Scratch Postgres on a DIFFERENT port. Never 5432.
+docker run -d --rm --name jwel-restore-drill \
+  -e POSTGRES_PASSWORD=drill -e POSTGRES_USER=jwel -e POSTGRES_DB=jwel \
+  -p 127.0.0.1:5434:5432 postgres:16
+
+# 4. Roles first — see "What the drill found" below.
+zcat backups/roles-<DATE>.sql.gz | docker exec -i jwel-restore-drill psql -U jwel -d jwel
+
+# 5. Restore, stopping on the first error rather than limping on.
+zcat backups/db-<DATE>.sql.gz | \
+  docker exec -i jwel-restore-drill psql -U jwel -d jwel -v ON_ERROR_STOP=1 -q
+echo "exit=$?"     # must be 0
+
+# 6. Compare against production.
+docker exec jwel-restore-drill psql -U jwel -d jwel -tAF'|' -c "<same query as step 2>" \
+  > /tmp/drill-counts.txt
+diff /tmp/prod-counts.txt /tmp/drill-counts.txt && echo 'row counts identical'
+
+# 7. The pairing check — every media row must have its file.
+docker exec jwel-restore-drill psql -U jwel -d jwel -tAc \
+  "SELECT replace(storage_ref,'local:','') FROM product_media ORDER BY 1;" \
+  | sed 's|^|./|' | sort > /tmp/db-refs.txt
+tar tzf backups/uploads-<DATE>.tar.gz | grep -v '/$' | sort > /tmp/archive-files.txt
+comm -23 /tmp/db-refs.txt /tmp/archive-files.txt | wc -l   # must be 0
+
+# 8. Tear down.
+docker rm -f jwel-restore-drill
+```
+
+Optional but worth doing once: apply `prisma migrate deploy` against the
+scratch database and boot the API against it. A restore that satisfies the
+schema but that the application cannot serve is not a recovery.
+
+### What the drill found — 2026-08-07
+
+**The restore failed on a clean Postgres.**
+
+```
+ERROR:  role "metabase_ro" does not exist
+```
+
+`pg_dump` of a single database does **not** include role definitions — those
+are cluster-level — but the dump's trailing `GRANT ... TO metabase_ro`
+statements reference one by name. The role was created for Metabase reporting
+and nothing ever dumped it.
+
+The failure mode is worse than it first looks. The grants sit at the **end** of
+the file, after the data, so:
+
+- with `ON_ERROR_STOP=1` the restore aborts non-zero, and an operator following
+  a script sees failure at the very last step;
+- **without** it, `psql` carries on and exits 0, leaving a database that looks
+  restored but has no reporting grants — a silent partial recovery.
+
+**Fix applied**: `backup.sh` now also writes `roles-$STAMP.sql.gz` via
+`pg_dumpall --roles-only`, retained on the same 14-day schedule. Restore roles
+before the database (step 4 above).
+
+### Result — 2026-08-07
+
+Everything below was verified against `db-2026-08-07.sql.gz` and
+`uploads-2026-08-07.tar.gz`, restored into a scratch container.
+
+| Check | Result |
+| --- | --- |
+| Archive integrity, both files | pass |
+| Restore exit code, roles pre-created | 0, no errors |
+| Row counts vs production | identical across 9 tables |
+| Tables / indexes / CHECK constraints | 28 / 81 / 7 |
+| Migrations recorded | 6, all finished |
+| `products.search_vector` populated | 1047 rows — the generated column survives |
+| Media rows vs archived files | 1047 / 1047 |
+| References with no file | **0** |
+| Files with no reference | **0** |
+| Extracted files that are zero-byte | **0** |
+| Extracted files are real images | verified via `file` |
+| Pending migrations apply on top | yes |
+| API boots and serves restored data | yes — `/health/ready` 200, catalogue served |
+
+**Conclusion: the backups are restorable, and were not self-sufficient until
+this drill.** Re-run after any change to the backup script, the schema, or the
+storage provider.
+
+---
+
 ## 12. Changing the domain
 
 Expected at least once: the staging deployment runs on a domain you already

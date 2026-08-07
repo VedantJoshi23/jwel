@@ -1,7 +1,7 @@
 ---
 id: DISC-009
 title: Discovery — Technical Debt
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -189,9 +189,12 @@ scratch environment once and record that it worked.
   exclusion for a directory that no longer exists.
 - **The payment path has no automated end-to-end test** (KC-121) — the highest
   unresolved item on the list.
-- **Restore has never been performed** (KC-205), while `ADR-0010` leans on it
-  for the reliability the topology deliberately does not provide. The single
-  largest operational risk found in Discovery.
+- ~~**Restore has never been performed**~~ — **closed 2026-08-07.** Drill
+  performed and recorded (`RUNBOOK` §11b). It found that the dump was not
+  self-sufficient: `pg_dump` omits cluster-level roles while emitting grants
+  that reference them, so a clean restore aborted. Fixed in `backup.sh`. The
+  finding vindicates the ranking — this was the top item precisely because
+  nobody knew whether it worked.
 - **Two framework majors behind on the API**, with compounding upgrade cost.
 - **Build tooling advertises more than it delivers** — a no-op `typecheck`, an
   unenforced lint, two lockfiles.
@@ -244,6 +247,32 @@ Items already carrying an accepted decision are listed for completeness, not
 reopened: rating desync (`ADR-0008`), event-bus durability (`ADR-0010`,
 deferred with triggers), placeholder publishing (KC-192), accessibility
 (KC-176), and `OrderStatus.REFUNDED` (KC-190).
+
+## Amendments
+
+### A1 — 2026-08-07, restore drill performed (KC-205 closed)
+
+**Trigger.** The drill this investigation ranked first was performed and
+recorded (`deploy/RUNBOOK.md` §11b).
+
+**Outcome.** The backups restore correctly — row counts identical to production
+across nine tables, 1047 of 1047 `product_media` rows matched to files in the
+paired uploads archive, zero orphans, and the API boots and serves the restored
+catalogue.
+
+**It found a defect, which is why the ranking was right.** The dump was not
+self-sufficient: `pg_dump` of one database omits cluster-level roles while
+emitting grants that name them, so a clean restore aborted with
+`role "metabase_ro" does not exist`. Fixed in `backup.sh`, which now writes
+`roles-$STAMP.sql.gz` on the same retention schedule.
+
+Worth noting for future prioritisation: **nothing observable from the backup
+side predicted this.** The archives existed, were the right size, gunzipped
+cleanly and held correct data. The item was ranked first because its status was
+*unknown*, not because it looked suspicious — and unknown turned out to mean
+broken.
+
+**Confidence unchanged at 89%.** One item's status changed; no observation did.
 
 ## Architecture Review
 
