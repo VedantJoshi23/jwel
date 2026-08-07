@@ -5,6 +5,7 @@ import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { assertVariantSizes, resolveSchemeFromChain } from './size-validation';
+import { assertPublishable } from './publish-validation';
 import { SizesService } from '../sizes/sizes.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -26,7 +27,16 @@ type ProductMediaRow = ProductWithRelations['media'][number];
 // see StorageProviderPort's own comment on why this resolution can't happen
 // on the frontend.
 type ProductMediaResponse = ProductMediaRow & { url: string };
-type ProductResponse = Omit<ProductWithRelations, 'media'> & { media: ProductMediaResponse[] };
+type ProductResponse = Omit<ProductWithRelations, 'media'> & {
+  media: ProductMediaResponse[];
+  /**
+   * Present only on a response that just published something
+   * (FEAT-PUBLISH-COMPLETENESS §4). Not persisted: a stored copy would be a
+   * second source of truth for something the product rows already determine,
+   * and would go stale the moment a price or an image changed.
+   */
+  publishWarnings?: string[];
+};
 
 function minVariantPrice(product: ProductWithRelations): number {
   if (product.variants.length === 0) return 0;
@@ -254,8 +264,40 @@ export class ProductsService {
   }
 
   async adminUpdate(id: string, dto: UpdateProductDto): Promise<ProductResponse> {
-    await this.findProductOrThrow(id);
+    const existing = await this.findProductOrThrow(id);
     const { variantPriceUpdates, ...productFields } = dto;
+
+    // FEAT-PUBLISH-COMPLETENESS. The gate runs on the *transition* into
+    // PUBLISHED — from DRAFT or from ARCHIVED, since a product may have been
+    // archived precisely because it was wrong. Editing an already-published
+    // product does not re-run it; that would refuse changes to products
+    // published before this gate existed (§7.2).
+    const publishing =
+      dto.status === ProductStatus.PUBLISHED && existing.status !== ProductStatus.PUBLISHED;
+
+    let publishWarnings: string[] = [];
+    if (publishing) {
+      // Prices in this same request are what will be persisted, so validate
+      // against the post-update values rather than the stored ones — otherwise
+      // "set the price and publish" in one call is refused for a price it is
+      // about to have.
+      const pending = new Map(
+        (variantPriceUpdates ?? []).map((u) => [u.variantId, u.basePriceMinorUnits]),
+      );
+      const { scheme } = await this.sizeContextFor(productFields.categoryId ?? existing.categoryId);
+
+      publishWarnings = assertPublishable({
+        name: productFields.name ?? existing.name,
+        description: productFields.description ?? existing.description,
+        mediaCount: existing.media.length,
+        sizeScheme: scheme,
+        variants: existing.variants.map((variant) => ({
+          sku: variant.sku,
+          basePriceMinorUnits: pending.get(variant.id) ?? variant.basePriceMinorUnits,
+          size: variant.size,
+        })),
+      });
+    }
 
     const product = await this.prisma.$transaction(async (tx) => {
       for (const { variantId, basePriceMinorUnits } of variantPriceUpdates ?? []) {
@@ -269,7 +311,11 @@ export class ProductsService {
     });
 
     this.eventBus.emit('product.upserted', { productId: product.id });
-    return this.withResolvedMedia(product);
+    // Warnings ride on the success response rather than inventing a second
+    // channel, and are not persisted — recomputing is cheap and a stored copy
+    // would go stale the moment a price or an image changed
+    // (`STD-DATABASE` r9).
+    return { ...this.withResolvedMedia(product), ...(publishing && { publishWarnings }) };
   }
 
   async listCategories() {

@@ -53,7 +53,7 @@ storefront copy, which lives in `brand.ts`.
 | # | Invariant | Source |
 | --- | --- | --- |
 | 1 | A product is created `DRAFT`. Only `PUBLISHED`, non-deleted products are visible to customers. | KC-185 |
-| 2 | `DRAFT → PUBLISHED` requires a **completeness check**: non-zero price on every variant, a name that is not an auto-generated placeholder, a real description, at least one variant and at least one image. | KC-192 |
+| 2 | `DRAFT → PUBLISHED` requires a **completeness check**. Hard blocks: non-zero price on every variant, a non-placeholder name, a non-placeholder description, a valid size where the category is sized, and at least one variant. At least one image is a **warning**, not a block. | KC-192, `FEAT-PUBLISH-COMPLETENESS` |
 | 3 | Products, categories and coupons **soft-delete**; historical orders keep referential integrity. | KC-132 |
 | 4 | `Product.slug` is unique and stable. Changing it requires a redirect from the old path. | `STD-SEO` r6 |
 | 5 | Catalog **owns the write** to `avgRating`/`ratingCount`. Reviews commands a recompute; Catalog performs it and emits `product.upserted`. | `ADR-0008`, KC-158 |
@@ -75,10 +75,24 @@ first implementation collapsed them — which made an Adjustable ring
 sub-category inherit `RING_INDIA` from Rings. Caught by running resolution
 against real category rows, not by review.
 
-**Invariant 2 does not exist yet.** Publishing currently validates nothing
-(KC-185) — which is how a ₹0 placeholder named "Untitled Draft 1041" became
-shoppable. With 1,045 placeholders awaiting client data entry and the client
-operating the tool, this is the highest-value unbuilt rule in this domain.
+**Invariant 2 is implemented** (`FEAT-PUBLISH-COMPLETENESS`). It was the
+highest-value unbuilt rule in this domain: publishing validated nothing
+(KC-185), which is how a ₹0 placeholder named "Untitled Draft 1041" became
+shoppable, and 1,045 more await client data entry.
+
+**The rule that decides block from warning** is worth carrying, because it
+classifies future fields rather than just the current five: a field is a **hard
+block when its absence fails silently** — the product looks fine but cannot be
+found — and a **warning when it fails visibly**. Price, name, description and
+size all feed search, filtering or sorting; description especially, since
+`search_vector` is generated from `name || description`. A missing image is
+obvious to anyone looking at the storefront, so blocking on it would stop a
+client publishing a correct product because one photo is still being edited.
+
+Two deliberate limits: the gate runs on the **transition** into `PUBLISHED`,
+not on every edit of a published product (which would refuse changes to
+products published before it existed), and there is **no override** — an
+override is how a gate stops meaning anything.
 
 **Invariant 5 is the in-flight `ADR-0008` correction.** Reviews currently writes
 `Product.avgRating` directly (KC-152). Until the refactor lands, the system does
