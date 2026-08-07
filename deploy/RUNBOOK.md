@@ -499,33 +499,53 @@ docker compose -f docker-compose.postgres.yml exec -T postgres \
     UNION ALL SELECT 'users', count(*) FROM users ORDER BY 1;" > /tmp/prod-counts.txt
 
 # 3. Scratch Postgres on a DIFFERENT port. Never 5432.
+#
+#    Bootstrap it as `postgres`, NOT as `jwel`. The roles dump contains
+#    `CREATE ROLE jwel`, so a container that already has that role fails at
+#    step 4 with `role "jwel" already exists`. Bootstrapping as postgres also
+#    mirrors real recovery: a fresh cluster where every application role comes
+#    from the dump rather than from the container's environment.
 docker run -d --rm --name jwel-restore-drill \
-  -e POSTGRES_PASSWORD=drill -e POSTGRES_USER=jwel -e POSTGRES_DB=jwel \
+  -e POSTGRES_PASSWORD=drill -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres \
   -p 127.0.0.1:5434:5432 postgres:16
 
-# 4. Roles first — see "What the drill found" below.
-zcat backups/roles-<DATE>.sql.gz | docker exec -i jwel-restore-drill psql -U jwel -d jwel
-
-# 5. Restore, stopping on the first error rather than limping on.
-zcat backups/db-<DATE>.sql.gz | \
-  docker exec -i jwel-restore-drill psql -U jwel -d jwel -v ON_ERROR_STOP=1 -q
+# 4. Roles first. Without this the database restore aborts on its GRANTs.
+zcat backups/roles-<DATE>.sql.gz | \
+  docker exec -i jwel-restore-drill psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q
 echo "exit=$?"     # must be 0
 
-# 6. Compare against production.
-docker exec jwel-restore-drill psql -U jwel -d jwel -tAF'|' -c "<same query as step 2>" \
+# 5. The database itself does not exist yet in a fresh cluster.
+docker exec jwel-restore-drill psql -U postgres -d postgres \
+  -c "CREATE DATABASE jwel OWNER jwel;"
+
+# 6. Restore, stopping on the first error rather than limping on.
+zcat backups/db-<DATE>.sql.gz | \
+  docker exec -i jwel-restore-drill psql -U postgres -d jwel -v ON_ERROR_STOP=1 -q
+echo "exit=$?"     # must be 0
+
+# 7. Compare against production.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAF'|' -c "<same query as step 2>" \
   > /tmp/drill-counts.txt
 diff /tmp/prod-counts.txt /tmp/drill-counts.txt && echo 'row counts identical'
 
-# 7. The pairing check — every media row must have its file.
-docker exec jwel-restore-drill psql -U jwel -d jwel -tAc \
+# 8. The grants that failed the first drill actually landed.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAc \
+  "SELECT count(*) FROM information_schema.role_table_grants WHERE grantee='metabase_ro';"
+
+# 9. The pairing check — every media row must have its file.
+docker exec jwel-restore-drill psql -U postgres -d jwel -tAc \
   "SELECT replace(storage_ref,'local:','') FROM product_media ORDER BY 1;" \
   | sed 's|^|./|' | sort > /tmp/db-refs.txt
 tar tzf backups/uploads-<DATE>.tar.gz | grep -v '/$' | sort > /tmp/archive-files.txt
 comm -23 /tmp/db-refs.txt /tmp/archive-files.txt | wc -l   # must be 0
 
-# 8. Tear down.
+# 10. Tear down.
 docker rm -f jwel-restore-drill
 ```
+
+**If you are re-running the backup script to produce a fresh set first**, note
+that it overwrites the same day's files. Copy the pair you already trust
+somewhere outside `backups/` before doing so.
 
 Optional but worth doing once: apply `prisma migrate deploy` against the
 scratch database and boot the API against it. A restore that satisfies the
@@ -553,8 +573,30 @@ the file, after the data, so:
   restored but has no reporting grants — a silent partial recovery.
 
 **Fix applied**: `backup.sh` now also writes `roles-$STAMP.sql.gz` via
-`pg_dumpall --roles-only`, retained on the same 14-day schedule. Restore roles
-before the database (step 4 above).
+`pg_dumpall --roles-only`, retained on the same 14-day schedule, covered by the
+zero-byte guard, and `chmod 600` — it contains SCRAM password hashes for every
+role including `jwel`, which is `SUPERUSER`. Hashes rather than plaintext, but
+credential material nonetheless, and unlike the data dumps it is not merely
+PII.
+
+### What the second drill found — 2026-08-07, same day
+
+Re-run after the fix, against a backup set produced by the **real script**
+rather than by hand. It failed too — this time in the procedure written above:
+
+```
+ERROR:  role "jwel" already exists
+```
+
+`pg_dumpall --roles-only` includes the bootstrap role, and the drill container
+had been created with `POSTGRES_USER=jwel`. The first version of step 3 above
+was wrong.
+
+Fixed by bootstrapping the scratch cluster as `postgres` and letting **every**
+application role come from the dump — which is also closer to real recovery,
+where you would not hand-create `jwel` before restoring it.
+
+Two drills, two defects, neither visible without running one.
 
 ### Result — 2026-08-07
 
@@ -577,9 +619,28 @@ Everything below was verified against `db-2026-08-07.sql.gz` and
 | Pending migrations apply on top | yes |
 | API boots and serves restored data | yes — `/health/ready` 200, catalogue served |
 
-**Conclusion: the backups are restorable, and were not self-sufficient until
-this drill.** Re-run after any change to the backup script, the schema, or the
-storage provider.
+### Result — second drill, after the fix
+
+Against a backup set produced by the real `backup.sh`, following the corrected
+procedure above:
+
+| Check | Result |
+| --- | --- |
+| Roles restore, `ON_ERROR_STOP` | exit 0 |
+| Database restore, `ON_ERROR_STOP` | exit 0, no manual role creation |
+| Row counts vs production | identical across 9 tables |
+| `metabase_ro` table grants | **28** — the ones that aborted the first drill |
+| Roles present | 3 (`jwel`, `metabase`, `metabase_ro`) |
+| Tables | 28 |
+| `products.search_vector` populated | 1047 |
+
+**Conclusion: the backups are restorable and self-sufficient.** They were
+neither until these drills ran, and the procedure for restoring them was wrong
+until the second one.
+
+Re-run after any change to the backup script, the schema, or the storage
+provider — the first drill was invalidated by a change to the backup script
+within the hour, which is the rate this actually moves at.
 
 ---
 
