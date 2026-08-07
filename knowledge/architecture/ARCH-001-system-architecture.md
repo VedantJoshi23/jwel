@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -95,10 +95,16 @@ in, event out.** No context writes another's tables or emits another's events.
 
 ### 1.2 Not contexts — shared infrastructure
 
-`audit-log`, `metrics`, `storage` are **shared services**, not domains
-(KC-156). They own no business concept and are imported by many contexts.
-`health` is an operational probe. Treating them as contexts would imply
-ownership they do not have.
+`audit-log`, `metrics`, `storage` and `settings` are **shared services**, not
+domains (KC-156; `settings` added by Amendment A2). They own no business
+concept and are imported by many contexts. `health` is an operational probe.
+Treating them as contexts would imply ownership they do not have.
+
+`settings` is the clearest case of the distinction. It holds
+`returns.window_days`, but **`DOM-RETURNS` owns what that value means and what
+its default is** — Settings owns only the table it lives in, its type and its
+validation. Exactly the `audit-log` split: one owns the store, each domain owns
+what it puts there.
 
 ### 1.3 The one boundary correction in flight
 
@@ -367,6 +373,29 @@ defect was invisible from the backup side. The files existed, gunzipped
 cleanly, and contained correct data. Only restoring them revealed the gap.
 
 **Confidence unchanged at 91%.** A compliance status changed; no observation did.
+
+### A2 — 2026-08-07, `settings` added to shared infrastructure
+
+**Trigger.** `FEAT-SETTINGS-STORE` was built, to give `DOM-RETURNS` Invariant 3
+the configurable window it requires.
+
+**What changes.** §1.2 only. `settings` joins `audit-log`, `metrics` and
+`storage` in the shared-services list, with the ownership split spelled out.
+
+**Why it is not a fifteenth context.** It owns no business concept. The
+temptation is to file it under Returns, since Returns is its only consumer
+today — that would be wrong in the way §1.2 exists to prevent: the next
+consumer would inherit a dependency on a domain it has nothing to do with.
+`FEAT-SETTINGS-STORE` §2 records this as a deliberate deviation from `OV-007`'s
+"every feature names one owning domain", since an infrastructure feature has no
+business capability to own.
+
+**No boundary, aggregate or event changes.** Settings publishes and consumes
+nothing — a settings change is a synchronous admin action, and the next read
+sees the new value.
+
+**Confidence unchanged at 91%.** A service was added to a list §1.2 already
+described the category of; no observation changed.
 
 ## Technology decisions
 

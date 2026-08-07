@@ -24,6 +24,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CartModule } from './modules/cart/cart.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { ReturnsModule } from './modules/returns/returns.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { SearchModule } from './modules/search/search.module';
 import { RecommendationsModule } from './modules/recommendations/recommendations.module';
@@ -64,6 +65,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     CartModule,
     WishlistModule,
     ReturnsModule,
+    SettingsModule,
     NotificationsModule,
     SearchModule,
     RecommendationsModule,

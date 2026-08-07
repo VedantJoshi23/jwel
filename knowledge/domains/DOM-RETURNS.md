@@ -1,7 +1,7 @@
 ---
 id: DOM-RETURNS
 title: Jwel / ELYSIAN — Domain: Returns
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -71,7 +71,7 @@ Every invariant is sourced. No invariant is invented at this layer.
 | --- | --- | --- |
 | 1 | A return may only be requested against an order whose status is `DELIVERED`. | KC-179 |
 | 2 | Each `OrderItem` may have **at most one** `ReturnRequest`, ever. Enforced by a unique constraint on `order_item_id`. | KC-141, KC-179 |
-| 3 | A return must be requested **within 10 days of delivery**. The window is a single global value, not per product or category, and is **editable by an administrator**. | KC-186 |
+| 3 | A return must be requested **within 10 days of delivery**. The window is a single global value, not per product or category, and is **editable by an administrator** — `returns.window_days`, default 10 (`FEAT-SETTINGS-STORE`). | KC-186 |
 | 4 | The lifecycle is `REQUESTED → APPROVED \| REJECTED`; `APPROVED → REFUND_PROCESSING`; `REFUND_PROCESSING → REFUNDED`. `REJECTED` and `REFUNDED` are terminal. No other transition is permitted. | KC-180 |
 | 5 | A refund amount is **mandatory** when transitioning to `REFUNDED`. | KC-180 |
 | 6 | A customer may **not** cancel a pending request, and may **not** re-request after a rejection. Exceptions are handled out of band, by email or WhatsApp. | KC-146 |
@@ -152,8 +152,10 @@ their own refund. The refund itself is unaffected — it is recorded in
 `STD-API`'s exception clause; it is never a write.
 
 **Requires but does not own:** the settings store holding the return window
-(Invariant 3). It does not exist yet (KC-187, KC-194) and is to be built as a
-general mechanism, not a `returnWindowDays` column.
+(Invariant 3). Built as `FEAT-SETTINGS-STORE` (2026-08-07) — a general
+mechanism, not a `returnWindowDays` column, per KC-194. Returns owns what
+`returns.window_days` **means** and what its default is; Settings owns the
+table, the type and the validation.
 
 ## 7. Dependencies
 
@@ -163,7 +165,7 @@ general mechanism, not a `returnWindowDays` column.
 - **Payments** — command, to execute a refund
 - **Inventory** — command, to restore stock
 - **Audit log** — shared infrastructure
-- **Settings** *(pending)* — read, for the return window
+- **Settings** — read, for the return window (`FEAT-SETTINGS-STORE`)
 
 **Forbidden**
 
@@ -219,10 +221,19 @@ general mechanism, not a `returnWindowDays` column.
 
 - ~~Invariant 8 needs owner confirmation~~ — **settled 2026-08-07**, together
   with Invariant 9's admin differentiator.
-- **The settings store does not exist** (KC-187); Invariant 3 cannot be
-  implemented until it does, and it needs a `FEAT-` spec at M6.
-- **Edge case 2** — retroactive application to historical delivered orders is a
-  business decision, not a technical one. Still open.
+- ~~**The settings store does not exist** (KC-187)~~ — **built 2026-08-07**
+  (`FEAT-SETTINGS-STORE`). Invariant 3 is now enforced in
+  `returns-eligibility.ts`, measured from the `DELIVERED` entry in
+  `OrderStatusHistory` per §8.1 and evaluated at request time per §8.3.
+- **Edge case 2** — retroactive application to historical delivered orders.
+  **Now live rather than hypothetical**: enforcing the window closed returns on
+  every order delivered more than 10 days ago, with no announcement. Whether
+  that is the intended treatment of pre-existing orders remains the owner's
+  call; widening `returns.window_days` temporarily is the lever if it is not.
+- **A `DELIVERED` order with no `DELIVERED` history row** is refused with a
+  contact-support message rather than assigned an invented delivery date. It
+  should not occur — every transition writes a history row — so it is a data
+  defect, and Invariant 6 already routes exceptions out of band.
 - **Edge case 11** — no failure handling for a stuck `REFUND_PROCESSING`.
 
 All invariants in this specification are now sourced. It is ready to Freeze.
