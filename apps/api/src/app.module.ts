@@ -15,6 +15,7 @@ import { RolesGuard } from './common/guards/roles.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProductsModule } from './modules/products/products.module';
+import { SizesModule } from './modules/sizes/sizes.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -54,6 +55,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     AuthModule,
     UsersModule,
     ProductsModule,
+    SizesModule,
     InventoryModule,
     CouponsModule,
     ReviewsModule,

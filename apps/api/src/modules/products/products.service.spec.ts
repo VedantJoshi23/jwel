@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma, ProductStatus } from '@prisma/client';
+import { SizesService } from '../sizes/sizes.service';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
@@ -37,6 +38,7 @@ function fakeProduct(id: string, basePriceMinorUnits: number, overrides: Partial
 describe('ProductsService', () => {
   let prisma: MockPrisma;
   let eventBus: { emit: jest.Mock };
+  let sizes: { valuesFor: jest.Mock };
   let storage: { upload: jest.Mock; delete: jest.Mock; resolveUrl: jest.Mock };
   let service: ProductsService;
 
@@ -70,10 +72,20 @@ describe('ProductsService', () => {
       delete: jest.fn(),
       resolveUrl: jest.fn((ref: string) => `https://cdn.example.com/${ref}`),
     };
+    // FEAT-SIZE-TAXONOMY: the default stub is an unsized category, so every
+    // pre-existing test keeps its original meaning — variants without sizes
+    // stay valid. Tests that exercise sizing override `category.findUnique`
+    // and `sizes.valuesFor` explicitly.
+    sizes = { valuesFor: jest.fn().mockResolvedValue(new Set<string>()) };
+    prisma.category = {
+      ...(prisma.category ?? {}),
+      findUnique: jest.fn().mockResolvedValue({ sizeScheme: null, parentId: null }),
+    };
     service = new ProductsService(
       prisma as unknown as PrismaService,
       eventBus as unknown as EventBusService,
       storage as unknown as StorageProviderPort,
+      sizes as unknown as SizesService,
     );
   });
 

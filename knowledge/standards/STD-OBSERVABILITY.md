@@ -1,8 +1,8 @@
 ---
 id: STD-OBSERVABILITY
 title: Jwel — Standard: Observability
-version: 0.1.0
-status: Proposal
+version: 1.0.0
+status: Frozen
 owner: Architecture
 reviewers: []
 created: 2026-07-09
@@ -26,6 +26,29 @@ complexity: Medium
 ---
 
 # STD-OBSERVABILITY
+
+> **Adopted into the M4 Standards series 2026-08-07**, under `PRM-STANDARDS` /
+> `OV-005`. Authored pre-Oriveda (2026-07-09) and **not rewritten** — per
+> `ADR-0007`, an advisory document that turns out to be correct is adopted, not
+> re-authored.
+>
+> **Reconciled against `DISC-007`'s measured findings:**
+>
+> - Its rules name **Sentry, Prometheus and Grafana**, and all three are in
+>   fact wired — Sentry in both apps, a Prometheus endpoint bound to the
+>   internal Docker network only, and Grafana with provisioned datasources,
+>   dashboard and alert rules (KC-169). The document matches reality.
+> - `PRODUCT.md` NFR-8 additionally named **PostHog**, which appears in no
+>   dependency manifest (KC-075). This Standard never claimed it. The
+>   discrepancy is `PRODUCT.md`'s, and resolves in the implementation's
+>   favour — the fourth such case (`DISC-010` §1).
+> - Its "no PII in metric labels or Sentry breadcrumbs" rule is the one most
+>   worth preserving: this system holds customer emails and addresses, and a
+>   breadcrumb is the easiest place to leak them without noticing.
+>
+> Status moves `Proposal` → `Review` with the rest of the series. No rule
+> changed.
+
 
 ## Scope
 
