@@ -375,6 +375,99 @@ A backup nobody has restored is a hypothesis, not a backup.
 
 ---
 
+## 11a. Data-rewriting scripts (read before running one)
+
+Most scripts in `apps/api/src/prisma/` are additive — seeds that upsert
+reference data and change nothing else. **Some rewrite existing product data**,
+and those are not a `docker compose exec` away from being safe.
+
+The rule: **take a backup, verify it is readable, run the script, read its
+report.** In that order, every time. Step 11's daily cron is not enough on its
+own — it runs at 03:00, and you want a dump from *minutes* before the change,
+not from last night.
+
+### Before running any data-rewriting script
+
+```bash
+cd ~/jwel/deploy
+
+# 1. Fresh dump — not last night's cron output.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  pg_dump -U jwel jwel | gzip > backups/db-pre-$(date +%F-%H%M%S).sql.gz
+
+# 2. Confirm it is readable. A dump that will not gunzip is not a backup.
+gzip -t backups/db-pre-*.sql.gz && echo 'dump is readable'
+
+# 3. Note the row counts you expect the script to touch, so the report can be
+#    checked against something rather than believed.
+docker compose -f docker-compose.postgres.yml exec -T postgres \
+  psql -U jwel -d jwel -c "SELECT count(*) FROM product_variants WHERE size IS NOT NULL;"
+```
+
+### `normalise-variant-sizes.ts`
+
+Brings legacy free-text `product_variants.size` values into the vocabulary
+introduced by `FEAT-SIZE-TAXONOMY`. **It writes to `product_variants` and
+inserts into `size_options`.**
+
+```bash
+docker compose -f docker-compose.api.yml exec api \
+  npx ts-node --transpile-only src/prisma/normalise-variant-sizes.ts
+```
+
+Three outcomes per variant, and **rounding is not one of them**:
+
+| Case | Action |
+| --- | --- |
+| Value matches a curated size after trivial cleanup (`Size 18` → `18`) | Normalised |
+| Value is non-empty but matches nothing (`16.5`, `Free size`) | Preserved verbatim as a **custom** option |
+| Category has no size dimension but the variant has a size | Cleared to `NULL` |
+
+A ring genuinely made at 16.5 is not a 16. Clubbing it with a neighbour would
+silently change what the product physically is, which is why the script
+preserves rather than rounds.
+
+**Read the report.** It ends with a review queue — every custom value and how
+many variants carry it. That queue is the client's work: each entry is a value
+someone typed that is not standard, to be either promoted into the vocabulary
+or corrected on the product. The script is idempotent, and the queue is a
+standing list rather than a diff, so re-running is safe and does not make
+outstanding work appear to vanish.
+
+**Prerequisites**, or it will do the wrong thing quietly:
+
+1. The size migration is applied (`20260807124440_add_size_taxonomy`).
+2. `seed-size-options.ts` has run — without the curated vocabulary, *every*
+   existing size becomes a custom option.
+3. Categories have their schemes assigned. A category whose scheme has not been
+   set yet resolves to unsized, and its variants' sizes are **cleared**.
+
+Run those in order first:
+
+```bash
+docker compose -f docker-compose.api.yml exec api npm run prisma:seed:sizes
+```
+
+### Why the normalisation script has no npm alias
+
+`seed-size-options.ts` has one (`prisma:seed:sizes`) because it is additive and
+idempotent — re-running it is harmless. `normalise-variant-sizes.ts`
+deliberately does **not**, and the full `ts-node` path above is not an
+oversight.
+
+A script in `package.json` is discoverable and easy to run, which is exactly
+right for a seed and exactly wrong for something that rewrites product data. If
+running it requires looking up this section, the backup above gets taken.
+
+### Known limitation
+
+**There is no dry-run mode.** The script reports what it did, not what it would
+do. The backup in the section above is the mitigation, and it is the reason
+that section is not optional. If this script is going to be run against a large
+catalogue more than once, adding `--dry-run` is worth the hour.
+
+---
+
 ## 12. Changing the domain
 
 Expected at least once: the staging deployment runs on a domain you already
