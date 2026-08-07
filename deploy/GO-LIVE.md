@@ -28,6 +28,13 @@ each block on one of them:
 - [ ] **Razorpay live account**, activated, in the client's legal entity's
       name — see RUNBOOK §13 step 1 for why this must be the client's
       account, not yours.
+- [ ] **Any pending data-rewriting script has been run, or deliberately
+      deferred.** `normalise-variant-sizes.ts` is the current one — it brings
+      legacy free-text sizes into the vocabulary and rewrites
+      `product_variants`. Procedure, prerequisites and known limitations:
+      RUNBOOK **§11a**. Running it after the client has entered catalogue data
+      is far more disruptive than running it before, so decide now rather than
+      discovering it later.
 - [ ] **Sign-off on every customer-facing claim** — FAQ answers, shipping and
       dispatch promises, subscription and WhatsApp copy. These are commitments
       the client makes to their customers, so only the client can approve

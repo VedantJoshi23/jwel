@@ -19,6 +19,15 @@ import { resolveSchemeFromChain } from '../modules/products/size-validation';
  * Idempotent: a second run finds everything already canonical and changes
  * nothing. Reports counts so the client gets a review queue rather than a
  * silent migration.
+ *
+ * **This script writes to `product_variants` and inserts into `size_options`.**
+ * Do not run it ad hoc. The procedure — take a fresh backup, verify it is
+ * readable, run, read the report — plus its prerequisites and the absence of a
+ * dry-run mode are documented in `deploy/RUNBOOK.md` §11a.
+ *
+ * Prerequisites, because getting them wrong is quiet rather than loud:
+ * without the curated vocabulary seeded first, *every* existing size becomes a
+ * custom option; without category schemes assigned, sizes are **cleared**.
  */
 
 export interface NormalisationReport {

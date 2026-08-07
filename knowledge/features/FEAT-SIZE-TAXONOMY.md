@@ -289,8 +289,16 @@ than converting.
 
 The normalisation script has **not been run against any real database**. It is
 written, tested and verified against a throwaway Postgres container with
-representative legacy data, but running it is a deliberate deploy step against
-live data — see `deploy/RUNBOOK.md`.
+representative legacy data, but it **rewrites `product_variants` and inserts
+into `size_options`**, so running it is a deliberate operational step rather
+than something that happens because a script exists.
+
+The procedure — backup, verify the backup is readable, run, read the report —
+is `deploy/RUNBOOK.md` **§11a**, along with its prerequisites. Those matter:
+run it before `seed-size-options.ts` and every existing size becomes a custom
+option; run it before category schemes are assigned and sizes are **cleared**.
+
+There is no dry-run mode. The backup is the mitigation.
 
 ## 10. Sources
 

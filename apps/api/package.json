@@ -17,6 +17,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy --schema=src/prisma/schema.prisma",
     "prisma:seed": "ts-node src/prisma/seed.ts",
     "prisma:seed:demo": "ts-node --transpile-only src/prisma/seed-demo.ts",
+    "prisma:seed:sizes": "ts-node --transpile-only src/prisma/seed-size-options.ts",
     "admin:create": "ts-node --transpile-only scripts/create-admin.ts"
   },
   "prisma": {
