@@ -9,6 +9,7 @@ describe('SizesController', () => {
       value: '16',
       label: '16',
       circumferenceMm: '56.30',
+      isCustom: false,
       diameterMm: '17.93',
       usEquivalent: '8',
       ukEquivalent: 'P½',
@@ -20,7 +21,7 @@ describe('SizesController', () => {
     const controller = new SizesController({ findAll } as unknown as SizesService);
 
     await expect(controller.findAll({ scheme: SizeScheme.RING_INDIA })).resolves.toEqual(options);
-    expect(findAll).toHaveBeenCalledWith(SizeScheme.RING_INDIA);
+    expect(findAll).toHaveBeenCalledWith(SizeScheme.RING_INDIA, false);
   });
 
   it('passes undefined when no scheme is given', async () => {
@@ -28,6 +29,14 @@ describe('SizesController', () => {
     const controller = new SizesController({ findAll } as unknown as SizesService);
 
     await controller.findAll({});
-    expect(findAll).toHaveBeenCalledWith(undefined);
+    expect(findAll).toHaveBeenCalledWith(undefined, false);
+  });
+
+  it('forwards curatedOnly for the admin creation form', async () => {
+    const findAll = jest.fn().mockResolvedValue(options);
+    const controller = new SizesController({ findAll } as unknown as SizesService);
+
+    await controller.findAll({ scheme: SizeScheme.RING_INDIA, curatedOnly: true });
+    expect(findAll).toHaveBeenCalledWith(SizeScheme.RING_INDIA, true);
   });
 });

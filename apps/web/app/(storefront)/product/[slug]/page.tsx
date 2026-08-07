@@ -7,6 +7,7 @@ import { RatingStars } from '@/components/product/rating-stars';
 import { ReviewForm } from '@/components/product/review-form';
 import { CertificationBadge } from '@/components/product/certification-badge';
 import { AddToCart } from '@/components/product/add-to-cart';
+import { SizeGuide } from '@/components/product/size-guide';
 import { ProductCard } from '@/components/product/product-card';
 import { ProductGallery } from '@/components/product/product-gallery';
 import { formatMinorUnits } from '@/lib/money';
@@ -141,6 +142,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <div className="mt-6">
               <AddToCart product={product} />
             </div>
+
+            {/* Size guide — renders nothing for categories with no sizing
+                scheme, so this is mounted unconditionally
+                (FEAT-SIZE-TAXONOMY). */}
+            <SizeGuide scheme={product.category?.sizeScheme} />
 
             {/* Shipping note */}
             <p className="mt-4 text-xs text-ink-muted">{brand.pdp.shippingNote}</p>

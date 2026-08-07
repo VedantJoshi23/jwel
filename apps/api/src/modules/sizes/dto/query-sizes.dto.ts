@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
 import { SizeScheme } from '@prisma/client';
 
 export class QuerySizesDto {
@@ -12,4 +13,15 @@ export class QuerySizesDto {
   @IsOptional()
   @IsEnum(SizeScheme)
   scheme?: SizeScheme;
+
+  @ApiPropertyOptional({
+    description:
+      'Exclude custom sizes recovered from legacy data. The admin creation ' +
+      'form sets this — offering a custom value there would reintroduce the ' +
+      'free-text drift this feature exists to stop.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  curatedOnly?: boolean;
 }

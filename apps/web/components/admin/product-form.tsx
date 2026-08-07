@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { Category, CertificationType, MetalType, Product } from '@/lib/api/types';
+import { resolveCategoryScheme } from '@/lib/size-scheme';
+import { safeGetSizes } from '@/lib/api/sizes';
+import type { SizeOption } from '@/lib/api/types';
 
 const METAL_TYPES: MetalType[] = ['GOLD', 'GOLD_PLATED', 'SILVER', 'PLATINUM', 'STAINLESS_STEEL'];
 const CERTIFICATION_TYPES: CertificationType[] = ['BIS_HALLMARK', 'IGI', 'GIA', 'SGL', 'HKD'];
@@ -65,6 +68,39 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
     basePriceMinorUnits: firstVariant ? String(firstVariant.basePriceMinorUnits / 100) : '',
   });
   const [slugTouched, setSlugTouched] = useState(mode === 'edit');
+
+  // FEAT-SIZE-TAXONOMY. Resolved client-side rather than fetched, so the size
+  // field appears the instant a category is picked — the same walk the API
+  // performs, in lib/size-scheme.ts.
+  const sizeScheme = resolveCategoryScheme(values.categoryId, categories);
+  const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!sizeScheme) {
+      setSizeOptions([]);
+      return;
+    }
+    // curatedOnly: a custom value exists because legacy data had it, not
+    // because it is a size anyone should pick going forward. Offering it here
+    // would let the free-text vocabulary creep back one product at a time
+    // (FEAT-SIZE-TAXONOMY criterion 10).
+    safeGetSizes(sizeScheme, { curatedOnly: true }).then((options) => {
+      if (!cancelled) setSizeOptions(options);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sizeScheme]);
+
+  // Switching from a sized category to an unsized one must clear the size, or
+  // a stale value is submitted and the API rejects the whole product with a
+  // message about a field the form is no longer showing.
+  useEffect(() => {
+    if (!sizeScheme && values.size) {
+      setValues((prev) => ({ ...prev, size: '' }));
+    }
+  }, [sizeScheme, values.size]);
 
   function update<K extends keyof ProductFormValues>(key: K, value: ProductFormValues[K]) {
     setValues((prev) => {
@@ -205,12 +241,31 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
               <Input id="pf-purity" value={values.purity} onChange={(e) => update('purity', e.target.value)} placeholder="925" />
             </div>
           )}
-          {mode === 'create' && (
+          {/* Size — a constrained selector, and only for categories that have a
+              sizing scheme. Free text here is what produced the inconsistent
+              vocabulary FEAT-SIZE-TAXONOMY replaces, and the API now rejects
+              both an unknown value and a size on an unsized category. */}
+          {mode === 'create' && sizeScheme && (
             <div>
               <label className="mb-1 block text-sm font-medium" htmlFor="pf-size">
-                Size (optional)
+                Size
               </label>
-              <Input id="pf-size" value={values.size} onChange={(e) => update('size', e.target.value)} />
+              <select
+                id="pf-size"
+                required
+                className={cn(selectClassName)}
+                value={values.size}
+                onChange={(e) => update('size', e.target.value)}
+              >
+                <option value="" disabled>
+                  {sizeOptions.length === 0 ? 'Loading sizes…' : 'Select a size'}
+                </option>
+                {sizeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
           {mode === 'create' && (

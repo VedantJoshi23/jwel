@@ -42,3 +42,67 @@ describe('FilterForm', () => {
     expect(screen.getByRole('button', { name: 'Apply filters' })).toHaveAttribute('type', 'submit');
   });
 });
+
+describe('FilterForm — size (FEAT-SIZE-TAXONOMY)', () => {
+  const ringSizes = [
+    {
+      scheme: 'RING_INDIA' as const,
+      value: '16',
+      label: '16',
+      circumferenceMm: '56.3',
+      diameterMm: '17.93',
+      usEquivalent: '8',
+      ukEquivalent: 'P½',
+      isCustom: false,
+    },
+    {
+      scheme: 'RING_INDIA' as const,
+      value: '18',
+      label: '18',
+      circumferenceMm: '58.3',
+      diameterMm: '18.54',
+      usEquivalent: '9',
+      ukEquivalent: 'R½',
+      isCustom: false,
+    },
+  ];
+
+  it('omits the size section entirely when the category has no scheme', () => {
+    // An empty size selector on a pair of earrings is worse than none — it
+    // implies a choice that does not exist.
+    render(<FilterForm basePath="/collections/earrings" />);
+    expect(screen.queryByText('Size')).not.toBeInTheDocument();
+  });
+
+  it('renders one radio per seeded size, plus "Any size"', () => {
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
+    expect(screen.getByText('Size')).toBeInTheDocument();
+    expect(screen.getByLabelText('16')).toBeInTheDocument();
+    expect(screen.getByLabelText('18')).toBeInTheDocument();
+    expect(screen.getByLabelText('Any size')).toBeInTheDocument();
+  });
+
+  it('submits under the name the API filter expects', () => {
+    // `size` — must match QueryProductsDto, or the filter silently does nothing.
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
+    expect(screen.getByLabelText('16')).toHaveAttribute('name', 'size');
+  });
+
+  it('preselects the active size', () => {
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} defaultSize="18" />);
+    expect(screen.getByLabelText('18')).toBeChecked();
+    expect(screen.getByLabelText('Any size')).not.toBeChecked();
+  });
+
+  it('defaults to "Any size" when no size is active', () => {
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
+    expect(screen.getByLabelText('Any size')).toBeChecked();
+  });
+
+  it('labels the group for assistive technology', () => {
+    // STD-ACCESSIBILITY r7 — a radio group needs a programmatic label, not
+    // just a visually adjacent heading.
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
+    expect(screen.getByRole('group', { name: 'Size' })).toBeInTheDocument();
+  });
+});

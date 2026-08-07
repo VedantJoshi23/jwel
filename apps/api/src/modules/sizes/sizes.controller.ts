@@ -17,6 +17,6 @@ export class SizesController {
   @Get('sizes')
   @ApiOperation({ summary: 'List seeded size options, optionally for one scheme' })
   findAll(@Query() query: QuerySizesDto): Promise<SizeOptionResponse[]> {
-    return this.sizes.findAll(query.scheme);
+    return this.sizes.findAll(query.scheme, query.curatedOnly ?? false);
   }
 }
