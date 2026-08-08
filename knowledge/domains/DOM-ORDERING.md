@@ -177,13 +177,21 @@ implementation.
   verified~~ — **now enforced**, not merely verified: the transition is a
   conditional `updateMany` on `status: PLACED`, so of the three independent
   triggers (browser callback, webhook, sweep) only one can win.
-- **The sweep window disagrees with the recorded intent.** This item said the
-  window should be the gateway's session timeout plus roughly five minutes —
-  about 17 minutes. The implemented `ORDER_PAYMENT_TTL_MS` is **30 minutes**
-  and predates the note. Left as-is deliberately: too long merely holds stock
-  on an abandoned checkout, while too short cancels an order a shopper is still
-  paying for, whose payment then lands on a cancelled order and needs a manual
-  refund. Tightening it is an owner decision.
-- **Whether Razorpay emits an order-expiry event is still unverified.** It
-  would be a fast path on top of the sweep, never a replacement, so nothing
-  depends on the answer.
+- ~~**The sweep window disagrees with the recorded intent**~~ — **settled
+  2026-08-08: 30 minutes stands.** The earlier note asked for the gateway's
+  session timeout plus roughly five minutes, about 17. `ORDER_PAYMENT_TTL_MS`
+  stays at **30**, which supersedes that note. The errors are not symmetric:
+  too long merely holds stock on an abandoned checkout, while too short cancels
+  an order a shopper is still paying for, whose payment then lands on a
+  cancelled order and needs a manual refund.
+- ~~**Whether Razorpay emits an order-expiry event is unverified**~~ —
+  **closed 2026-08-08 as deliberately not pursued.** Not an unanswered
+  question but a declined dependency: the owner's decision is to avoid building
+  on third-party platform behaviour where the system can derive the same result
+  itself. The sweep reads state this system owns — `orders` and `payments` —
+  and is the whole mechanism rather than a floor beneath a provider event.
+
+  This is worth reading as a general position, not a one-off. `ADR-0005` makes
+  Razorpay the sole payment provider, so every dependency on provider-specific
+  behaviour narrows the room to change that later. A webhook this system does
+  not need is one less thing to reimplement if the provider ever changes.

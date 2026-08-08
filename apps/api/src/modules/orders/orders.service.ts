@@ -24,6 +24,12 @@ import { alertOperator } from '../../common/observability/alert';
 // How long an unpaid checkout may hold its reserved stock. Comfortably
 // longer than Razorpay's ~12-minute modal session, so a slow bank redirect
 // or an app-switch to complete UPI is never cut short.
+//
+// 30 rather than the ~17 an earlier note proposed — owner decision,
+// 2026-08-08, because the errors are not symmetric. Too long merely holds
+// stock on an abandoned checkout. Too short cancels an order a shopper is
+// still paying for, and their payment then lands on a cancelled order whose
+// stock was already released, which needs a manual refund.
 const ORDER_PAYMENT_TTL_MS = 30 * 60 * 1000;
 
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
