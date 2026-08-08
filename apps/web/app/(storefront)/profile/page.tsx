@@ -9,7 +9,11 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { getProfile, listAddresses, addAddress } from '@/lib/api/users';
 import { getOrders } from '@/lib/api/orders';
+import { getReturns } from '@/lib/api/returns';
+import { RequestReturnForm } from '@/components/profile/request-return-form';
+import { Badge } from '@/components/ui/badge';
 import { formatMinorUnits } from '@/lib/money';
+import type { CustomerReturn, ReturnStatus } from '@/lib/api/types';
 
 export default function ProfilePage() {
   const { token, user, isAuthenticated, logout } = useAuth();
@@ -38,6 +42,7 @@ export default function ProfilePage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="returns">Returns</TabsTrigger>
           <TabsTrigger value="addresses">Addresses</TabsTrigger>
         </TabsList>
 
@@ -50,6 +55,10 @@ export default function ProfilePage() {
           <OrdersTab token={token} />
         </TabsContent>
 
+        <TabsContent value="returns">
+          <ReturnsTab token={token} />
+        </TabsContent>
+
         <TabsContent value="addresses">
           <AddressesTab token={token} />
         </TabsContent>
@@ -58,21 +67,134 @@ export default function ProfilePage() {
   );
 }
 
+/**
+ * The FAQ has told customers to "start a return from your order history" since
+ * the page was written, and until now order history had no such control — the
+ * API existed and nothing reached it (KC-117). This is that control.
+ *
+ * Returns are per **order item**, not per order, because that is how
+ * `DOM-RETURNS` models them: each item may have at most one request, ever.
+ */
 function OrdersTab({ token }: { token: string }) {
   const { data, isLoading } = useQuery({ queryKey: ['orders'], queryFn: () => getOrders(token) });
+  const returns = useQuery({ queryKey: ['returns'], queryFn: () => getReturns(token) });
 
   if (isLoading) return <p className="text-ink-secondary">Loading orders…</p>;
   if (!data || data.items.length === 0) return <p className="text-ink-secondary">You have no orders yet.</p>;
 
+  // Which items already have a request. Read from the returns list rather than
+  // from the order, because the customer order endpoint does not carry return
+  // state and the returns list is loaded for the Returns tab anyway.
+  const requested = new Map((returns.data ?? []).map((r) => [r.orderItem.id, r]));
+
   return (
     <ul className="divide-y divide-border">
       {data.items.map((order) => (
-        <li key={order.id} className="flex items-center justify-between py-4">
-          <div>
-            <p className="font-mono text-sm">{order.id}</p>
-            <p className="text-sm text-ink-secondary">{order.status}</p>
+        <li key={order.id} className="py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-mono text-sm">{order.id}</p>
+              <p className="text-sm text-ink-secondary">{order.status}</p>
+            </div>
+            <p className="font-medium">{formatMinorUnits(order.totalMinorUnits)}</p>
           </div>
-          <p className="font-medium">{formatMinorUnits(order.totalMinorUnits)}</p>
+
+          {/*
+            Only delivered orders can be returned (DOM-RETURNS Invariant 1), so
+            offering the control anywhere else would be a surface promising
+            something the API will refuse.
+          */}
+          {order.status === 'DELIVERED' && (
+            <ul className="mt-3 space-y-3 border-t border-border pt-3">
+              {order.items.map((item) => {
+                const existing = requested.get(item.id);
+                return (
+                  <li key={item.id} className="text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-ink-secondary">
+                        {item.productNameSnapshot}
+                        {item.quantity > 1 && <span className="text-ink-muted"> ×{item.quantity}</span>}
+                      </span>
+                      {existing ? (
+                        <span className="text-xs text-ink-muted">
+                          Return {existing.status.toLowerCase().replace(/_/g, ' ')}
+                        </span>
+                      ) : (
+                        <RequestReturnForm
+                          token={token}
+                          item={item}
+                          onRequested={() => returns.refetch()}
+                        />
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const RETURN_STATUS_TONE: Record<ReturnStatus, 'default' | 'success' | 'warning' | 'error'> = {
+  REQUESTED: 'default',
+  APPROVED: 'warning',
+  REJECTED: 'error',
+  REFUND_PROCESSING: 'warning',
+  REFUNDED: 'success',
+};
+
+/**
+ * Status only — `DOM-RETURNS` §4 permits request and status, nothing else.
+ *
+ * In particular there is **no cancel control**, by Invariant 6: a customer may
+ * not withdraw a request or re-request after a rejection, and exceptions are
+ * handled out of band by email or WhatsApp. That is why a rejected return says
+ * to contact us rather than offering a button.
+ */
+function ReturnsTab({ token }: { token: string }) {
+  const { data, isLoading } = useQuery({ queryKey: ['returns'], queryFn: () => getReturns(token) });
+
+  if (isLoading) return <p className="text-ink-secondary">Loading returns…</p>;
+  if (!data || data.length === 0) {
+    return (
+      <p className="text-ink-secondary">
+        You have no returns. You can start one from a delivered order in your Orders tab.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="divide-y divide-border">
+      {data.map((request: CustomerReturn) => (
+        <li key={request.id} className="py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">{request.orderItem.productNameSnapshot}</p>
+              <p className="text-sm text-ink-secondary">
+                Requested {new Date(request.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="text-right">
+              {/* Text, not colour alone — STD-ACCESSIBILITY rule 6. */}
+              <Badge variant={RETURN_STATUS_TONE[request.status]}>
+                {request.status.replace(/_/g, ' ')}
+              </Badge>
+              {request.refundAmountMinorUnits !== null && (
+                <p className="mt-1 text-sm font-medium">
+                  {formatMinorUnits(request.refundAmountMinorUnits)} refunded
+                </p>
+              )}
+            </div>
+          </div>
+          {request.status === 'REJECTED' && (
+            <p className="mt-2 text-sm text-ink-secondary">
+              This request was not approved. Reply to your order email if you would like us to look
+              at it again.
+            </p>
+          )}
         </li>
       ))}
     </ul>

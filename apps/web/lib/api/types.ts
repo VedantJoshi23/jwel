@@ -253,6 +253,33 @@ export interface AdminOrder extends Order {
 
 export type ReturnStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'REFUND_PROCESSING' | 'REFUNDED';
 
+export type ReturnReason =
+  | 'SIZE_ISSUE'
+  | 'DAMAGED'
+  | 'NOT_AS_DESCRIBED'
+  | 'CHANGED_MIND'
+  | 'OTHER';
+
+/**
+ * A return as the customer sees it. Same rows as `AdminReturn`, without the
+ * other customer's details.
+ */
+export interface CustomerReturn {
+  id: string;
+  reason: ReturnReason;
+  notes: string | null;
+  status: ReturnStatus;
+  refundAmountMinorUnits: number | null;
+  createdAt: string;
+  orderItem: {
+    id: string;
+    orderId: string;
+    productNameSnapshot: string;
+    quantity: number;
+    unitPriceMinorUnits: number;
+  };
+}
+
 export interface AdminReturn {
   id: string;
   reason: 'SIZE_ISSUE' | 'DAMAGED' | 'NOT_AS_DESCRIBED' | 'CHANGED_MIND' | 'OTHER';
