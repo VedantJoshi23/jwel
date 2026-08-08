@@ -178,11 +178,11 @@ table, the type and the validation.
 1. **Return requested on day 10 versus day 11.** The window is measured from
    the `DELIVERED` entry in `OrderStatusHistory`, not `Order.updatedAt`, which
    moves for unrelated reasons.
-2. **Return requested on an order delivered before the window existed.** The
-   rule applies from its introduction; pre-existing delivered orders are
-   evaluated against it and will mostly be ineligible. Worth a deliberate
-   decision before enabling, since it silently closes returns on historical
-   orders.
+2. **Return requested on an order delivered before the window existed.**
+   Evaluated against the window like any other order, and therefore mostly
+   ineligible. **Owner decision, 2026-08-07** — taken with the consequence
+   stated: enforcing the window closed the return path on historical delivered
+   orders, without a grace period and without an announcement.
 3. **Window changed while a request is pending.** Eligibility is evaluated at
    **request time**, not re-evaluated later. Shortening the window must not
    retroactively invalidate a request already accepted.
@@ -225,11 +225,12 @@ table, the type and the validation.
   (`FEAT-SETTINGS-STORE`). Invariant 3 is now enforced in
   `returns-eligibility.ts`, measured from the `DELIVERED` entry in
   `OrderStatusHistory` per §8.1 and evaluated at request time per §8.3.
-- **Edge case 2** — retroactive application to historical delivered orders.
-  **Now live rather than hypothetical**: enforcing the window closed returns on
-  every order delivered more than 10 days ago, with no announcement. Whether
-  that is the intended treatment of pre-existing orders remains the owner's
-  call; widening `returns.window_days` temporarily is the lever if it is not.
+- ~~**Edge case 2** — retroactive application to historical delivered orders~~ —
+  **settled 2026-08-07 by owner decision: the window applies to existing orders
+  as it does to new ones.** No grace period, no backdating, no announcement.
+  Enforcing it closed the return path on every order delivered more than 10
+  days before that date. §8.2 is therefore no longer a pending question; it is
+  the recorded treatment.
 - **A `DELIVERED` order with no `DELIVERED` history row** is refused with a
   contact-support message rather than assigned an invented delivery date. It
   should not occur — every transition writes a history row — so it is a data

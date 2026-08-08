@@ -214,8 +214,11 @@ Invariant 3 was previously enforced by **nothing**: `create` checked only that
 the order was `DELIVERED` and that the item had no existing request, so an
 order delivered a year ago was as returnable as one delivered this morning.
 
-That means enforcing the window **changes behaviour for existing orders** —
+That means enforcing the window **changed behaviour for existing orders** —
 `DOM-RETURNS` §8.2, previously hypothetical, is now live: every order delivered
-more than 10 days ago has silently lost its return path. Flagged for the owner
-rather than decided here; `returns.window_days` is itself the lever if a
-grace period is wanted.
+more than 10 days before 2026-08-07 lost its return path.
+
+**Owner decision, 2026-08-07: existing orders are left as they are.** No grace
+period, no backdating. Recorded rather than assumed, because the consequence
+falls on customers who cannot see it happen — `DOM-RETURNS` §8.2 and Open items
+carry the same decision.
