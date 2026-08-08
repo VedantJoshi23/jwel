@@ -13,6 +13,31 @@ import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { MAX_IMAGE_BYTES, isAllowedImageMimeType } from '../../common/media/image-upload.constraints';
+import {
+  NO_RATING,
+  RatingAggregate,
+  deriveRating,
+  deriveRatings,
+  ratingsDiffer,
+  writeRating,
+} from './rating-aggregate';
+
+/** One product whose stored aggregate disagreed with its approved reviews. */
+export interface RatingDrift {
+  productId: string;
+  name: string;
+  stored: RatingAggregate;
+  correct: RatingAggregate;
+}
+
+export interface RatingReconciliation {
+  scanned: number;
+  drifted: number;
+  /** Zero on a dry run — nothing was written. */
+  corrected: number;
+  dryRun: boolean;
+  products: RatingDrift[];
+}
 
 const productInclude = {
   category: true,
@@ -534,5 +559,107 @@ export class ProductsService {
 
     const updated = await this.findProductOrThrow(productId);
     return this.withResolvedMedia(updated);
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // RATING AGGREGATES — ADR-0008 / FEAT-RATING-OWNERSHIP
+  //
+  // Catalog owns `avgRating` and `ratingCount`: the column, the value, the
+  // write and the `product.upserted` emission. Reviews used to write this row
+  // and emit this event directly, which left the aggregate with no single
+  // owner — no context could guarantee it was right (KC-142, KC-152). Since it
+  // feeds search ranking's popularity signal, the failure mode was not a
+  // visibly wrong number but subtly wrong result ordering.
+  // ────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Runs `work` and the rating recompute for `productId` in **one
+   * transaction**, then emits `product.upserted` **after it commits**.
+   *
+   * The callback shape exists so a caller in another context can make its own
+   * write atomic with the recompute without Catalog handing out its table: a
+   * review approved whose rating did not move is exactly the desync ADR-0008
+   * exists to prevent, so the two must not be able to come apart.
+   *
+   * Emission is after commit rather than inside, because Search re-reads the
+   * product from the database when it handles the event — inside the
+   * transaction it would index the pre-commit value and, on a rollback,
+   * announce a write that never happened.
+   */
+  async withRatingRecompute<T>(
+    productId: string,
+    work: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const outcome = await work(tx);
+      const derived = await deriveRating(tx, productId);
+      await writeRating(tx, productId, derived);
+      return outcome;
+    });
+
+    this.eventBus.emit('product.upserted', { productId });
+    return result;
+  }
+
+  /** Recomputes one product's aggregate on its own. Same ownership rules. */
+  async recomputeRating(productId: string): Promise<RatingAggregate> {
+    return this.withRatingRecompute(productId, async (tx) => deriveRating(tx, productId));
+  }
+
+  /**
+   * Reconciles every product's aggregate against its approved reviews.
+   *
+   * ADR-0008 consequence 3: *"If only one half of this ADR is implemented,
+   * implement this half."* Ownership makes the value correct by construction;
+   * this makes it recoverable when construction is bypassed — and this system
+   * has live bypasses: the demo seed, CSV bulk import, and manual SQL
+   * correction as a documented operational practice (RUNBOOK §11a).
+   *
+   * Soft-deleted products are included deliberately (§7.4). A product can be
+   * restored, and restoring one with a stale rating would reintroduce exactly
+   * the drift this removes.
+   *
+   * @param dryRun report drift without writing. The report is the point: an
+   *   operator's real question is *how wrong was it*, which a bare "done"
+   *   cannot answer.
+   */
+  async reconcileRatings({ dryRun = false }: { dryRun?: boolean } = {}): Promise<RatingReconciliation> {
+    const products = await this.prisma.product.findMany({
+      select: { id: true, name: true, avgRating: true, ratingCount: true },
+    });
+    const derivedByProduct = await deriveRatings(this.prisma);
+
+    const drifted: RatingDrift[] = [];
+    for (const product of products) {
+      const stored: RatingAggregate = {
+        avgRating: Number(product.avgRating),
+        ratingCount: product.ratingCount,
+      };
+      // Absent from the map means no approved reviews — the zero state, not
+      // "leave it alone" (§7.2). Reading that absence as no-op is the bug that
+      // would leave a rating standing after its last review was rejected.
+      const derived = derivedByProduct.get(product.id) ?? NO_RATING;
+
+      if (ratingsDiffer(stored, derived)) {
+        drifted.push({ productId: product.id, name: product.name, stored, correct: derived });
+      }
+    }
+
+    if (!dryRun) {
+      for (const entry of drifted) {
+        await writeRating(this.prisma, entry.productId, entry.correct);
+        // Only for products actually corrected. Emitting per product scanned
+        // would reindex the entire catalogue to fix a handful of rows.
+        this.eventBus.emit('product.upserted', { productId: entry.productId });
+      }
+    }
+
+    return {
+      scanned: products.length,
+      drifted: drifted.length,
+      corrected: dryRun ? 0 : drifted.length,
+      dryRun,
+      products: drifted,
+    };
   }
 }

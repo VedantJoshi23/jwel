@@ -16,7 +16,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { BulkImportService } from './bulk-import.service';
 import { QueryProductsDto } from './dto/query-products.dto';
@@ -137,6 +137,22 @@ export class ProductsController {
   @ApiOperation({ summary: '[Admin] Archive (soft-delete) a product' })
   adminDelete(@Param('id') id: string) {
     return this.productsService.adminDelete(id);
+  }
+
+  @ApiBearerAuth()
+  @Post('admin/products/ratings/reconcile')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary:
+      '[Admin] Recompute every product rating aggregate from its approved reviews. ' +
+      'Pass dryRun=true to report drift without writing.',
+  })
+  @ApiQuery({ name: 'dryRun', required: false, type: Boolean })
+  reconcileRatings(@Query('dryRun') dryRun?: string) {
+    // ADR-0008's recoverability half. Ownership keeps the aggregate correct by
+    // construction; this repairs it when construction is bypassed — the demo
+    // seed, CSV bulk import, or a manual SQL correction (RUNBOOK §11a).
+    return this.productsService.reconcileRatings({ dryRun: dryRun === 'true' });
   }
 
   @ApiBearerAuth()

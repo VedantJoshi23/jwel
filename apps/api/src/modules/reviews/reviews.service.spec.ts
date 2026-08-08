@@ -1,8 +1,8 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { ModerationStatus } from '@prisma/client';
 import { ReviewsService } from './reviews.service';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EventBusService } from '../../common/event-bus/event-bus.service';
+import { ProductsService } from '../products/products.service';
 
 type MockPrisma = {
   review: { findUnique: jest.Mock; create: jest.Mock; findMany: jest.Mock; count: jest.Mock; update: jest.Mock; aggregate: jest.Mock };
@@ -13,7 +13,7 @@ type MockPrisma = {
 
 describe('ReviewsService', () => {
   let prisma: MockPrisma;
-  let eventBus: { emit: jest.Mock };
+  let products: { withRatingRecompute: jest.Mock };
   let service: ReviewsService;
 
   beforeEach(() => {
@@ -23,8 +23,15 @@ describe('ReviewsService', () => {
       product: { update: jest.fn() },
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
-    eventBus = { emit: jest.fn() };
-    service = new ReviewsService(prisma as unknown as PrismaService, eventBus as unknown as EventBusService);
+    products = {
+      // Stands in for Catalog: runs the caller's work against a transaction
+      // client, exactly as the real implementation does.
+      withRatingRecompute: jest.fn((_productId, work) => work(prisma)),
+    };
+    service = new ReviewsService(
+      prisma as unknown as PrismaService,
+      products as unknown as ProductsService,
+    );
   });
 
   describe('create', () => {
@@ -98,32 +105,59 @@ describe('ReviewsService', () => {
     });
   });
 
-  describe('adminModerate', () => {
-    it('recomputes the product rating aggregate and emits product.upserted', async () => {
+  describe('adminModerate — ADR-0008, the boundary this closed', () => {
+    it('commands Catalog to recompute rather than writing the product itself', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', productId: 'p1' });
       prisma.review.update.mockResolvedValue({ id: 'r1', productId: 'p1' });
-      prisma.review.aggregate.mockResolvedValue({ _avg: { rating: 4.5 }, _count: { rating: 3 } });
-      prisma.product.update.mockResolvedValue({});
 
       await service.adminModerate('r1', ModerationStatus.APPROVED);
 
-      expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { avgRating: 4.5, ratingCount: 3 },
-      });
-      expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
+      expect(products.withRatingRecompute).toHaveBeenCalledWith('p1', expect.any(Function));
     });
 
-    it('defaults avgRating to 0 when there are no approved reviews left (e.g. the only one was just rejected)', async () => {
+    it('never writes prisma.product — the violation KC-152 recorded', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', productId: 'p1' });
       prisma.review.update.mockResolvedValue({ id: 'r1', productId: 'p1' });
-      prisma.review.aggregate.mockResolvedValue({ _avg: { rating: null }, _count: { rating: 0 } });
-      prisma.product.update.mockResolvedValue({});
 
-      await service.adminModerate('r1', ModerationStatus.REJECTED);
+      await service.adminModerate('r1', ModerationStatus.APPROVED);
 
-      expect(prisma.product.update).toHaveBeenCalledWith({
-        where: { id: 'p1' },
-        data: { avgRating: 0, ratingCount: 0 },
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('performs the moderation write inside Catalog\'s transaction (§3.5)', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', productId: 'p1' });
+      prisma.review.update.mockResolvedValue({ id: 'r1', productId: 'p1' });
+
+      // The stub only invokes the callback; if the update happened outside it,
+      // a failing recompute could not roll the approval back.
+      let updatedInsideCallback = false;
+      products.withRatingRecompute.mockImplementation(async (_id, work) => {
+        expect(prisma.review.update).not.toHaveBeenCalled();
+        const result = await work(prisma);
+        updatedInsideCallback = prisma.review.update.mock.calls.length === 1;
+        return result;
       });
+
+      await service.adminModerate('r1', ModerationStatus.APPROVED);
+      expect(updatedInsideCallback).toBe(true);
+    });
+
+    it('returns the updated review', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', productId: 'p1' });
+      prisma.review.update.mockResolvedValue({ id: 'r1', moderationStatus: 'APPROVED' });
+
+      await expect(service.adminModerate('r1', ModerationStatus.APPROVED)).resolves.toMatchObject({
+        moderationStatus: 'APPROVED',
+      });
+    });
+
+    it('404s on an unknown review without touching Catalog', async () => {
+      prisma.review.findUnique.mockResolvedValue(null);
+
+      await expect(service.adminModerate('nope', ModerationStatus.APPROVED)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(products.withRatingRecompute).not.toHaveBeenCalled();
     });
   });
 });

@@ -1,15 +1,15 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { ModerationStatus, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { ProductsService } from '../products/products.service';
 
 @Injectable()
 export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly eventBus: EventBusService,
+    private readonly products: ProductsService,
   ) {}
 
   async create(userId: string, dto: CreateReviewDto) {
@@ -65,30 +65,28 @@ export class ReviewsService {
     });
   }
 
+  /**
+   * Moderating a review changes a product's rating aggregate — which Reviews
+   * does not own.
+   *
+   * This method used to write `prisma.product` itself and emit
+   * `product.upserted`, the system's one boundary violation (KC-152,
+   * `ARCH-001` §1.3). Per `ADR-0008` it now **commands Catalog** and lets
+   * Catalog own the write, the recompute and the emission.
+   *
+   * The moderation write goes inside Catalog's transaction rather than before
+   * it, so a failed recompute takes the approval down with it. That coupling
+   * is intended: a review approved whose rating did not move is the desync the
+   * ADR exists to prevent.
+   */
   async adminModerate(id: string, status: ModerationStatus) {
-    const review = await this.prisma.review.update({ where: { id }, data: { moderationStatus: status } });
-    await this.recomputeProductRating(review.productId);
-    // Rating/ratingCount feed directly into search ranking's popularity
-    // signal (search.service.ts's field_value_factor on ratingCount) — a
-    // moderation decision must reindex, not just update Postgres.
-    this.eventBus.emit('product.upserted', { productId: review.productId });
-    return review;
-  }
+    const existing = await this.prisma.review.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Review not found');
+    }
 
-  // Write-through aggregate update (DATABASE.md §3 `products` notes) — avoids
-  // computing AVG/COUNT over reviews on every PLP/PDP read.
-  private async recomputeProductRating(productId: string): Promise<void> {
-    const aggregate = await this.prisma.review.aggregate({
-      where: { productId, moderationStatus: ModerationStatus.APPROVED },
-      _avg: { rating: true },
-      _count: { rating: true },
-    });
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: {
-        avgRating: aggregate._avg.rating ?? 0,
-        ratingCount: aggregate._count.rating,
-      },
-    });
+    return this.products.withRatingRecompute(existing.productId, (tx) =>
+      tx.review.update({ where: { id }, data: { moderationStatus: status } }),
+    );
   }
 }

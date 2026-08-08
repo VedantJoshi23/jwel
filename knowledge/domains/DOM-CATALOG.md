@@ -1,7 +1,7 @@
 ---
 id: DOM-CATALOG
 title: 'Jwel / ELYSIAN — Domain: Catalog'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -94,9 +94,17 @@ not on every edit of a published product (which would refuse changes to
 products published before it existed), and there is **no override** — an
 override is how a gate stops meaning anything.
 
-**Invariant 5 is the in-flight `ADR-0008` correction.** Reviews currently writes
-`Product.avgRating` directly (KC-152). Until the refactor lands, the system does
-not match this spec — a known, recorded deviation.
+**Invariant 5 was the in-flight `ADR-0008` correction, and is now built**
+(`FEAT-RATING-OWNERSHIP`, 2026-08-08). Catalog owns the column, the value, the
+write and the `product.upserted` emission. Reviews commands
+`withRatingRecompute`, which runs the caller's write and the recompute in one
+transaction and emits after commit.
+
+**With ownership came recoverability.** `POST /admin/products/ratings/reconcile`
+rederives every aggregate from the approved review set, with a `dryRun` that
+reports drift without writing. Ownership makes the value correct by
+construction; reconciliation repairs it when construction is bypassed — the
+demo seed, CSV bulk import and manual SQL correction are all live bypasses.
 
 ## 4. API Surface
 
@@ -153,6 +161,7 @@ Catalog the sole writer of its own aggregate.
 
 - **Invariant 2 is unbuilt** and gates safe hand-off of the catalog to the
   client.
-- **Invariant 5 is unbuilt** — `ADR-0008`'s refactor.
+- ~~**Invariant 5 is unbuilt** — `ADR-0008`'s refactor~~ — **built
+  2026-08-08** (`FEAT-RATING-OWNERSHIP`), with bulk reconciliation.
 - `searchVector`'s raw-SQL index is invisible to Prisma drift detection
   (KC-144).

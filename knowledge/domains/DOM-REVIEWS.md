@@ -1,7 +1,7 @@
 ---
 id: DOM-REVIEWS
 title: 'Jwel / ELYSIAN — Domain: Reviews'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -62,11 +62,14 @@ aggregate.
 reviews should require purchase verification at launch. The implemented answer
 is no — moderate instead, and badge the ones that are verified.
 
-**Invariant 7 is the in-flight `ADR-0008` correction.** Reviews currently writes
-`Product.avgRating` directly and emits Catalog's event (KC-152) — the only
-boundary violation Discovery found, and the structural cause of the
-silent-desync risk (KC-142). Until the refactor lands, the system does not match
-this spec.
+**Invariant 7 was the in-flight `ADR-0008` correction, and is now built**
+(`FEAT-RATING-OWNERSHIP`, 2026-08-08). Reviews wrote `Product.avgRating`
+directly and emitted Catalog's event (KC-152) — the only boundary violation
+Discovery found, and the structural cause of the silent-desync risk (KC-142).
+`adminModerate` now commands `ProductsService.withRatingRecompute`, which runs
+the moderation write and the recompute in one transaction and emits after it
+commits. A structural test (`common/architecture.spec.ts`) fails the build if
+any module outside Catalog writes the product row or emits its events.
 
 **Invariant 8 separates the feedback from the person.** The review is product
 information and stays useful to other customers; the identity is the part
@@ -91,8 +94,8 @@ it suppresses review submissions from anyone who reads it.
 
 ## 5. Events
 
-**Publishes** — none, after `ADR-0008` lands. (Today it emits
-`product.upserted`, which Invariant 7 forbids.)
+**Publishes** — none. (It emitted `product.upserted` until `ADR-0008` landed;
+Invariant 7 forbids it and a structural test now enforces that.)
 **Consumes** — none.
 
 ## 6. Data Ownership
@@ -140,7 +143,8 @@ that brings this domain into compliance.
 
 ## Open items
 
-- **`ADR-0008` refactor is unbuilt** — the system's only boundary violation.
+- ~~**`ADR-0008` refactor is unbuilt** — the system's only boundary violation~~
+  — **built 2026-08-08** (`FEAT-RATING-OWNERSHIP`).
 - **Edge case 2** — whether `verifiedPurchase` should update retroactively.
 - **Invariant 8 is unbuilt** — the read path currently has no
   deleted-user branch.
