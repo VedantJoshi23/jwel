@@ -11,7 +11,8 @@
     "test:cov": "vitest run --coverage",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "claims:audit": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"target\":\"es2020\",\"esModuleInterop\":true,\"skipLibCheck\":true,\"isolatedModules\":false}' scripts/claims-audit.ts"
+    "claims:audit": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"target\":\"es2020\",\"esModuleInterop\":true,\"skipLibCheck\":true,\"isolatedModules\":false}' scripts/claims-audit.ts",
+    "test:a11y": "playwright test accessibility.spec.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.2",
@@ -31,6 +32,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "@playwright/test": "^1.48.0",
     "@tanstack/react-query-devtools": "^5.59.0",
     "@testing-library/jest-dom": "^6.5.0",

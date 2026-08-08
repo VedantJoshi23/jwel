@@ -74,21 +74,31 @@ export default function FaqPage() {
     <div>
       <PageHeader title="Frequently Asked Questions" subtitle="Everything you need to know before you shop." />
       <div className="mx-auto max-w-2xl px-6 py-12 lg:px-8">
-        <dl className="space-y-3">
+        {/*
+          A plain list, not a <dl>. A definition list may contain only
+          dt/dd/div, so wrapping <details> in one is invalid markup — axe flags
+          it as a serious `definition-list` violation, and a screen reader
+          announcing "definition list, 0 items" is worse than no semantics at
+          all. Found by e2e/accessibility.spec.ts on its first run
+          (STD-ACCESSIBILITY rule 2).
+        */}
+        <ul className="space-y-3">
           {faqs.map((item) => (
-            <details key={item.q} className="group rounded-s border border-border-warm p-4">
-              <summary className="cursor-pointer list-none font-medium text-ink-primary marker:content-none">
-                <span className="flex items-center justify-between gap-4">
-                  {item.q}
-                  <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">
-                    ▾
+            <li key={item.q}>
+              <details className="group rounded-s border border-border-warm p-4">
+                <summary className="cursor-pointer list-none font-medium text-ink-primary marker:content-none">
+                  <span className="flex items-center justify-between gap-4">
+                    {item.q}
+                    <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">
+                      ▾
+                    </span>
                   </span>
-                </span>
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{item.a}</p>
-            </details>
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-ink-secondary">{item.a}</p>
+              </details>
+            </li>
           ))}
-        </dl>
+        </ul>
       </div>
     </div>
   );
