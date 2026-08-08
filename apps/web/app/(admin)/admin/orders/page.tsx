@@ -80,7 +80,27 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="px-4 py-3 font-medium">{formatMinorUnits(order.totalMinorUnits)}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={STATUS_VARIANT[order.status]}>{order.status}</Badge>
+                    {/*
+                      DOM-RETURNS invariant 9. A partially refunded order stays
+                      DELIVERED by design, so the difference has to be visible
+                      here or it is invisible everywhere — an admin should not
+                      have to open an order to learn part of it came back.
+                    */}
+                    <Badge
+                      variant={
+                        order.partiallyReturned ? 'warning' : STATUS_VARIANT[order.status]
+                      }
+                      title={
+                        order.partiallyReturned
+                          ? 'Some items on this order have been refunded'
+                          : undefined
+                      }
+                    >
+                      {order.status}
+                    </Badge>
+                    {order.partiallyReturned && (
+                      <div className="mt-1 text-xs text-feedback-warning">Partially returned</div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">

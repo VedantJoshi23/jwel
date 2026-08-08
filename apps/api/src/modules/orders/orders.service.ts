@@ -20,6 +20,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { MetricsService } from '../metrics/metrics.service';
 import { alertOperator } from '../../common/observability/alert';
+import { deriveRefundState } from './refund-state';
 
 // How long an unpaid checkout may hold its reserved stock. Comfortably
 // longer than Razorpay's ~12-minute modal session, so a slow bank redirect
@@ -442,15 +443,33 @@ export class OrdersService implements OnModuleInit {
     // (Users, Coupons, Reviews) returns a real paginated envelope; this
     // didn't, which the Admin Portal's Orders page (Milestone 10) surfaced
     // immediately since it has no way to show who placed an order.
-    const [items, total] = await this.prisma.$transaction([
+    const [orders, total] = await this.prisma.$transaction([
       this.prisma.order.findMany({
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
-        include: { items: true, user: { select: { id: true, email: true, name: true } } },
+        include: {
+          // `returnRequest` rides along so the partial-return flag can be
+          // derived per row (DOM-RETURNS invariant 9). It is a 1:1 on
+          // `order_items`, so this is not an N+1.
+          items: { include: { returnRequest: { select: { status: true } } } },
+          user: { select: { id: true, email: true, name: true } },
+        },
       }),
       this.prisma.order.count(),
     ]);
+
+    // Invariant 9: an order reading DELIVERED while carrying refunded items is
+    // indistinguishable from one that was never returned, and an admin should
+    // not have to open it to find out. Derived per read rather than stored —
+    // the returns table already knows (STD-DATABASE r9).
+    const items = orders.map((order) => ({
+      ...order,
+      partiallyReturned: deriveRefundState(
+        order.items.map((item) => ({ returnStatus: item.returnRequest?.status ?? null })),
+      ).partiallyReturned,
+    }));
+
     return { items, page, pageSize, total };
   }
 
@@ -494,5 +513,85 @@ export class OrdersService implements OnModuleInit {
     });
 
     return updated;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // REFUND STATE — DOM-RETURNS invariants 8 and 9
+  //
+  // `OrderStatus.REFUNDED` was unreachable: no transition led to it (KC-178),
+  // so an order whose every item came back still read DELIVERED forever.
+  // Ordering owns order status (Law 5), so Returns commands this rather than
+  // writing the row itself.
+  // ────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Re-derives whether an order is fully refunded and transitions it if so.
+   *
+   * **Derived, never asserted.** Invariant 8 makes `REFUNDED` a *consequence*
+   * of every item having a refunded return, which is why this reads the
+   * returns rather than taking a status argument, and why `DELIVERED →
+   * REFUNDED` is deliberately absent from `ALLOWED_TRANSITIONS`: an admin must
+   * not be able to declare an order refunded that is not. This method is the
+   * only path to that status.
+   *
+   * Idempotent by conditional update, like every other transition here — a
+   * second call after the order is already `REFUNDED` matches nothing.
+   *
+   * @param actor the admin whose refund decision triggered this. A human did
+   *   cause it, and the audit trail should say who rather than "system".
+   * @returns whether this call performed the transition.
+   */
+  async refreshRefundState(orderId: string, actor: AuthenticatedUser): Promise<boolean> {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        status: true,
+        items: { select: { returnRequest: { select: { status: true } } } },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    const { fullyRefunded } = deriveRefundState(
+      order.items.map((item) => ({ returnStatus: item.returnRequest?.status ?? null })),
+    );
+
+    if (!fullyRefunded) {
+      // Partially refunded orders stay DELIVERED by design. The distinction is
+      // carried in the admin presentation layer (invariant 9) rather than by a
+      // PARTIALLY_REFUNDED enum value, which would ripple through the state
+      // machine, the web type union and every status filter to express
+      // something the returns already imply.
+      return false;
+    }
+
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, status: OrderStatus.DELIVERED },
+      data: { status: OrderStatus.REFUNDED },
+    });
+
+    if (count === 0) {
+      return false;
+    }
+
+    await this.prisma.orderStatusHistory.create({
+      data: {
+        orderId,
+        status: OrderStatus.REFUNDED,
+        note: 'Every item on this order has been refunded',
+      },
+    });
+
+    await this.auditLogService.record({
+      actor,
+      action: 'order.status_updated',
+      entityType: 'Order',
+      entityId: orderId,
+      metadata: { from: OrderStatus.DELIVERED, to: OrderStatus.REFUNDED, derived: true },
+    });
+
+    return true;
   }
 }

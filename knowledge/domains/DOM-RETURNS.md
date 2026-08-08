@@ -1,7 +1,7 @@
 ---
 id: DOM-RETURNS
 title: Jwel / ELYSIAN — Domain: Returns
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -101,6 +101,12 @@ at least one, but not all, of its items has a `REFUNDED` return. This is a read
 concern, not a stored field; storing it would create a second source of truth
 for something the returns table already knows (`STD-DATABASE` r9).
 
+**Both invariants built 2026-08-08** (`FEAT-ORDER-REFUND-STATE`). `REFUNDED` is
+reached only by derivation — `DELIVERED → REFUNDED` is deliberately absent from
+Ordering's admin transition table, so an administrator cannot declare an order
+refunded that is not. The admin order list carries `partiallyReturned`, derived
+per read, and the admin UI highlights the `DELIVERED` badge and labels it.
+
 ## 4. API Surface
 
 *From `ARCH-001`; not reinvented here.*
@@ -161,7 +167,9 @@ table, the type and the validation.
 
 **Allowed** — matching `ARCH-001`'s context map exactly:
 
-- **Ordering** — read, for eligibility
+- **Ordering** — read, for eligibility; **command**, to re-derive `REFUNDED`
+  once every item on an order has been refunded (`FEAT-ORDER-REFUND-STATE`,
+  Invariant 8). Returns never writes `orders` itself
 - **Payments** — command, to execute a refund
 - **Inventory** — command, to restore stock
 - **Audit log** — shared infrastructure

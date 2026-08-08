@@ -239,6 +239,16 @@ export interface CouponValidationResult {
 
 export interface AdminOrder extends Order {
   user: { id: string; email: string; name: string | null };
+  /**
+   * Some but not all of this order's items have been refunded
+   * (DOM-RETURNS invariant 9).
+   *
+   * Derived by the API per read, never stored. A partially refunded order
+   * stays `DELIVERED` in the data model deliberately — there is no
+   * `PARTIALLY_REFUNDED` status — so without this flag an admin cannot tell
+   * it apart from an order that was never returned, short of opening it.
+   */
+  partiallyReturned: boolean;
 }
 
 export type ReturnStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'REFUND_PROCESSING' | 'REFUNDED';
