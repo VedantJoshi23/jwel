@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -106,15 +106,20 @@ its default is** — Settings owns only the table it lives in, its type and its
 validation. Exactly the `audit-log` split: one owns the store, each domain owns
 what it puts there.
 
-### 1.3 The one boundary correction in flight
+### 1.3 The one boundary correction — closed
 
-`DISC-006` found exactly one violation (KC-152): **Reviews writes
-`Product.avgRating` and emits `product.upserted`.** `ADR-0008` resolves it —
-Reviews will command Catalog, and Catalog will own the write and the emission.
+`DISC-006` found exactly one violation (KC-152): **Reviews wrote
+`Product.avgRating` and emitted `product.upserted`.** `ADR-0008` resolved it on
+paper; `FEAT-RATING-OWNERSHIP` implemented it on 2026-08-08 (Amendment A3).
 
-The table above records the **target** state: Catalog owns rating aggregates.
-Until `ADR-0008` is implemented, the system does not match this section, and
-that is a known, recorded deviation rather than a discrepancy in this document.
+Reviews now commands Catalog, and Catalog owns the write and the emission. The
+table in §1.1 describes the system rather than a target, and **there is no known
+boundary violation outstanding.**
+
+That claim is kept honest structurally rather than by inspection:
+`common/architecture.spec.ts` reads the source tree and fails the build if any
+module outside Catalog writes the product row, emits `product.upserted` /
+`product.deleted`, or grows a second copy of the rating derivation.
 
 ### 1.4 What lies outside every boundary
 
@@ -396,6 +401,34 @@ sees the new value.
 
 **Confidence unchanged at 91%.** A service was added to a list §1.2 already
 described the category of; no observation changed.
+
+### A3 — 2026-08-08, the boundary violation closed
+
+**Trigger.** `FEAT-RATING-OWNERSHIP` implemented `ADR-0008`.
+
+**What changes.** §1.3 only, from *"in flight"* to *closed*. §1.1 already
+recorded the target state and needs no edit — which was the point of writing it
+that way.
+
+**What it means for this document.** §1.1's ownership table stopped being a
+target and became a description. `DISC-006` measured exactly one violation
+across imports, events and table access, and that one is now gone.
+
+**The claim is enforced, not asserted.** A structural test reads the source and
+fails the build on a module outside Catalog writing the product row or emitting
+its events. Recorded here because the next violation will not be a regression
+in Reviews — it will be a new module doing the convenient thing, and only
+reading the source catches that.
+
+**Also closed:** the recoverability half of `ADR-0008`, which its consequence 3
+singled out as the more important one. `POST /admin/products/ratings/reconcile`
+rederives every aggregate from the approved review set. Ownership makes the
+value correct by construction; reconciliation repairs it when construction is
+bypassed, and this system has three live bypasses — the demo seed, CSV bulk
+import, and manual SQL correction as documented practice (`RUNBOOK` §11a).
+
+**Confidence unchanged at 91%.** A recorded deviation was removed by building
+what the document already described; no observation changed.
 
 ## Technology decisions
 

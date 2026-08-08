@@ -644,6 +644,47 @@ within the hour, which is the rate this actually moves at.
 
 ---
 
+## 11c. Rating reconciliation (safe to run, worth running)
+
+`POST /api/v1/admin/products/ratings/reconcile` rederives every product's
+`avg_rating` and `rating_count` from its approved reviews.
+
+**This is not an 11a script**, and the distinction matters. Those rewrite
+human-entered data with judgement in it, so they need a backup first. This
+rewrites a **derived** value from data it does not touch: it is idempotent,
+running it twice changes nothing the second time, and there is nothing to
+recover because the reviews are the source of truth.
+
+Run it when a rating looks wrong, after a CSV bulk import, after restoring a
+backup, and after any manual SQL correction to `products` or `reviews`. Those
+are the paths that bypass the application, and bypassing the application is the
+only way this value can drift now that Catalog owns the write (`ADR-0008`).
+
+```bash
+# Look first. dryRun reports drift and writes nothing.
+curl -s -X POST 'https://<domain>/api/v1/admin/products/ratings/reconcile?dryRun=true' \
+  -H "authorization: Bearer $ADMIN_TOKEN" | jq
+
+# Then fix.
+curl -s -X POST 'https://<domain>/api/v1/admin/products/ratings/reconcile' \
+  -H "authorization: Bearer $ADMIN_TOKEN" | jq
+```
+
+The report names every drifted product with its stored and correct values —
+`{scanned, drifted, corrected, products: [...]}`. **Read it rather than the
+status code.** `drifted: 0` after a bulk import is the useful answer; a large
+number is worth understanding before you assume the fix was routine, because
+something bypassed the application to cause it.
+
+Corrected products are reindexed in Elasticsearch automatically (Catalog emits
+`product.upserted` for each one, and only for those it changed).
+
+Why bother: the aggregate feeds search ranking's popularity signal. A wrong
+value does not show up as a wrong number on a page — it shows up as search
+results in slightly the wrong order, which nobody reports.
+
+---
+
 ## 12. Changing the domain
 
 Expected at least once: the staging deployment runs on a domain you already

@@ -19,6 +19,7 @@
 // delete it.
 import { PrismaClient, MetalType, ModerationStatus, ProductStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { deriveRating, writeRating } from '../modules/products/rating-aggregate';
 
 const prisma = new PrismaClient();
 
@@ -248,15 +249,12 @@ async function seedReviews(productIds: string[], reviewerIds: string[]) {
       created += 1;
     }
 
-    const aggregate = await prisma.review.aggregate({
-      where: { productId, moderationStatus: ModerationStatus.APPROVED },
-      _avg: { rating: true },
-      _count: { rating: true },
-    });
-    await prisma.product.update({
-      where: { id: productId },
-      data: { avgRating: aggregate._avg.rating ?? 0, ratingCount: aggregate._count.rating },
-    });
+    // A seed is not an application path, so it writes the aggregate directly
+    // rather than going through Catalog. It uses the *same derivation* as the
+    // application (FEAT-RATING-OWNERSHIP §7.8) — a second copy of this
+    // arithmetic here is precisely how a seeded rating starts disagreeing with
+    // a recomputed one.
+    await writeRating(prisma, productId, await deriveRating(prisma, productId));
   }
 
   console.log(`Created ${created} approved dummy reviews across ${reviewedProducts.length} products.`);
