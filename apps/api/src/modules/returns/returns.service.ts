@@ -17,6 +17,7 @@ import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SettingsService } from '../settings/settings.service';
 import { checkReturnWindow } from './returns-eligibility';
+import { OrdersService } from '../orders/orders.service';
 
 // `user: { select: ... }`, never `include: { user: true }` — a bare include
 // pulls the full User row (passwordHash and all) straight into the API
@@ -55,6 +56,7 @@ export class ReturnsService {
     private readonly eventBus: EventBusService,
     private readonly auditLogService: AuditLogService,
     private readonly settings: SettingsService,
+    private readonly orders: OrdersService,
   ) {}
 
   async create(userId: string, dto: CreateReturnDto) {
@@ -205,6 +207,19 @@ export class ReturnsService {
         userEmail: updated.orderItem.order.user.email,
         refundAmountMinorUnits: refundAmountMinorUnits!,
       });
+    }
+
+    if (nextStatus === ReturnStatus.REFUNDED) {
+      // Invariant 8: an order becomes REFUNDED only when every one of its
+      // items has. Returns does not own order status (Law 5), so it commands
+      // Ordering to re-derive it rather than writing the row.
+      //
+      // Synchronous rather than reacting to `return.refunded`: the bus is
+      // at-most-once, and a lost event would leave an order permanently
+      // reading DELIVERED with every item refunded — the same silent desync
+      // ADR-0008 removed from ratings. The admin who just approved the refund
+      // should also see the order's new state on the next screen.
+      await this.orders.refreshRefundState(returnRequest.orderItem.orderId, actor);
     }
 
     // The single highest-stakes action this module logs: REFUNDED means a

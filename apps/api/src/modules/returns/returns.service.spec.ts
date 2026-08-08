@@ -9,6 +9,7 @@ import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { SettingsService } from '../settings/settings.service';
+import { OrdersService } from '../orders/orders.service';
 
 const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
@@ -25,6 +26,7 @@ describe('ReturnsService', () => {
   let eventBus: { emit: jest.Mock };
   let auditLog: { record: jest.Mock };
   let settings: { get: jest.Mock };
+  let orders: { refreshRefundState: jest.Mock };
   let service: ReturnsService;
 
   beforeEach(() => {
@@ -40,6 +42,7 @@ describe('ReturnsService', () => {
     // Delivered just now, so the window is open unless a test says otherwise.
     prisma.orderStatusHistory.findFirst.mockResolvedValue({ occurredAt: new Date() });
     settings = { get: jest.fn().mockResolvedValue(10) };
+    orders = { refreshRefundState: jest.fn().mockResolvedValue(false) };
     service = new ReturnsService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
@@ -47,6 +50,7 @@ describe('ReturnsService', () => {
       eventBus as unknown as EventBusService,
       auditLog as unknown as AuditLogService,
       settings as unknown as SettingsService,
+      orders as unknown as OrdersService,
     );
   });
 
@@ -271,6 +275,45 @@ describe('ReturnsService', () => {
       expect(auditLog.record).toHaveBeenCalledWith(
         expect.objectContaining({ actor, action: 'return.status_updated', entityType: 'ReturnRequest', entityId: 'r1' }),
       );
+    });
+
+    it('commands Ordering to re-derive REFUNDED, rather than writing the order', async () => {
+      // DOM-RETURNS invariant 8. Returns does not own order status (Law 5).
+      prisma.returnRequest.findUnique.mockResolvedValue({
+        status: ReturnStatus.REFUND_PROCESSING,
+        orderItem: { variantId: 'v1', quantity: 2, orderId: 'o1' },
+      });
+      prisma.returnRequest.update.mockResolvedValue({
+        id: 'r1',
+        orderItem: { order: { user: { email: 'a@b.com' } } },
+      });
+
+      await service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 5000);
+
+      expect(orders.refreshRefundState).toHaveBeenCalledWith('o1', actor);
+    });
+
+    it('does not touch order state on any other transition', async () => {
+      prisma.returnRequest.findUnique.mockResolvedValue({ status: ReturnStatus.REQUESTED });
+      prisma.returnRequest.update.mockResolvedValue({ id: 'r1' });
+
+      await service.adminUpdateStatus('r1', ReturnStatus.APPROVED, actor);
+
+      expect(orders.refreshRefundState).not.toHaveBeenCalled();
+    });
+
+    it('does not re-derive order state when the refund itself failed', async () => {
+      prisma.returnRequest.findUnique.mockResolvedValue({
+        status: ReturnStatus.REFUND_PROCESSING,
+        orderItem: { variantId: 'v1', quantity: 2, orderId: 'o1' },
+      });
+      payments.refundForOrder.mockRejectedValue(new Error('gateway down'));
+
+      await expect(
+        service.adminUpdateStatus('r1', ReturnStatus.REFUNDED, actor, 5000),
+      ).rejects.toThrow('gateway down');
+
+      expect(orders.refreshRefundState).not.toHaveBeenCalled();
     });
 
     // Ordering matters now that refundForOrder calls a real gateway (ADR-0005).
