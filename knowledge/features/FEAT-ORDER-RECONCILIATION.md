@@ -186,23 +186,26 @@ against a `SUCCEEDED` payment — the exact state a lost event produces:
 - [x] `DOM-ORDERING` open items updated.
 - [x] `RUNBOOK` — what to do when the alert fires.
 
-## 10. Two things this did not settle
+## 10. Two questions this raised, both since settled
 
-**The sweep window is more generous than the recorded intent.**
-`DOM-ORDERING`'s open items state the owner's intent as *"the gateway's session
-timeout plus roughly five minutes"* — about 17 minutes against Razorpay's
-~12-minute modal session. The implemented `ORDER_PAYMENT_TTL_MS` is **30
-minutes**, and predates that note.
+**The sweep window: 30 minutes stands** *(owner decision, 2026-08-08)*.
+`DOM-ORDERING`'s open items had asked for the gateway's session timeout plus
+roughly five minutes — about 17 against Razorpay's ~12-minute modal session.
+`ORDER_PAYMENT_TTL_MS` remains **30 minutes**, which supersedes that note.
 
-Left at 30 rather than tightened, because the two errors are not symmetric:
-too long holds stock on an abandoned checkout, while too short cancels an order
-a shopper is still paying for — after which their payment lands on a cancelled
-order and needs a manual refund (§7.2). Flagged rather than changed; tightening
-it is the owner's call.
+The errors are not symmetric, which is why the more generous value wins: too
+long merely holds stock on an abandoned checkout, while too short cancels an
+order a shopper is still paying for — after which their payment lands on a
+cancelled order and needs a manual refund (§7.2).
 
-**Whether Razorpay emits an order-expiry event is still unverified.**
-`DOM-ORDERING` records that it *"must be checked against the provider's webhook
-documentation rather than assumed"*, and this feature did not check it. It
-changes nothing structural — the sweep is the floor either way, and the
-document already says such an event would be a fast path on top of it, never a
-replacement.
+**The Razorpay expiry event: deliberately not pursued** *(owner decision,
+2026-08-08)*. `DOM-ORDERING` had recorded this as needing verification against
+the provider's documentation. It is now closed as a **declined dependency**
+rather than an open question: the system does not build on third-party platform
+behaviour where it can derive the same result from state it owns.
+
+The sweep reads `orders` and `payments` — both this system's — so it is the
+whole mechanism, not a floor beneath a provider event. Worth reading as a
+general position rather than a one-off: `ADR-0005` makes Razorpay the sole
+payment provider, so every dependency on provider-specific behaviour narrows
+the room to change that later.
