@@ -101,7 +101,13 @@ export default function AdminReturnsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold">Returns</h1>
+        {/* An accessible name — without one a screen reader announces the
+            current value with no indication of what it filters. */}
+        <label htmlFor="return-status-filter" className="sr-only">
+          Filter returns by status
+        </label>
         <select
+          id="return-status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as ReturnStatus | '')}
           className="h-10 rounded-s border border-border bg-surface px-3 text-sm"

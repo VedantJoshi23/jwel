@@ -36,7 +36,16 @@ export default function AdminDashboardPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-3xl font-bold">Reports &amp; Analytics</h1>
+        {/*
+          An accessible name, which this had none of — axe rates a nameless
+          <select> critical, and with a screen reader it announces only its
+          current value with no indication of what it controls.
+        */}
+        <label htmlFor="reporting-window" className="sr-only">
+          Reporting window
+        </label>
         <select
+          id="reporting-window"
           value={windowDays}
           onChange={(e) => setWindowDays(Number(e.target.value))}
           className="h-9 rounded-s border border-border bg-surface px-2 text-sm"

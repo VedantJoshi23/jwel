@@ -29,7 +29,9 @@ async function scan(page: Page) {
 function describeViolations(results: Awaited<ReturnType<typeof scan>>): string {
   return results.violations
     .map((v) => {
-      const where = v.nodes.map((n) => `        ${n.target.join(' ')}`).join('\n');
+      const where = v.nodes
+        .map((n) => `        ${n.target.join(' ')}\n          ${n.failureSummary?.replace(/\n/g, ' ')}`)
+        .join('\n');
       return `  [${v.impact}] ${v.id} — ${v.help}\n    ${v.helpUrl}\n${where}`;
     })
     .join('\n\n');
@@ -79,6 +81,78 @@ test.describe('Accessibility — WCAG 2.1 AA', () => {
     await page.goto('/cart', { waitUntil: 'domcontentloaded' });
     await expectNoViolations(page);
   });
+});
+
+/**
+ * The admin UI.
+ *
+ * `STD-ACCESSIBILITY` rule 6 — *colour is never the sole carrier of meaning* —
+ * points at the admin status badges specifically, and until now nothing
+ * scanned them: no e2e test had ever logged in as an admin, because
+ * `prisma:seed` creates one product and no users.
+ *
+ * CI now creates a throwaway admin (`admin:create`) whose credentials are
+ * fixed, public and worthless — the database they exist in is built and
+ * destroyed by the job. To run these locally, create the same account:
+ *
+ *   cd apps/api && ADMIN_EMAIL=e2e-admin@jwel.local \
+ *     ADMIN_PASSWORD=e2e-admin-password-not-a-secret npm run admin:create
+ */
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@jwel.local';
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'e2e-admin-password-not-a-secret';
+
+test.describe.serial('Accessibility — the admin UI', () => {
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+
+    await page.goto('/login');
+    await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
+    await page.getByLabel('Email').fill(ADMIN_EMAIL);
+    await page.getByLabel('Password').fill(ADMIN_PASSWORD);
+    await page.getByRole('button', { name: 'Log in' }).click();
+
+    // Fails loudly rather than skipping. A silently skipped accessibility
+    // scan is indistinguishable from a passing one in a CI summary, which is
+    // the whole failure mode this feature exists to remove.
+    await expect(
+      page.getByText('Invalid email or password'),
+      `no admin account — create it with:\n` +
+        `  cd apps/api && ADMIN_EMAIL=${ADMIN_EMAIL} ADMIN_PASSWORD=… npm run admin:create`,
+    ).toHaveCount(0);
+    await expect(page).toHaveURL(/\/profile/);
+  });
+
+  test.afterAll(async () => {
+    await context.close();
+  });
+
+  // Every admin route, not a sample. The unnamed `<select>` this found on the
+  // returns queue also existed on pages that happened not to be in the first
+  // list, which is the argument for scanning all of them.
+  const adminPages: Array<[name: string, path: string]> = [
+    ['the dashboard', '/admin'],
+    ['the products list', '/admin/products'],
+    ['the orders list', '/admin/orders'],
+    ['the returns queue', '/admin/returns'],
+    ['the categories page', '/admin/categories'],
+    ['the collections page', '/admin/collections'],
+    ['the coupons page', '/admin/coupons'],
+    ['the customers list', '/admin/customers'],
+    ['the inventory page', '/admin/inventory'],
+    ['the CMS page', '/admin/cms'],
+  ];
+
+  for (const [name, path] of adminPages) {
+    test(`${name}`, async () => {
+      await page.goto(path, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
+      await expectNoViolations(page);
+    });
+  }
 });
 
 /**

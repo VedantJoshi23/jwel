@@ -37,7 +37,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   href={item.href}
                   className={cn(
                     'block rounded-s px-3 py-2 text-sm font-medium',
-                    active ? 'bg-brand-accent/10 text-brand-accent' : 'text-ink-secondary hover:bg-surface',
+                    // The active item used to be gold text on a gold tint —
+                    // #C8922A on #F8ECDA, which measures 2.36:1 against the
+                    // 4.5:1 AA needs. Exactly the failure NFR-5 predicted for
+                    // "the luxury dark/gold palette", found by
+                    // e2e/accessibility.spec.ts on its first admin run.
+                    //
+                    // The gold identity moves to the tint and the left rule;
+                    // the label takes ink-primary (16.3:1). Contrast is not
+                    // the only signal either — the rule and the weight carry
+                    // it too (STD-ACCESSIBILITY rule 6).
+                    active
+                      ? 'border-l-2 border-brand-accent bg-brand-accent/10 font-semibold text-ink-primary'
+                      : 'text-ink-secondary hover:bg-surface',
                   )}
                 >
                   {item.label}

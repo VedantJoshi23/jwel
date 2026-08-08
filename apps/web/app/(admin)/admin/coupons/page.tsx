@@ -74,14 +74,24 @@ export default function AdminCouponsPage() {
       <Card className="mb-8">
         <CardContent>
           <h2 className="mb-4 font-display text-lg font-bold">Create campaign</h2>
+          {/*
+            Every field carries an accessible name. This row relied on
+            placeholders, and the two date inputs had not even that — a
+            placeholder is not a label (it disappears on focus and is not
+            announced as one), and a bare date input announces as nothing at
+            all. Rated critical by axe; found by e2e/accessibility.spec.ts
+            once the admin UI came under scan.
+          */}
           <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Input
+              aria-label="Coupon code"
               placeholder="CODE"
               required
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
             />
             <select
+              aria-label="Discount type"
               value={form.discountType}
               onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value as DiscountType }))}
               className="h-11 rounded-s border border-border bg-surface px-3 text-sm"
@@ -91,6 +101,7 @@ export default function AdminCouponsPage() {
               <option value="FIRST_ORDER">First order</option>
             </select>
             <Input
+              aria-label="Discount value"
               type="number"
               placeholder="Value"
               required
@@ -98,12 +109,14 @@ export default function AdminCouponsPage() {
               onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
             />
             <Input
+              aria-label="Valid from"
               type="date"
               required
               value={form.validFrom}
               onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
             />
             <Input
+              aria-label="Valid to"
               type="date"
               required
               value={form.validTo}
