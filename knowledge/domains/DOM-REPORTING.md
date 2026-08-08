@@ -1,7 +1,7 @@
 ---
 id: DOM-REPORTING
 title: 'Jwel / ELYSIAN — Domain: Reporting'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -82,6 +82,19 @@ second source of truth for something the orders and returns tables already know
 is unexplainable; the split says whether trade slowed or returns rose. It costs
 one extra aggregate.
 
+**Built 2026-08-08** (`FEAT-REVENUE-FORMULA`). Two details the formula above
+left unstated, settled in the building:
+
+- **Refunds are scoped to the orders in the window**, not to when the refund
+  was granted, so all three figures describe one cohort and `net = gross -
+  refunds` holds for the same set of orders that `orderCount` and AOV describe.
+  The consequence is that a past window's net can change when a refund lands
+  against an old order. A cash-flow view — money that left the account this
+  month — is a different report and would scope by the return's own date.
+- **Average order value stays on gross** (what a customer typically spends, a
+  decision made before any return exists), while **top products rank on net**
+  (what to restock — the one list where ignoring returns does active harm).
+
 **One residual wrinkle.** If a refund amount excludes shipping, a fully refunded
 order nets to the shipping cost rather than zero. That is arguably correct — the
 shipping was incurred — but it means the figure must be labelled **"net of
@@ -146,6 +159,12 @@ sourced. Law 4 — not applicable. Law 5 — Property 1: reads only.
 
 - ~~Edge cases 3 and 4~~ — settled by Invariants 3 and 4.
 - **Edge case 7** — Metabase can contradict the dashboard, since it queries
-  the database directly and does not share the revenue definition.
+  the database directly and does not share the revenue definition. **Now
+  wider, not narrower**: as of `FEAT-REVENUE-FORMULA` the dashboard deducts
+  refunds and Metabase does not, so the two differ by the refund total rather
+  than being wrong in the same way. The fix is a database **view** carrying
+  the formula that both read — the only construction where the definition
+  cannot drift. Not built: it needs a hand-written migration (KC-144) and
+  turns the dashboard query into raw SQL.
 - **Three overlapping analytics surfaces** with no stated division
   (`DISC-007` Q5).
