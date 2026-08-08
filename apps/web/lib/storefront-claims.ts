@@ -112,9 +112,15 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     claim: 'Start a return from your order history',
     where: ['app/(storefront)/faq/page.tsx'],
     pattern: /Start a return from your order history/,
-    status: 'outstanding',
-    reality: 'The API exists; no storefront UI reaches it (KC-117). Returns are admin-initiated today.',
-    resolution: 'Build the customer returns UI (Tier 4), or tell customers to email.',
+    status: 'resolved',
+    reality:
+      'True as of FEAT-CUSTOMER-RETURNS. Every delivered order in the Orders tab carries a ' +
+      '"Request a return" control per item, and a Returns tab shows each request\'s status.',
+    resolution:
+      'Done — the claim was written before the UI existed and the API had been reachable only ' +
+      'by an administrator. Note what is still true and deliberate: there is no *cancel* ' +
+      'control, because DOM-RETURNS Invariant 6 forbids withdrawing a request. If the FAQ is ' +
+      'ever rewritten to promise cancellation, that becomes a new claim.',
   },
   {
     id: 'customisation',

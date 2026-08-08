@@ -1,7 +1,7 @@
 ---
 id: DOM-RETURNS
 title: Jwel / ELYSIAN — Domain: Returns
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -124,10 +124,14 @@ per read, and the admin UI highlights the `DELIVERED` badge and labels it.
 
 There is **no cancel endpoint, and none may be added** (Invariant 6).
 
-**Note:** the customer endpoints exist but no storefront UI reaches them
-(KC-117). Wiring them is agreed (KC-123). The UI must expose **request and
-status only** — a cancel control would be the natural thing for a frontend
-developer to add and would violate Invariant 6.
+**Note:** the customer endpoints existed with no storefront UI reaching them
+(KC-117). **Wired 2026-08-08** (`FEAT-CUSTOMER-RETURNS`): a request control per
+item on delivered orders, and a Returns tab showing status.
+
+The UI exposes **request and status only**. A cancel control would be the
+natural thing for a frontend developer to add and would violate Invariant 6, so
+the rule is stated at the component and a test asserts no button in the form
+says cancel or withdraw.
 
 ## 5. Events
 
