@@ -685,6 +685,57 @@ results in slightly the wrong order, which nobody reports.
 
 ---
 
+## 11d. "Reconciliation sweep confirmed N paid order(s)"
+
+This alert fires in Sentry and the container log when the sweep finds an order
+that was **paid but left at `PLACED`**. It is never routine. Each one is a
+customer who was charged and, until the sweep ran, had an order that still read
+as unconfirmed.
+
+**The sweep has already fixed the orders.** They are `CONFIRMED`, their
+confirmation emails have gone out, and their status history says *"Confirmed by
+reconciliation sweep"*. Nothing is pending for the customer. What is left is
+finding out why the reaction to `payment.succeeded` did not land, because the
+sweep is a floor, not a fix.
+
+```bash
+# Which orders, and when.
+docker compose exec -T postgres psql -U jwel jwel -c "
+  SELECT order_id, occurred_at, note
+    FROM order_status_history
+   WHERE note LIKE 'Confirmed by reconciliation sweep%'
+   ORDER BY occurred_at DESC LIMIT 20;"
+
+# What the API was doing at that moment.
+docker compose logs api --since 2h | grep -iE 'payment|confirm|error'
+```
+
+Work through these in order:
+
+1. **Did the API restart around then?** The event bus is in-process and
+   at-most-once (`ARCH-001` §3.1). A restart between the payment write and the
+   emit loses the reaction, and that is the expected cause. Check the container
+   start time — if it lines up, this is the known trade-off `ADR-0010`
+   accepted, and the sweep did exactly its job.
+2. **Did a handler throw?** Look for an error from `OrdersService` or
+   `NotificationsService` near the payment. A throwing subscriber loses the
+   event for everyone downstream of it.
+3. **Neither?** Then the event was never emitted, which is a bug in the payment
+   path rather than a delivery failure. That one is worth chasing properly —
+   it means some payments succeed without announcing it at all.
+
+**One alert deserves a different reaction:** *"Payment succeeded for order …,
+which was already CANCELLED"*. That is not this sweep working — it is a
+customer charged for an order whose stock was already released and possibly
+sold. It needs a human decision, refund or re-source, and no sweep will resolve
+it.
+
+The related metric is `order_reconciliation_total{outcome="confirmed"}`. Its
+healthy value is **zero**. The sibling `{outcome="expired"}` counts abandoned
+checkouts, which are ordinary — watch its rate, do not alert on it.
+
+---
+
 ## 12. Changing the domain
 
 Expected at least once: the staging deployment runs on a domain you already

@@ -1,7 +1,7 @@
 ---
 id: DOM-ORDERING
 title: 'Jwel / ELYSIAN — Domain: Ordering'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -98,6 +98,14 @@ webhook documentation rather than assumed.
 **The sweep must alert when it finds anything.** A sweep that silently fixes
 things conceals the bug that made fixing necessary.
 
+**Built 2026-08-08** (`FEAT-ORDER-RECONCILIATION`). One qualification came out
+of building it: **only the confirmation half alerts.** A finding there is a
+defect — the event was lost and a customer was charged. A finding on the expiry
+half is a shopper abandoning a checkout, which is ordinary storefront traffic;
+alerting on it would bury the alert that matters and teach the operator to
+ignore the channel. The expiry rate stays visible as
+`order_reconciliation_total{outcome="expired"}`.
+
 ## 4. API Surface
 
 **Customer** — `POST /orders` (checkout), `GET /orders`, `GET /orders/:id`
@@ -162,8 +170,20 @@ implementation.
 ## Open items
 
 - ~~No reservation release timeout~~ — settled by Invariant 11.
-- **The sweep is unbuilt**, as is the alert on non-empty sweeps.
-- **The sweep window is unset.** It must exceed the gateway's session timeout;
-  the owner's stated intent is that timeout plus roughly five minutes.
-- Idempotency of `payment.succeeded` handling (edge case 4) is assumed, not
-  verified — Invariant 12 makes it load-bearing.
+- ~~**The sweep is unbuilt**, as is the alert on non-empty sweeps~~ — Invariant
+  11 was already built as `expireStalePendingOrders`; Invariant 12 and the
+  alert were **built 2026-08-08** (`FEAT-ORDER-RECONCILIATION`).
+- ~~Idempotency of `payment.succeeded` handling (edge case 4) is assumed, not
+  verified~~ — **now enforced**, not merely verified: the transition is a
+  conditional `updateMany` on `status: PLACED`, so of the three independent
+  triggers (browser callback, webhook, sweep) only one can win.
+- **The sweep window disagrees with the recorded intent.** This item said the
+  window should be the gateway's session timeout plus roughly five minutes —
+  about 17 minutes. The implemented `ORDER_PAYMENT_TTL_MS` is **30 minutes**
+  and predates the note. Left as-is deliberately: too long merely holds stock
+  on an abandoned checkout, while too short cancels an order a shopper is still
+  paying for, whose payment then lands on a cancelled order and needs a manual
+  refund. Tightening it is an owner decision.
+- **Whether Razorpay emits an order-expiry event is still unverified.** It
+  would be a fast path on top of the sweep, never a replacement, so nothing
+  depends on the answer.

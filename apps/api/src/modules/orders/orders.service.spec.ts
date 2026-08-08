@@ -8,6 +8,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '../audit-log/audit-log.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
 const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
@@ -15,6 +16,7 @@ const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com'
 type MockPrisma = {
   order: {
     findUnique: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     update: jest.Mock;
     updateMany: jest.Mock;
     findMany: jest.Mock;
@@ -44,6 +46,7 @@ describe('OrdersService', () => {
   let payments: { initiateForOrder: jest.Mock };
   let eventBus: { emit: jest.Mock; on: jest.Mock };
   let auditLog: { record: jest.Mock };
+  let metrics: { orderReconciliationTotal: { inc: jest.Mock } };
   let service: OrdersService;
   let tx: { order: { create: jest.Mock; update: jest.Mock } };
 
@@ -52,6 +55,7 @@ describe('OrdersService', () => {
     prisma = {
       order: {
         findUnique: jest.fn(),
+        findUniqueOrThrow: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
         findMany: jest.fn(),
@@ -66,6 +70,7 @@ describe('OrdersService', () => {
     payments = { initiateForOrder: jest.fn() };
     eventBus = { emit: jest.fn(), on: jest.fn() };
     auditLog = { record: jest.fn() };
+    metrics = { orderReconciliationTotal: { inc: jest.fn() } };
     service = new OrdersService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
@@ -73,7 +78,138 @@ describe('OrdersService', () => {
       payments as unknown as PaymentsService,
       eventBus as unknown as EventBusService,
       auditLog as unknown as AuditLogService,
+      metrics as unknown as MetricsService,
     );
+  });
+
+  describe('confirmPaidPlacedOrders — DOM-ORDERING invariant 12', () => {
+    const paidButUnconfirmed = (id: string, amount = 5000) => ({
+      id,
+      payment: { amountMinorUnits: amount },
+    });
+
+    beforeEach(() => {
+      prisma.order.findUnique.mockResolvedValue({ status: OrderStatus.PLACED });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
+    });
+
+    it('looks only for PLACED orders whose payment SUCCEEDED', async () => {
+      prisma.order.findMany.mockResolvedValue([]);
+
+      await service.confirmPaidPlacedOrders();
+
+      expect(prisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: OrderStatus.PLACED,
+            payment: { is: { status: PaymentStatus.SUCCEEDED } },
+          },
+        }),
+      );
+    });
+
+    it('confirms one and emits order.confirmed with the payment amount', async () => {
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o1', 7500)]);
+
+      expect(await service.confirmPaidPlacedOrders()).toBe(1);
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'o1', status: OrderStatus.PLACED },
+        data: { status: OrderStatus.CONFIRMED },
+      });
+      expect(eventBus.emit).toHaveBeenCalledWith('order.confirmed', {
+        orderId: 'o1',
+        userEmail: 'a@b.com',
+        totalMinorUnits: 7500,
+      });
+    });
+
+    it('records why the order moved, so the history is not misleading', async () => {
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o1')]);
+
+      await service.confirmPaidPlacedOrders();
+
+      expect(prisma.orderStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 'o1',
+          status: OrderStatus.CONFIRMED,
+          note: expect.stringContaining('reconciliation sweep'),
+        },
+      });
+    });
+
+    it('alerts, because every order it finds was charged and left unconfirmed', async () => {
+      // The whole point: a sweep that silently fixes things conceals the bug
+      // that made fixing necessary.
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o1')]);
+
+      await service.confirmPaidPlacedOrders();
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('payment.succeeded was lost'));
+      errorSpy.mockRestore();
+    });
+
+    it('stays silent when it finds nothing', async () => {
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      prisma.order.findMany.mockResolvedValue([]);
+
+      expect(await service.confirmPaidPlacedOrders()).toBe(0);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(metrics.orderReconciliationTotal.inc).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('does not double-confirm an order the listener won first', async () => {
+      // The conditional updateMany matches zero rows, and the customer must
+      // not get a second confirmation email.
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o1')]);
+      prisma.order.updateMany.mockResolvedValue({ count: 0 });
+
+      expect(await service.confirmPaidPlacedOrders()).toBe(0);
+      expect(eventBus.emit).not.toHaveBeenCalled();
+      expect(prisma.orderStatusHistory.create).not.toHaveBeenCalled();
+      expect(metrics.orderReconciliationTotal.inc).not.toHaveBeenCalled();
+    });
+
+    it('counts each repair for the alert and the metric', async () => {
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o1'), paidButUnconfirmed('o2')]);
+      jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+      expect(await service.confirmPaidPlacedOrders()).toBe(2);
+      expect(metrics.orderReconciliationTotal.inc).toHaveBeenCalledWith({ outcome: 'confirmed' });
+      expect(metrics.orderReconciliationTotal.inc).toHaveBeenCalledTimes(2);
+      jest.restoreAllMocks();
+    });
+
+    it('refuses to resurrect an order the expiry sweep already cancelled', async () => {
+      // Paid after cancellation: the stock was released and may have been
+      // sold. This needs a human, not an automatic confirmation.
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      prisma.order.findMany.mockResolvedValue([paidButUnconfirmed('o-cancelled')]);
+      prisma.order.findUnique.mockResolvedValue({ status: OrderStatus.CANCELLED });
+
+      expect(await service.confirmPaidPlacedOrders()).toBe(0);
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('manual refund'));
+      errorSpy.mockRestore();
+    });
+  });
+
+  describe('expireStalePendingOrders — invariant 11, deliberately quieter', () => {
+    it('does not alert on abandoned checkouts', async () => {
+      // An abandoned checkout is ordinary customer behaviour. Alerting here
+      // would train an operator to ignore the channel invariant 12 needs them
+      // to read.
+      const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      prisma.order.findMany.mockResolvedValue([{ id: 'o-stale', items: [] }]);
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      expect(await service.expireStalePendingOrders()).toBe(1);
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(metrics.orderReconciliationTotal.inc).toHaveBeenCalledWith({ outcome: 'expired' });
+      errorSpy.mockRestore();
+    });
   });
 
   describe('onModuleInit / payment.succeeded handling', () => {
@@ -82,17 +218,19 @@ describe('OrdersService', () => {
       expect(eventBus.on).toHaveBeenCalledWith('payment.succeeded', expect.any(Function));
 
       const handler = eventBus.on.mock.calls[0][1];
-      prisma.order.update.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
 
       await handler({ orderId: 'o1', amountMinorUnits: 5000 });
 
-      expect(prisma.order.update).toHaveBeenCalledWith({
-        where: { id: 'o1' },
-        data: {
-          status: OrderStatus.CONFIRMED,
-          statusHistory: { create: { status: OrderStatus.CONFIRMED, note: 'Payment succeeded' } },
-        },
-        include: { user: { select: { email: true } } },
+      // Conditional on PLACED, so a concurrent confirmation cannot be
+      // overwritten by this one.
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'o1', status: OrderStatus.PLACED },
+        data: { status: OrderStatus.CONFIRMED },
+      });
+      expect(prisma.orderStatusHistory.create).toHaveBeenCalledWith({
+        data: { orderId: 'o1', status: OrderStatus.CONFIRMED, note: 'Payment succeeded' },
       });
       expect(eventBus.emit).toHaveBeenCalledWith('order.confirmed', {
         orderId: 'o1',
@@ -414,7 +552,7 @@ describe('OrdersService', () => {
 
       await handler({ orderId: 'o-cancelled', amountMinorUnits: 5000 });
 
-      expect(prisma.order.update).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
       expect(eventBus.emit).not.toHaveBeenCalled();
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('manual refund'));
       errorSpy.mockRestore();
@@ -424,7 +562,8 @@ describe('OrdersService', () => {
       service.onModuleInit();
       const handler = eventBus.on.mock.calls[0][1];
       prisma.order.findUnique.mockResolvedValue({ status: OrderStatus.PLACED });
-      prisma.order.update.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+      prisma.order.findUniqueOrThrow.mockResolvedValue({ id: 'o1', user: { email: 'a@b.com' } });
 
       await handler({ orderId: 'o1', amountMinorUnits: 5000 });
 
