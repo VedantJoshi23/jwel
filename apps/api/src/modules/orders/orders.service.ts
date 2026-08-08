@@ -18,6 +18,8 @@ import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination
 import { Role } from '../../common/enums/role.enum';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { MetricsService } from '../metrics/metrics.service';
+import { alertOperator } from '../../common/observability/alert';
 
 // How long an unpaid checkout may hold its reserved stock. Comfortably
 // longer than Razorpay's ~12-minute modal session, so a slow bank redirect
@@ -45,6 +47,7 @@ export class OrdersService implements OnModuleInit {
     private readonly paymentsService: PaymentsService,
     private readonly eventBus: EventBusService,
     private readonly auditLogService: AuditLogService,
+    private readonly metrics: MetricsService,
   ) {}
 
   // Order owns its own status transitions (Law 1) — Payments only ever
@@ -56,6 +59,30 @@ export class OrdersService implements OnModuleInit {
   }
 
   private async confirmPayment(orderId: string, amountMinorUnits: number): Promise<void> {
+    await this.confirmPlacedOrder(orderId, amountMinorUnits, 'Payment succeeded');
+  }
+
+  /**
+   * Moves one order `PLACED → CONFIRMED`, idempotently.
+   *
+   * Shared by the `payment.succeeded` listener and the reconciliation sweep,
+   * which is what makes DOM-ORDERING invariant 12 safe: the sweep re-derives
+   * the reaction from durable state, so it will regularly run against orders
+   * the listener already handled.
+   *
+   * Idempotency is a **conditional `updateMany` on `status: PLACED`**, not a
+   * read-then-write. Two callers can reach here for the same order at once —
+   * the browser callback, the webhook and the sweep are three independent
+   * triggers — and only one may win. The loser matches zero rows and returns
+   * false, so the customer gets one confirmation email rather than three.
+   *
+   * @returns whether this call performed the transition.
+   */
+  private async confirmPlacedOrder(
+    orderId: string,
+    amountMinorUnits: number,
+    note: string,
+  ): Promise<boolean> {
     // A payment can legitimately succeed for an order the expiry sweep has
     // already cancelled: the shopper opened the modal, sat past the TTL, then
     // paid. Auto-confirming would be wrong — the sweep released that stock and
@@ -71,20 +98,33 @@ export class OrdersService implements OnModuleInit {
     });
 
     if (existing?.status === OrderStatus.CANCELLED) {
-      this.logger.error(
+      alertOperator(
+        this.logger,
         `Payment succeeded for order ${orderId}, which was already CANCELLED (likely expired ` +
           `before payment completed). Stock was released and has NOT been re-reserved. The ` +
           `customer has been charged — this needs a manual refund or fulfilment decision.`,
+        { orderId, reason: 'paid-after-cancellation' },
       );
-      return;
+      return false;
     }
 
-    const order = await this.prisma.order.update({
+    const { count } = await this.prisma.order.updateMany({
+      where: { id: orderId, status: OrderStatus.PLACED },
+      data: { status: OrderStatus.CONFIRMED },
+    });
+
+    if (count === 0) {
+      // Already confirmed by whichever trigger got here first. Nothing to do,
+      // and nothing to announce — the email went out on that path.
+      return false;
+    }
+
+    await this.prisma.orderStatusHistory.create({
+      data: { orderId, status: OrderStatus.CONFIRMED, note },
+    });
+
+    const order = await this.prisma.order.findUniqueOrThrow({
       where: { id: orderId },
-      data: {
-        status: OrderStatus.CONFIRMED,
-        statusHistory: { create: { status: OrderStatus.CONFIRMED, note: 'Payment succeeded' } },
-      },
       include: { user: { select: { email: true } } },
     });
 
@@ -93,6 +133,8 @@ export class OrdersService implements OnModuleInit {
       userEmail: order.user.email,
       totalMinorUnits: amountMinorUnits,
     });
+
+    return true;
   }
 
   /**
@@ -159,13 +201,85 @@ export class OrdersService implements OnModuleInit {
       }
 
       expired += 1;
+      this.metrics.orderReconciliationTotal.inc({ outcome: 'expired' });
       this.logger.log(`Expired unpaid order ${order.id} and released its reserved stock.`);
     }
 
     if (expired > 0) {
+      // Logged, deliberately not alerted. An abandoned checkout is ordinary
+      // customer behaviour, not a defect — paging someone for it would train
+      // them to ignore the channel that the confirmation sweep below needs
+      // them to read. Watch the rate on `order_reconciliation_total{expired}`
+      // instead.
       this.logger.log(`Expiry sweep cancelled ${expired} unpaid order(s).`);
     }
     return expired;
+  }
+
+  /**
+   * Confirms orders that were **paid but never confirmed** — `DOM-ORDERING`
+   * invariant 12, the other half of the reconciliation sweep.
+   *
+   * An order reaches `CONFIRMED` by *reacting* to `payment.succeeded`. The bus
+   * is in-process and at-most-once (`ARCH-001` §3.1), so that reaction is the
+   * fragile link in the system's central chain: a process restart between the
+   * payment write and the emit, a handler that threw, or a bug that skipped
+   * confirmation all leave an order sitting at `PLACED` with the customer's
+   * money taken.
+   *
+   * The money itself is never at risk — the `Payment` row is committed and the
+   * gateway holds its own record. Only the reaction was lossy, so re-deriving
+   * it from durable state is sufficient. That is `ADR-0010`'s preferred
+   * mitigation, and it recovers from failures a durable bus would not.
+   *
+   * **Every order this finds is a bug that already charged a customer**, so
+   * unlike the expiry sweep this alerts rather than logs. A sweep that
+   * silently fixes things conceals the bug that made fixing necessary.
+   *
+   * No age cutoff. The window in invariant 11 exists to avoid cancelling a
+   * checkout still in progress; there is no equivalent risk in confirming an
+   * order whose payment has already succeeded, and waiting would only delay
+   * the customer's confirmation email.
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async confirmPaidPlacedOrders(): Promise<number> {
+    const unconfirmed = await this.prisma.order.findMany({
+      where: {
+        status: OrderStatus.PLACED,
+        payment: { is: { status: PaymentStatus.SUCCEEDED } },
+      },
+      select: { id: true, payment: { select: { amountMinorUnits: true } } },
+    });
+
+    let confirmed = 0;
+
+    for (const order of unconfirmed) {
+      // Re-uses the same idempotent transition the listener does, so an order
+      // confirmed between the query and this call is a no-op rather than a
+      // second confirmation email.
+      const didConfirm = await this.confirmPlacedOrder(
+        order.id,
+        order.payment?.amountMinorUnits ?? 0,
+        'Confirmed by reconciliation sweep — payment had succeeded',
+      );
+
+      if (didConfirm) {
+        confirmed += 1;
+        this.metrics.orderReconciliationTotal.inc({ outcome: 'confirmed' });
+      }
+    }
+
+    if (confirmed > 0) {
+      alertOperator(
+        this.logger,
+        `Reconciliation sweep confirmed ${confirmed} paid order(s) that were left at PLACED. ` +
+          `Each one means the reaction to payment.succeeded was lost — the customer was charged ` +
+          `and, until now, had an unconfirmed order. Investigate why the event did not land.`,
+        { reason: 'paid-but-unconfirmed', count: String(confirmed) },
+      );
+    }
+
+    return confirmed;
   }
 
   /**

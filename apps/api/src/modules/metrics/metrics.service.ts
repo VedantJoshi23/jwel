@@ -44,6 +44,25 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  /**
+   * Orders the reconciliation sweep had to fix (DOM-ORDERING invariants 11 and
+   * 12), labeled by which half acted.
+   *
+   * `confirmed` is the one to alert on: it counts orders that were **paid but
+   * never confirmed**, which only happens when the reaction to
+   * `payment.succeeded` was lost. Every increment is a bug that already
+   * charged a customer.
+   *
+   * `expired` is ordinary abandoned-checkout traffic and is a rate to watch,
+   * not an alarm.
+   */
+  readonly orderReconciliationTotal = new Counter({
+    name: 'order_reconciliation_total',
+    help: 'Orders repaired by the reconciliation sweep, labeled by outcome',
+    labelNames: ['outcome'],
+    registers: [this.registry],
+  });
+
   constructor() {
     // Process/runtime metrics (heap, event loop lag, GC, open handles) —
     // free from prom-client, and the first thing anyone reaches for when
