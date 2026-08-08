@@ -211,6 +211,22 @@ jobs:
       # step below and make Next.js (which also honors $PORT, whether run
       # via `next dev` or `next start`) try to bind :4000 too, colliding
       # with the already-running API instead of its default :3000.
+      # An ADMIN account in the throwaway CI database, so the accessibility
+      # scans can reach the admin UI at all — `prisma:seed` writes one product
+      # and no users, and until now no e2e test had ever logged in as an admin.
+      #
+      # These credentials are deliberately fixed, public and worthless: the
+      # database they exist in is created and destroyed by this job. Using a
+      # real admin's credentials here would put a live secret in workflow
+      # config and CI logs to gain nothing, since a real account does not exist
+      # in a fresh database anyway.
+      - name: Create the e2e admin account
+        working-directory: apps/api
+        env:
+          ADMIN_EMAIL: e2e-admin@jwel.local
+          ADMIN_PASSWORD: e2e-admin-password-not-a-secret
+        run: npm run admin:create
+
       - name: Start the API in the background
         working-directory: apps/api
         env:

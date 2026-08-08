@@ -1,7 +1,7 @@
 ---
 id: STD-ACCESSIBILITY
 title: Jwel / ELYSIAN — Standard: Accessibility
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -37,9 +37,18 @@ The storefront and admin UI in `apps/web`.
 least-verified commitment in the project and the only one carrying legal
 exposure.
 
-`axe` now runs in CI over thirteen surfaces (`FEAT-ACCESSIBILITY-AXE`), and
-found a real defect on its first run: the FAQ wrapped `<details>` elements in a
-`<dl>`, which is invalid and announces as an empty definition list. Fixed.
+`axe` now runs in CI over twenty-three surfaces — every public page, the
+checkout form, and all ten admin routes (`FEAT-ACCESSIBILITY-AXE`). It found
+**six real defects**, all shipping, all through human review: an invalid `<dl>`
+on the FAQ, two unnamed filter `<select>`s, a coupon form labelled only by
+placeholders, and three contrast failures. All fixed.
+
+**Rule 5 predicted the contrast ones exactly.** Gold on gold measured 2.36:1
+and 2.52:1, and the success and warning badges 4.29:1 and 3.62:1 — brand
+colours optimised for mood, failing as text, which is what this rule says to
+expect. The palette moved as little as possible: two feedback colours darkened
+to the smallest value clearing 4.5:1, and a new `brand.accentDeep` for gold as
+text on light grounds while the bright gold keeps borders and rules.
 
 **This does not mean AA is met.** Automated checks cover roughly a third of
 WCAG, and rules 3-7 remain human review. What changed is that the third which

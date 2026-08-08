@@ -71,7 +71,7 @@ remain human review.
 
 ## 4. Coverage
 
-Thirteen scans. Nine unauthenticated pages — home, collection listing, product
+Twenty-three scans. Nine unauthenticated pages — home, collection listing, product
 detail, search results, empty cart, login, register, FAQ, shipping — plus the
 populated cart, and three signed-in surfaces: profile, the orders tab, and the
 checkout form.
@@ -81,20 +81,48 @@ documents; the populated one carries quantity steppers, remove controls and a
 live total. The orders tab is scanned separately because a tab panel's content
 does not exist in the DOM until the tab is selected.
 
-**Not covered: the admin UI.** It needs an `ADMIN` account, which the e2e job
-does not create — `prisma:seed` writes one product and no users. That is a
-gap worth closing, and rule 6 (colour is never the sole carrier of meaning)
-points at the admin status badges specifically. Recorded rather than implied.
+**The admin UI is covered too**, added immediately after the first version of
+this feature — see §5.1. All ten admin routes, not a sample, because the first
+defect found there existed on pages that happened not to be in the first list.
 
-## 5. What it found on its first run
+CI creates a throwaway admin with `admin:create`. Its credentials are fixed,
+public and worthless: the database they exist in is built and destroyed by the
+job. **Real admin credentials were offered and declined** — a fresh CI database
+contains no real account, so they would buy nothing while putting a live secret
+into workflow config and CI logs.
 
-**A real defect**, immediately: the FAQ page wrapped `<details>` elements
-directly inside a `<dl>`. A definition list may contain only `dt`, `dd` or
-`div`, so this is invalid markup that a screen reader announces as a definition
-list with no items — worse than no semantics at all. Rated *serious* by axe.
+## 5. What it found
 
-Fixed here as a plain `<ul>`. It had been shipping since the FAQ was written,
-through every human review the page had.
+**Six real defects**, every one of them shipping, every one through human
+review. None were suppressed.
+
+| Where | Rule | Detail |
+| --- | --- | --- |
+| FAQ | `definition-list` *(serious)* | `<details>` wrapped directly in a `<dl>`. Invalid — a definition list may contain only `dt`, `dd` or `div` — and announces as a definition list with no items, which is worse than no semantics at all |
+| Admin nav, active item | `color-contrast` *(serious)* | Gold on a gold tint: **2.36:1** against 4.5:1 |
+| Admin status badges | `color-contrast` *(serious)* | `success` at 4.29:1 and `warning` at 3.62:1 on their own tints |
+| Accent badge | `color-contrast` *(serious)* | **2.52:1** |
+| Dashboard, returns queue | `select-name` *(critical)* | Filter `<select>`s with no accessible name — announced by their current value with no indication of what they control |
+| Coupon create form | `label` *(critical)* | Fields labelled only by placeholder; the two date inputs not even that |
+
+### 5.1 The palette findings are the ones NFR-5 predicted
+
+`STD-ACCESSIBILITY` rule 5 names the risk exactly: *"NFR-5 flags the 'luxury
+dark/gold palette' as the risk. Brand palettes optimised for mood are where
+contrast failures concentrate."* Four of the six are that prediction coming
+true.
+
+They were fixed by **changing as little of the palette as possible**:
+
+- `feedback.success` and `feedback.warning` darkened to the smallest value
+  clearing 4.5:1 with margin (4.71:1 and 4.65:1). `error` already passed and is
+  untouched.
+- A new `brand.accentDeep` for gold **as text on light grounds** (4.64:1). The
+  bright gold stays for borders and rules, where the requirement does not apply
+  the same way.
+- The admin nav's active item keeps its gold identity in the tint and a new
+  left rule, and takes `ink-primary` for the label (16.3:1). Rule 6 in passing:
+  the rule and the weight now carry the state too, not colour alone.
 
 ## 6. Edge Cases & Validations
 
@@ -116,13 +144,16 @@ web build on :3100, as CI runs it.
 
 | Run | Result |
 | --- | --- |
-| `accessibility.spec.ts`, first run | **1 failure** — the FAQ's invalid `<dl>` |
-| After the fix | 13 passed |
-| Whole e2e suite | **30 passed** |
+| First run, storefront only | **1 failure** — the FAQ's invalid `<dl>` |
+| First run including the admin UI | **5 further failures** across four pages |
+| After the fixes | **23 scans passed** |
+| Whole e2e suite | **40 passed** |
 
 - [x] `@axe-core/playwright` added; `pnpm test:a11y` runs the scans alone.
 - [x] WCAG 2.1 AA tags only.
-- [x] Thirteen surfaces including the checkout form.
+- [x] Twenty-three surfaces: nine public pages, the populated cart, three
+      signed-in surfaces including the checkout form, and all ten admin routes.
+- [x] CI creates a throwaway admin so the admin UI is reachable at all.
 - [x] Readable violation output.
 - [x] The defect it found is fixed, not suppressed.
 - [x] `STD-ACCESSIBILITY` Enforcement updated — rule 2 is now CI, not "nothing
@@ -134,7 +165,6 @@ web build on :3100, as CI runs it.
   palette, colour-as-sole-meaning, alt text quality, and error-to-field
   association are only partly reachable by any automated tool, and axe does not
   judge whether alt text is *meaningful*.
-- **The admin UI is unscanned** (§4).
 - **No screen-reader testing has been done** at all, by anyone, on any surface.
 
 Recorded because a green accessibility job is exactly the kind of result that
