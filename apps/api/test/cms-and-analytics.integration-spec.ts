@@ -129,7 +129,14 @@ describe('CMS + Analytics (integration)', () => {
         .expect(200);
 
       expect(res.body).toMatchObject({ windowDays: 30 });
-      expect(typeof res.body.revenueMinorUnits).toBe('number');
+      // Three figures, never one (DOM-REPORTING invariant 4). Asserting all
+      // three keeps `revenueMinorUnits` from being quietly reintroduced
+      // alongside them, which is how a misleading number survives a rename.
+      expect(typeof res.body.grossMinorUnits).toBe('number');
+      expect(typeof res.body.refundsMinorUnits).toBe('number');
+      expect(typeof res.body.netMinorUnits).toBe('number');
+      expect(res.body.netMinorUnits).toBe(res.body.grossMinorUnits - res.body.refundsMinorUnits);
+      expect(res.body).not.toHaveProperty('revenueMinorUnits');
       expect(typeof res.body.orderCount).toBe('number');
       expect(Array.isArray(res.body.topProducts)).toBe(true);
     });
