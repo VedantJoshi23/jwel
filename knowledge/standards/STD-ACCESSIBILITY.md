@@ -1,7 +1,7 @@
 ---
 id: STD-ACCESSIBILITY
 title: Jwel / ELYSIAN — Standard: Accessibility
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -32,10 +32,19 @@ The storefront and admin UI in `apps/web`.
 
 **Not covered:** API surfaces, which have no accessibility surface of their own.
 
-**Current state, stated plainly:** NFR-5 commits to WCAG 2.1 AA, and **no
-automated verification of any kind exists** (KC-171). `axe` coverage is agreed
-(KC-176) and outstanding. This is the least-verified commitment in the project
-and the only one carrying legal exposure.
+**Current state, stated plainly:** NFR-5 commits to WCAG 2.1 AA. Until
+2026-08-08 **no automated verification of any kind existed** (KC-171) — the
+least-verified commitment in the project and the only one carrying legal
+exposure.
+
+`axe` now runs in CI over thirteen surfaces (`FEAT-ACCESSIBILITY-AXE`), and
+found a real defect on its first run: the FAQ wrapped `<details>` elements in a
+`<dl>`, which is invalid and announces as an empty definition list. Fixed.
+
+**This does not mean AA is met.** Automated checks cover roughly a third of
+WCAG, and rules 3-7 remain human review. What changed is that the third which
+regresses silently — a contrast ratio nudged by a palette tweak, an alt
+attribute lost in a refactor — now fails the build instead of shipping.
 
 ## Rules
 
@@ -94,7 +103,8 @@ integration point, and the surrounding flow must remain navigable.
 
 ## Enforcement
 
-- Rule 2: **CI**, once `axe` lands. Currently **nothing is enforced**.
-- Rules 3–7: **human review** until then.
+- Rule 2: **CI** — `e2e/accessibility.spec.ts`, in the Playwright job, over
+  every key journey including the checkout form.
+- Rules 3–7: **human review**, still. Automated coverage does not reach them.
 - Automated checks do not certify compliance. They catch regressions; they do
   not establish that AA is met. Claiming otherwise would violate Law 1.
