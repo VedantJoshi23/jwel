@@ -215,6 +215,20 @@ jobs:
         working-directory: apps/api
         env:
           PORT: 4000
+          # `test`, overriding the job-level `development`, for the auth
+          # throttle alone — it is the only thing in the API that reads this
+          # value as 'test' (auth.controller.ts), and the comment there names
+          # exactly this case: several spec files legitimately register and
+          # log in far more than 5 times a minute from one IP.
+          #
+          # Without it the suite was already at 4 of its 5 registrations per
+          # minute before checkout.spec.ts existed, so the next auth-using
+          # test anyone added would have failed with a 429 that looks nothing
+          # like a rate limit from the browser side.
+          #
+          # Payments are unaffected: MockPaymentProvider is selected whenever
+          # NODE_ENV is not 'production', so this stays a mocked gateway.
+          NODE_ENV: test
         run: |
           npx nest build
           nohup node dist/main.js > /tmp/api.log 2>&1 &
