@@ -54,7 +54,19 @@ export default function AdminDashboardPage() {
       {summary && (
         <>
           <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Revenue" value={formatMinorUnits(summary.revenueMinorUnits)} />
+            {/*
+              DOM-REPORTING invariant 4: three figures, never one. This card
+              said "Revenue" and showed gross, so a month in which half the
+              goods came back read exactly like a month in which none did.
+
+              "Net of refunds" rather than "Revenue" is deliberate — if a
+              refund excludes shipping, a fully refunded order nets to the
+              shipping cost rather than zero, which reads as a rounding error
+              unless the label says what the number is.
+            */}
+            <StatCard label="Gross sales" value={formatMinorUnits(summary.grossMinorUnits)} />
+            <StatCard label="Refunds" value={formatMinorUnits(summary.refundsMinorUnits)} />
+            <StatCard label="Net of refunds" value={formatMinorUnits(summary.netMinorUnits)} />
             <StatCard label="Orders" value={String(summary.orderCount)} />
             <StatCard label="Avg. order value" value={formatMinorUnits(summary.averageOrderValueMinorUnits)} />
             <StatCard label="New customers" value={String(summary.newCustomers)} />
@@ -89,7 +101,14 @@ export default function AdminDashboardPage() {
                       <span className="text-ink-secondary">
                         {p.name} <span className="text-ink-muted">×{p.unitsSold}</span>
                       </span>
-                      <span className="font-medium">{formatMinorUnits(p.revenueMinorUnits)}</span>
+                      <span className="font-medium">
+                        {formatMinorUnits(p.netMinorUnits)}
+                        {p.refundsMinorUnits > 0 && (
+                          <span className="ml-1 text-xs font-normal text-feedback-warning">
+                            −{formatMinorUnits(p.refundsMinorUnits)} returned
+                          </span>
+                        )}
+                      </span>
                     </div>
                   ))}
                   {summary.topProducts.length === 0 && (

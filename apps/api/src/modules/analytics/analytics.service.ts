@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ModerationStatus, OrderStatus, Role } from '@prisma/client';
+import { ModerationStatus, OrderStatus, ReturnStatus, Role } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { DashboardSummary, TopProduct } from './analytics.types';
+import { averageOrderValue, computeRevenue } from './revenue';
 
 const DEFAULT_WINDOW_DAYS = 30;
 const TOP_PRODUCTS_LIMIT = 5;
@@ -27,10 +28,27 @@ export class AnalyticsService {
     const cutoff = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
     const nonCancelled = { status: { not: OrderStatus.CANCELLED } } as const;
 
-    const [orders, statusGroups, lowStock, pendingReviewsCount, newCustomers] = await Promise.all([
+    const [orders, refundAggregate, statusGroups, lowStock, pendingReviewsCount, newCustomers] =
+      await Promise.all([
       this.prisma.order.findMany({
         where: { createdAt: { gte: cutoff }, ...nonCancelled },
         select: { totalMinorUnits: true },
+      }),
+      // Refunds are scoped to the **orders** in this window, not to when the
+      // refund was granted. That keeps the three figures describing one cohort,
+      // so `net = gross - refunds` holds for the same set of orders the
+      // order count and AOV describe.
+      //
+      // The consequence, worth knowing: a refund granted today against last
+      // month's order moves *last month's* net, so a past window's figures can
+      // change. A cash-flow view — money that left the account this month —
+      // is a different report, and would scope by the return's own date.
+      this.prisma.returnRequest.aggregate({
+        where: {
+          status: ReturnStatus.REFUNDED,
+          orderItem: { order: { createdAt: { gte: cutoff }, ...nonCancelled } },
+        },
+        _sum: { refundAmountMinorUnits: true },
       }),
       this.prisma.order.groupBy({
         by: ['status'],
@@ -42,7 +60,10 @@ export class AnalyticsService {
       this.prisma.user.count({ where: { role: Role.CUSTOMER, deletedAt: null, createdAt: { gte: cutoff } } }),
     ]);
 
-    const revenueMinorUnits = orders.reduce((sum, o) => sum + o.totalMinorUnits, 0);
+    const revenue = computeRevenue(
+      orders.reduce((sum, o) => sum + o.totalMinorUnits, 0),
+      refundAggregate._sum.refundAmountMinorUnits ?? 0,
+    );
     const orderCount = orders.length;
     const ordersByStatus: Record<string, number> = {};
     for (const group of statusGroups) {
@@ -51,9 +72,9 @@ export class AnalyticsService {
 
     return {
       windowDays,
-      revenueMinorUnits,
+      ...revenue,
       orderCount,
-      averageOrderValueMinorUnits: orderCount > 0 ? Math.round(revenueMinorUnits / orderCount) : 0,
+      averageOrderValueMinorUnits: averageOrderValue(revenue.grossMinorUnits, orderCount),
       ordersByStatus,
       topProducts: await this.getTopProducts(cutoff),
       lowStockCount: lowStock.length,
@@ -62,6 +83,14 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * Top products by **net** contribution.
+   *
+   * Ranking on gross would put a heavily-returned product at the top of the
+   * list an admin uses to decide what to restock and promote — the one place
+   * where ignoring returns does active harm rather than merely overstating a
+   * total. Invariant 3 applies to any revenue figure, not only the headline.
+   */
   private async getTopProducts(cutoff: Date): Promise<TopProduct[]> {
     const items = await this.prisma.orderItem.findMany({
       where: { order: { createdAt: { gte: cutoff }, status: { not: OrderStatus.CANCELLED } } },
@@ -70,27 +99,43 @@ export class AnalyticsService {
         unitPriceMinorUnits: true,
         productNameSnapshot: true,
         variant: { select: { productId: true } },
+        // 1:1 on order_items, so this rides along rather than costing a query
+        // per item.
+        returnRequest: { select: { status: true, refundAmountMinorUnits: true } },
       },
     });
 
     const byProduct = new Map<string, TopProduct>();
     for (const item of items) {
       const productId = item.variant.productId;
+      const gross = item.quantity * item.unitPriceMinorUnits;
+      const refunded =
+        item.returnRequest?.status === ReturnStatus.REFUNDED
+          ? (item.returnRequest.refundAmountMinorUnits ?? 0)
+          : 0;
+
       const existing = byProduct.get(productId);
-      const revenue = item.quantity * item.unitPriceMinorUnits;
       if (existing) {
         existing.unitsSold += item.quantity;
-        existing.revenueMinorUnits += revenue;
+        existing.grossMinorUnits += gross;
+        existing.refundsMinorUnits += refunded;
+        existing.netMinorUnits += gross - refunded;
       } else {
         byProduct.set(productId, {
           productId,
           name: item.productNameSnapshot,
+          // Units *sold*, not units kept. Deducting returned units here would
+          // conflate two questions — how much moved, and how much stayed sold.
           unitsSold: item.quantity,
-          revenueMinorUnits: revenue,
+          grossMinorUnits: gross,
+          refundsMinorUnits: refunded,
+          netMinorUnits: gross - refunded,
         });
       }
     }
 
-    return [...byProduct.values()].sort((a, b) => b.revenueMinorUnits - a.revenueMinorUnits).slice(0, TOP_PRODUCTS_LIMIT);
+    return [...byProduct.values()]
+      .sort((a, b) => b.netMinorUnits - a.netMinorUnits)
+      .slice(0, TOP_PRODUCTS_LIMIT);
   }
 }

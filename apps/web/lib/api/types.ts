@@ -329,13 +329,24 @@ export interface ActiveBanner extends Banner {
 export interface TopProduct {
   productId: string;
   name: string;
+  /** Units that left the shelf, not units kept. */
   unitsSold: number;
-  revenueMinorUnits: number;
+  grossMinorUnits: number;
+  refundsMinorUnits: number;
+  /** What this product actually contributed. The API ranks on this. */
+  netMinorUnits: number;
 }
 
 export interface DashboardSummary {
   windowDays: number;
-  revenueMinorUnits: number;
+  /**
+   * DOM-REPORTING invariant 4 — three figures, never one. A single number
+   * that fell last month is unexplainable; the split says whether trade
+   * slowed or returns rose.
+   */
+  grossMinorUnits: number;
+  refundsMinorUnits: number;
+  netMinorUnits: number;
   orderCount: number;
   averageOrderValueMinorUnits: number;
   ordersByStatus: Record<string, number>;

@@ -26,6 +26,8 @@ apps/api/scripts/*.d.ts
 # Uploaded product media. Lives in a Docker named volume in production and is
 # moved onto the VM with rsync (see deploy/RUNBOOK.md §9), never through git.
 apps/api/uploads/
+# Written by the integration suite when UPLOADS_DIR points inside the repo.
+apps/api/uploads-test/
 
 # Database dumps and uploads tarballs written by the backup commands in
 # deploy/README.md. Hundreds of MB, and the dumps contain live customer data.
