@@ -1,7 +1,7 @@
 ---
 id: DOM-ORDERING
 title: 'Jwel / ELYSIAN — Domain: Ordering'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -67,7 +67,7 @@ lifecycle (Returns owns it); the cart it was created from.
 | 7 | Every status transition appends to `OrderStatusHistory`, which is never updated or deleted. | KC-133 |
 | 8 | An order is confirmed **in reaction to `payment.succeeded`**, not by Payments writing to it. | KC-151, Law 5 |
 | 9 | Checkout is rejected if any line's product no longer exists or is not purchasable. | KC-177 (service behaviour) |
-| 10 | `REFUNDED` is reached only when every `OrderItem` has a `REFUNDED` return; a partially refunded order stays `DELIVERED` and is visibly differentiated for admins. | `DOM-RETURNS` inv. 8, 9 |
+| 10 | `REFUNDED` is reached only when every `OrderItem` has a `REFUNDED` return; a partially refunded order stays `DELIVERED` and is visibly differentiated for admins. **Built 2026-08-08** (`FEAT-ORDER-REFUND-STATE`) — derived by `refreshRefundState`, which Returns commands. `DELIVERED → REFUNDED` stays out of invariant 1's admin transition table on purpose: the status is a consequence, not something an admin may assert. | `DOM-RETURNS` inv. 8, 9 |
 | 11 | An order left `PLACED` without a successful payment beyond a bounded window is **cancelled and its stock reservation released**, by a periodic sweep. The window exceeds the gateway's own session timeout plus a buffer. | Owner decision, 2026-08-07 |
 | 12 | An order left `PLACED` whose `Payment` is `SUCCEEDED` is **confirmed** by the same sweep. Confirmation is idempotent. | Owner decision, 2026-08-07 |
 

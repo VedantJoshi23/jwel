@@ -82,6 +82,105 @@ describe('OrdersService', () => {
     );
   });
 
+  describe('refreshRefundState — DOM-RETURNS invariants 8 and 9', () => {
+    const actor = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' } as any;
+    const refundedItem = { returnRequest: { status: 'REFUNDED' } };
+    const openItem = { returnRequest: null };
+
+    it('moves a fully refunded order to REFUNDED', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        status: OrderStatus.DELIVERED,
+        items: [refundedItem, refundedItem],
+      });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      expect(await service.refreshRefundState('o1', actor)).toBe(true);
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: 'o1', status: OrderStatus.DELIVERED },
+        data: { status: OrderStatus.REFUNDED },
+      });
+    });
+
+    it('leaves a partially refunded order DELIVERED', async () => {
+      // The distinction is carried in the admin presentation layer, not by a
+      // PARTIALLY_REFUNDED enum value.
+      prisma.order.findUnique.mockResolvedValue({
+        status: OrderStatus.DELIVERED,
+        items: [refundedItem, openItem],
+      });
+
+      expect(await service.refreshRefundState('o1', actor)).toBe(false);
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('records why the order moved', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        status: OrderStatus.DELIVERED,
+        items: [refundedItem],
+      });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.refreshRefundState('o1', actor);
+
+      expect(prisma.orderStatusHistory.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 'o1',
+          status: OrderStatus.REFUNDED,
+          note: expect.stringContaining('Every item'),
+        },
+      });
+    });
+
+    it('audits against the admin who approved the refund, not "system"', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        status: OrderStatus.DELIVERED,
+        items: [refundedItem],
+      });
+      prisma.order.updateMany.mockResolvedValue({ count: 1 });
+
+      await service.refreshRefundState('o1', actor);
+
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actor,
+          entityId: 'o1',
+          metadata: expect.objectContaining({ to: OrderStatus.REFUNDED, derived: true }),
+        }),
+      );
+    });
+
+    it('is idempotent — a second call transitions nothing', async () => {
+      prisma.order.findUnique.mockResolvedValue({
+        status: OrderStatus.REFUNDED,
+        items: [refundedItem],
+      });
+      prisma.order.updateMany.mockResolvedValue({ count: 0 });
+
+      expect(await service.refreshRefundState('o1', actor)).toBe(false);
+      expect(prisma.orderStatusHistory.create).not.toHaveBeenCalled();
+      expect(auditLog.record).not.toHaveBeenCalled();
+    });
+
+    it('404s on an unknown order', async () => {
+      prisma.order.findUnique.mockResolvedValue(null);
+      await expect(service.refreshRefundState('nope', actor)).rejects.toThrow(NotFoundException);
+    });
+
+    it('is the only path to REFUNDED — an admin cannot declare it', async () => {
+      // Invariant 8 makes REFUNDED a consequence, not an assertion. The admin
+      // transition table must not offer it.
+      prisma.order.findUnique.mockResolvedValue({
+        id: 'o1',
+        status: OrderStatus.DELIVERED,
+        items: [],
+      });
+
+      await expect(
+        service.adminUpdateStatus('o1', OrderStatus.REFUNDED, actor),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('confirmPaidPlacedOrders — DOM-ORDERING invariant 12', () => {
     const paidButUnconfirmed = (id: string, amount = 5000) => ({
       id,
