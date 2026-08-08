@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "claims:audit": "ts-node --compilerOptions '{\"module\":\"commonjs\",\"moduleResolution\":\"node\",\"target\":\"es2020\",\"esModuleInterop\":true,\"skipLibCheck\":true,\"isolatedModules\":false}' scripts/claims-audit.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.2",

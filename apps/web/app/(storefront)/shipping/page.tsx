@@ -25,7 +25,7 @@ export default function ShippingPage() {
         <section>
           <h2 className="font-display text-xl font-bold">Returns & Exchanges</h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-secondary">
-            <li>Returns are accepted within 7 days of delivery for unworn pieces in original packaging.</li>
+            <li>Returns are accepted within 10 days of delivery for unworn pieces in original packaging.</li>
             <li>Earrings and customised pieces are final sale for hygiene and production reasons.</li>
             <li>Refunds are issued to the original payment method within 5–7 business days of the return being received.</li>
           </ul>

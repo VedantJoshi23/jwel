@@ -937,26 +937,18 @@ it takes real card details while still displaying the demo banner.
    wrong — so the change that removes the banner must clear this list, not a
    later one.
 
-   Known outstanding as of 2026-08-06 (`knowledge/discovery/DISC-003-feature-inventory.md`):
+   ```bash
+   cd apps/web && pnpm claims:audit --strict
+   ```
 
-   | Claim | Where | Reality |
-   |---|---|---|
-   | Cash on Delivery available | FAQ | Client has ruled COD out — prepaid only |
-   | Monthly "Jewel Box" subscription | `/subscriptions` + every footer | No model, no module; deferred pending client feedback |
-   | "WhatsApp us" | Footer | Email-only notifications; blocked on client credentials |
-   | Free shipping over ₹999 / on all orders | Sale bar, PDP, checkout | Three different promises, no backing rule |
-   | Dispatched within 24 hours | Checkout | No dispatch SLA enforced anywhere |
-   | Customisation available | FAQ | No customisation capability exists |
-   | Live order tracking | FAQ, profile | Status timeline only; no shipment reference until Shiprocket lands |
-   | "Start a return from your order history" | FAQ | Customers cannot initiate returns — the API exists but no storefront UI reaches it; admin-only today |
-   | Wishlist, "recommended for you", search autosuggest | Implied by nav//UI slots | Built server-side, no storefront surface wired |
-   | "Returns within 7 days of delivery" | FAQ | Wrong twice — the agreed rule is **10 days**, and no window was enforced at all until it is built (KC-186) |
-   | Customisation available | FAQ | No customisation capability exists |
-   | Tarnish-resistant plating | FAQ | Product claim — needs the client to stand behind it |
-
-   `apps/web/app/(storefront)/faq/page.tsx` and `apps/web/lib/brand.ts` both
-   carry in-file placeholder markers listing what is unreviewed. Neither file
-   should reach production with those markers still present.
+   It exits non-zero while any claim is unbacked, and prints each one with
+   where it appears, what the system actually does, and what would fix it.
+   **This replaced a hand-maintained table that had already gone stale** — it
+   listed one claim twice and still described the return window as unenforced
+   months after it was built. The registry now lives in
+   `apps/web/lib/storefront-claims.ts`, and `storefront-claims.test.ts` fails
+   the build if it and the shipped copy ever disagree in either direction:
+   copy fixed without updating the registry, or a resolved claim creeping back.
 
    **Two different kinds of fix.** The FAQ is *placeholder copy* — both its
    questions and its answers are provisional and need authoring with the
@@ -964,11 +956,44 @@ it takes real card details while still displaying the demo banner.
    and `/subscriptions` page are *live product surfaces* whose claims must be
    reconciled against what the system does. Same gate, different work.
 
+   Some entries cannot be fixed by building anything. COD is ruled out, and
+   "tarnish-resistant plating" is a product claim only the client can stand
+   behind. Those are deletions or client sign-off, not backlog.
+
+   `apps/web/app/(storefront)/faq/page.tsx` and `apps/web/lib/brand.ts` both
+   carry in-file placeholder markers listing what is unreviewed. Neither file
+   should reach production with those markers still present.
+
    This step exists because the rest of this checklist verifies *mechanism* —
    that the gateway is live, the banner is gone, the bundle is clean — and none
    of it can detect a page promising a service that was never built. That gap
    was found during Discovery, not in production, which is the only reason it
    is written here rather than learned from a customer.
+
+0b. **Reporting definitions agree across surfaces.** The admin dashboard has
+   one definition of revenue; **Metabase queries the database directly and does
+   not share it** (`ADR-0017`). Any revenue figure produced there will disagree
+   with the dashboard unless whoever wrote the SQL reapplied the same
+   exclusions by hand.
+
+   Once `DOM-REPORTING` invariants 3 and 4 land, the disagreement gets *wider*,
+   not narrower: the dashboard deducts refunds and ad hoc SQL will not, so the
+   two differ by the refund total rather than being wrong in the same way.
+
+   **Owner decision, 2026-08-08: revisit at or before deployment.** Deferred
+   deliberately and due here, because these numbers only start being read by a
+   business once the store is live — and two contradicting revenue figures
+   found in a meeting cost more than the fix.
+
+   The fix is a database **view** carrying the formula that both surfaces read
+   — the only construction where the definition cannot drift. It needs a
+   hand-written migration (`prisma migrate dev` cannot diff this schema,
+   KC-144) and turns the dashboard query into raw SQL, which is why it was not
+   smuggled into the change that defined the formula.
+
+   Until it exists: do not quote revenue from Metabase, or apply the exclusions
+   by hand — cancelled orders out, `REFUNDED` return amounts deducted. Tracked
+   as `DOM-REPORTING` §8.7.
 
 1. **Gateway account.** Created and activated by the **client**, in their
    legal entity's name — payouts, tax and chargeback liability follow the
