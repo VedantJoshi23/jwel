@@ -23,9 +23,13 @@ export const metadata: Metadata = {
  *                     Shipping is not implemented (Shiprocket blocked on the
  *                     client's account, KC-101); no dispatch SLA is enforced
  *                     anywhere in code (KC-013).
- *   3. Returns      — PARTLY BACKED. The returns flow exists, but the 7-day
- *                     window and "unworn, original packaging" conditions are
- *                     not validated by any rule in the system.
+ *   3. Returns      — WINDOW NOW BACKED. Corrected 7 -> 10 days and enforced
+ *                     as of FEAT-SETTINGS-STORE: `returns.window_days`
+ *                     defaults to 10 and is checked at request time. The
+ *                     number here is static copy and cannot read that
+ *                     setting, so changing the setting makes this line wrong
+ *                     — see lib/storefront-claims.ts. "Unworn, original
+ *                     packaging" is still validated by nobody but a human.
  *   4. Tarnish      — PRODUCT CLAIM. Not verifiable from the system; needs the
  *                     client to stand behind it.
  *   5. Customisation— FALSE. No customisation capability exists (FR-12/FR-13
@@ -49,7 +53,7 @@ const faqs = [
   },
   {
     q: 'Can I return or exchange a piece?',
-    a: 'Unworn pieces in original packaging can be returned within 7 days of delivery. Start a return from your order history — see our Shipping & Returns page for the full policy.',
+    a: 'Unworn pieces in original packaging can be returned within 10 days of delivery. Start a return from your order history — see our Shipping & Returns page for the full policy.',
   },
   {
     q: 'Is your jewellery tarnish-proof?',
