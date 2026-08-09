@@ -1,6 +1,28 @@
 import Link from 'next/link';
 import { brand } from '@/lib/brand';
 
+/**
+ * Footer links are mostly internal routes, but "WhatsApp us" is an external
+ * `wa.me` URL. `next/link` would prefetch it and would not set `rel`, so
+ * external hrefs get a plain anchor with `noopener noreferrer` and an explicit
+ * "opens in a new tab" hint for screen readers.
+ */
+function FooterLink({ href, label }: { href: string; label: string }) {
+  if (href.startsWith('http')) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-footer-ink">
+        {label}
+        <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className="hover:text-footer-ink">
+      {label}
+    </Link>
+  );
+}
+
 export function SiteFooter() {
   return (
     <footer className="bg-footer-bg text-footer-ink">
@@ -40,9 +62,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm text-footer-muted">
               {brand.footer.helpLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="hover:text-footer-ink">
-                    {link.label}
-                  </Link>
+                  <FooterLink href={link.href} label={link.label} />
                 </li>
               ))}
             </ul>
@@ -53,9 +73,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm text-footer-muted">
               {brand.footer.otherLinks.map((link) => (
                 <li key={link.href}>
-                  <Link href={link.href} className="hover:text-footer-ink">
-                    {link.label}
-                  </Link>
+                  <FooterLink href={link.href} label={link.label} />
                 </li>
               ))}
             </ul>
