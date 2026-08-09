@@ -1,14 +1,20 @@
 import type { Metadata } from 'next';
-import { getProducts } from '@/lib/api/products';
+import { searchProducts } from '@/lib/api/search';
 import { SearchResults } from '@/components/common/search-results';
-import type { PaginatedResult, Product } from '@/lib/api/types';
+import type { SearchResult } from '@/lib/api/types';
 
 export const metadata: Metadata = {
   title: 'Search',
   robots: { index: false }, // search-results pages aren't canonical content — NFR-7
 };
 
-const EMPTY_RESULT: PaginatedResult<Product> = { items: [], page: 1, pageSize: 24, total: 0 };
+const EMPTY_RESULT: SearchResult = {
+  items: [],
+  page: 1,
+  pageSize: 24,
+  total: 0,
+  facets: { metals: [], categories: [], certifications: [], priceRanges: [] },
+};
 
 export default async function SearchPage({
   searchParams,
@@ -21,7 +27,10 @@ export default async function SearchPage({
   let initialData = EMPTY_RESULT;
   if (query) {
     try {
-      initialData = await getProducts({ q: query, pageSize: 24 }, false);
+      // `/search` rather than `/products?q=` — the Elasticsearch path, which
+      // degrades to the same Postgres query server-side when Elasticsearch is
+      // unreachable. The client is never the one deciding (KC-124).
+      initialData = await searchProducts({ q: query, pageSize: 24 }, false);
     } catch {
       initialData = EMPTY_RESULT;
     }

@@ -292,6 +292,49 @@ export interface CartClaimResult {
   guestCart?: ServerCart;
 }
 
+/** One result from the search module — mirrors the API's `SearchHit`. */
+export interface SearchHit {
+  productId: string;
+  slug: string;
+  name: string;
+  categorySlug: string;
+  categoryName: string;
+  priceMinMinorUnits: number;
+  priceMaxMinorUnits: number;
+  avgRating: number;
+  ratingCount: number;
+  inStock: boolean;
+}
+
+export interface FacetBucket {
+  value: string;
+  count: number;
+}
+
+export interface SearchResult {
+  items: SearchHit[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /**
+   * Computed by Elasticsearch only — the Postgres fallback returns them empty,
+   * which is a real capability loss rather than a transparent equivalent
+   * (`DOM-SEARCH` property 2).
+   */
+  facets: {
+    metals: FacetBucket[];
+    categories: FacetBucket[];
+    certifications: FacetBucket[];
+    priceRanges: FacetBucket[];
+  };
+}
+
+export interface AutocompleteSuggestion {
+  productId: string;
+  slug: string;
+  name: string;
+}
+
 /** Mirrors the API's `RecommendationItem` — a product summary for a rail. */
 export interface RecommendedProduct {
   productId: string;

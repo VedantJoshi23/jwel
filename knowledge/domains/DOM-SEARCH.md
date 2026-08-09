@@ -1,7 +1,7 @@
 ---
 id: DOM-SEARCH
 title: 'Jwel / ELYSIAN — Domain: Search'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -109,4 +109,16 @@ writes nothing.
 
 ## Open items
 
-- Storefront still uses the fallback (KC-116, KC-124).
+- ~~Storefront still uses the fallback (KC-116, KC-124)~~ — **moved
+  2026-08-09** (`FEAT-STOREFRONT-SEARCH`). The page calls `/search`, which
+  degrades server-side, so the fallback stays a live path rather than becoming
+  dead code. Autosuggest exists for the first time.
+- **Elasticsearch is not deployed.** The compose file exists; the production
+  stack does not run it. Every customer is served by the fallback today, so the
+  improvement is latent until it starts.
+- **Facets are computed and not shown.** Elasticsearch returns metal, category,
+  certification and price-range buckets; no storefront surface renders them.
+- **Search results are no longer sortable.** `/search` ranks by relevance and
+  has no sort parameter; the old dropdown worked against `/products` and was
+  removed rather than left inert. Restoring it needs a sort parameter on the
+  search API *and* an equivalent in the fallback.
