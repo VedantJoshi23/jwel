@@ -1,8 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AddToCart } from './add-to-cart';
 import { useCartStore } from '@/lib/cart-store';
 import type { Product } from '@/lib/api/types';
+
+/**
+ * AddToCart now renders SaveToWishlist, which reads the wishlist through
+ * react-query. The app supplies a client at the root layout
+ * (providers/query-provider); an isolated render has to supply its own.
+ */
+function renderWithQuery(ui: React.ReactElement) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 
 vi.useFakeTimers();
 
@@ -29,12 +40,12 @@ describe('AddToCart', () => {
   });
 
   it('shows an unavailable message when the product has no variants', () => {
-    render(<AddToCart product={fakeProduct({ variants: [] })} />);
+    renderWithQuery(<AddToCart product={fakeProduct({ variants: [] })} />);
     expect(screen.getByText('This product is currently unavailable.')).toBeInTheDocument();
   });
 
   it('adds the selected variant and quantity to the cart on click', () => {
-    render(<AddToCart product={fakeProduct()} />);
+    renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
 
     const lines = useCartStore.getState().lines;
@@ -43,7 +54,7 @@ describe('AddToCart', () => {
   });
 
   it('shows a confirmation message after adding, then clears it after a delay', () => {
-    render(<AddToCart product={fakeProduct()} />);
+    renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
     expect(screen.getByRole('status')).toHaveTextContent('Added Gold Ring to your bag.');
 
@@ -54,7 +65,7 @@ describe('AddToCart', () => {
   });
 
   it('multiplies price by the selected quantity', () => {
-    render(<AddToCart product={fakeProduct()} />);
+    renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByLabelText('Increase quantity'));
     expect(screen.getByText('₹5,000')).toBeInTheDocument(); // 2500 * 2
   });
