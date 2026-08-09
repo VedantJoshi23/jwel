@@ -1,7 +1,7 @@
 ---
 id: DOM-SHOPPING
 title: Jwel / ELYSIAN — Domain: Shopping
-version: 1.3.0
+version: 1.4.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -146,9 +146,9 @@ not acceptable UX.
 
 ## 4. API Surface
 
-**Cart** *(server-side; **guest carts and claiming built 2026-08-09** —
-`FEAT-SERVER-CART-API`. Still not called by the web app, which keeps its
-localStorage cart until that migration lands — KC-114)*
+**Cart** *(server-side, and **the storefront now uses it** — KC-114 closed
+2026-08-09 by `FEAT-SERVER-CART-API` and `FEAT-STOREFRONT-SERVER-CART`. The
+localStorage store is deleted.)*
 
 - `GET /cart` · `POST /cart/items` · `PATCH /cart/items/:lineId` ·
   `DELETE /cart/items/:lineId` · `DELETE /cart` — all public with an optional

@@ -251,6 +251,47 @@ export interface AdminOrder extends Order {
   partiallyReturned: boolean;
 }
 
+/**
+ * A line in the server-side cart.
+ *
+ * Its **id** is the line, not the variant: the same variant can appear twice
+ * with different gift options, which `DOM-SHOPPING` Invariant 1 makes two
+ * distinct lines.
+ */
+export interface ServerCartLine {
+  id: string;
+  variantId: string;
+  quantity: number;
+  /** The price when the line was created — Invariant 3, not today's price. */
+  priceSnapshotMinorUnits: number;
+  /** Per line, not per cart — Invariant 4. */
+  giftWrap: boolean;
+  giftNote: string | null;
+  variant: {
+    id: string;
+    sku: string;
+    metal: string;
+    size: string | null;
+    basePriceMinorUnits: number;
+    product: { id: string; name: string; slug: string };
+  };
+}
+
+export interface ServerCart {
+  id: string;
+  userId: string | null;
+  guestToken: string | null;
+  items: ServerCartLine[];
+}
+
+/** What `POST /cart/claim` did — see DOM-SHOPPING Invariants 6, 12 and 17. */
+export interface CartClaimResult {
+  outcome: 'nothing_to_claim' | 'adopted' | 'merged' | 'replaced' | 'conflict';
+  cart: ServerCart;
+  /** Present only on `conflict`, so the prompt can describe what is at stake. */
+  guestCart?: ServerCart;
+}
+
 /** Mirrors the API's `RecommendationItem` — a product summary for a rail. */
 export interface RecommendedProduct {
   productId: string;

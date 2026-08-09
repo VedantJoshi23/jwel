@@ -2,7 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AddToCart } from './add-to-cart';
-import { useCartStore } from '@/lib/cart-store';
+import { addCartLine } from '@/lib/api/cart';
+
+// The bag is on the server now, so adding is an API call rather than a store
+// write. Mocked here because this file is about the control, not the cart.
+vi.mock('@/lib/api/cart', () => ({
+  getCart: vi.fn().mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] }),
+  addCartLine: vi.fn().mockResolvedValue({ id: 'c1', items: [] }),
+  updateCartLine: vi.fn(),
+  removeCartLine: vi.fn(),
+  clearCart: vi.fn(),
+  claimGuestCart: vi.fn(),
+}));
+
+const add = vi.mocked(addCartLine);
 import type { Product } from '@/lib/api/types';
 
 /**
@@ -36,7 +49,7 @@ function fakeProduct(overrides: Partial<Product> = {}): Product {
 
 describe('AddToCart', () => {
   beforeEach(() => {
-    useCartStore.getState().clear();
+    add.mockClear();
   });
 
   it('shows an unavailable message when the product has no variants', () => {
@@ -44,18 +57,23 @@ describe('AddToCart', () => {
     expect(screen.getByText('This product is currently unavailable.')).toBeInTheDocument();
   });
 
-  it('adds the selected variant and quantity to the cart on click', () => {
+  it('adds the selected variant and quantity to the cart on click', async () => {
     renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
+    // The write is a request now, so the assertion has to wait for it. Flushed
+    // with act rather than waitFor because this file runs on fake timers.
+    await act(async () => {});
 
-    const lines = useCartStore.getState().lines;
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({ variantId: 'v1', productName: 'Gold Ring', quantity: 1 });
+    // Variant and quantity only. The server holds the name and the price, so
+    // nothing sent from here can disagree with the catalogue — the old local
+    // cart carried a copy of both and could drift.
+    expect(add).toHaveBeenCalledWith(null, { variantId: 'v1', quantity: 1 });
   });
 
-  it('shows a confirmation message after adding, then clears it after a delay', () => {
+  it('shows a confirmation message after adding, then clears it after a delay', async () => {
     renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
+    await act(async () => {});
     expect(screen.getByRole('status')).toHaveTextContent('Added Gold Ring to your bag.');
 
     act(() => {

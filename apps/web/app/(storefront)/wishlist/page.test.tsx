@@ -4,9 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import WishlistPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
-import { useCartStore } from '@/lib/cart-store';
+import { addCartLine } from '@/lib/api/cart';
 import { getWishlist, removeFromWishlist } from '@/lib/api/wishlist';
 
+vi.mock('@/lib/api/cart', () => ({
+  getCart: vi.fn().mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] }),
+  addCartLine: vi.fn().mockResolvedValue({ id: 'c1', items: [] }),
+  updateCartLine: vi.fn(),
+  removeCartLine: vi.fn(),
+  clearCart: vi.fn(),
+  claimGuestCart: vi.fn(),
+}));
 vi.mock('@/lib/api/wishlist', () => ({
   getWishlist: vi.fn(),
   removeFromWishlist: vi.fn(),
@@ -46,7 +54,7 @@ describe('WishlistPage', () => {
     remove.mockReset();
     get.mockResolvedValue({ id: 'w1', shareToken: 'tok-123', items: [item] } as never);
     remove.mockResolvedValue({} as never);
-    useCartStore.getState().clear();
+    vi.mocked(addCartLine).mockClear();
     useAuthStore.getState().setSession('token-1', {
       id: 'u1',
       email: 'a@b.c',
@@ -73,8 +81,9 @@ describe('WishlistPage', () => {
   it('moves a saved piece into the bag', async () => {
     const user = renderPage();
     await user.click(await screen.findByRole('button', { name: 'Add to bag' }));
-    await waitFor(() => expect(useCartStore.getState().lines).toHaveLength(1));
-    expect(useCartStore.getState().lines[0].variantId).toBe('v1');
+    await waitFor(() =>
+      expect(addCartLine).toHaveBeenCalledWith(expect.anything(), { variantId: 'v1', quantity: 1 }),
+    );
   });
 
   it('removes a saved piece', async () => {

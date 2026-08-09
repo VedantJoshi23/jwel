@@ -14,8 +14,7 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 }
 
 const lines = [
-  {
-    variantId: 'v1',
+  { id: 'line-v1', giftWrap: false, giftNote: null, variantId: 'v1',
     productSlug: 'ring',
     productName: 'Ring',
     metal: 'GOLD',
@@ -46,7 +45,14 @@ describe('ShareCart', () => {
 
     await user.click(screen.getByRole('button', { name: /Share this bag/ }));
 
-    await waitFor(() => expect(create).toHaveBeenCalledWith([{ variantId: 'v1', quantity: 2 }]));
+    // Gift options travel too now that the sender's cart can carry them —
+    // FEAT-SHAREABLE-CART §10's gap. Still no price: Invariant 11 resolves
+    // that when the link is opened, and there is nothing here to lie about.
+    await waitFor(() =>
+      expect(create).toHaveBeenCalledWith([
+        { variantId: 'v1', quantity: 2, giftWrap: false, giftNote: undefined },
+      ]),
+    );
     expect(JSON.stringify(create.mock.calls[0])).not.toMatch(/price/i);
   });
 
