@@ -26,7 +26,10 @@ function FooterLink({ href, label }: { href: string; label: string }) {
 export function SiteFooter() {
   return (
     <footer className="bg-footer-bg text-footer-ink">
-      <div className="grid gap-10 px-6 py-11 lg:grid-cols-3 lg:px-8">
+      {/* `lg:grid-cols-2` since the newsletter column below is commented out.
+          Restore to `lg:grid-cols-3` when re-enabling it, or the two remaining
+          columns stretch across a gap where it used to be. */}
+      <div className="grid gap-10 px-6 py-11 lg:grid-cols-2 lg:px-8">
         {/* Col 1 — brand + social */}
         <div>
           <p className="mb-2.5 font-bold">{brand.footer.newsletterHeadline}</p>
@@ -43,17 +46,44 @@ export function SiteFooter() {
           </div>
         </div>
 
-        {/* Col 2 — newsletter */}
-        <div>
-          <p className="mb-3 text-sm text-footer-accent">{brand.footer.newsletterPlaceholder}</p>
-          <div className="mb-5 border-b border-footer-divider" />
-          <button
-            type="button"
-            className="border-[1.5px] border-footer-ink px-4 py-2.5 text-sm font-semibold text-footer-ink hover:bg-footer-ink/10"
-          >
-            {brand.footer.newsletterCta}
-          </button>
-        </div>
+        {/*
+          ── Col 2 — newsletter: REMOVED FROM DISPLAY 2026-08-09 ──────────────
+          Owner decision. Kept as commented markup rather than deleted, so
+          re-enabling is a matter of uncommenting rather than rebuilding.
+
+          WHY IT CAME OUT. It was never a working sign-up. The "field" was a
+          `<p>` with a border-bottom drawn underneath to look like an input —
+          you could not type in it — and the button had no handler. There is no
+          newsletter behind it either: no list, no provider, no endpoint. A
+          customer typing their address into it and pressing Subscribe was
+          being misled twice over. Constitution Law 1: a surface may not assert
+          a capability the system does not have.
+
+          TO RE-ENABLE, in this order — the markup is the last step, not the
+          first:
+            1. Choose a mailing provider and hold its API key as a secret.
+            2. Add a real endpoint that stores the address and handles the
+               double opt-in that Indian and EU recipients expect.
+            3. Rebuild this block as a real <form> with an <input
+               type="email" required>, a <label>, a submit handler, and
+               success and failure states. Not a <p> and a <div>.
+            4. Uncomment below, restore `lg:grid-cols-3` above, and mark
+               `newsletter-signup` resolved in
+               lib/storefront-claims.ts — the test will then check the copy is
+               genuinely present rather than merely intended.
+
+          <div>
+            <p className="mb-3 text-sm text-footer-accent">{brand.footer.newsletterPlaceholder}</p>
+            <div className="mb-5 border-b border-footer-divider" />
+            <button
+              type="button"
+              className="border-[1.5px] border-footer-ink px-4 py-2.5 text-sm font-semibold text-footer-ink hover:bg-footer-ink/10"
+            >
+              {brand.footer.newsletterCta}
+            </button>
+          </div>
+        ─────────────────────────────────────────────────────────────────────
+        */}
 
         {/* Col 3 — nav links */}
         <div className="flex gap-12">

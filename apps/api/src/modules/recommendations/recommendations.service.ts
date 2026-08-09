@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
+import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { RecommendationItem, ScoredRecommendationItem } from './recommendations.types';
 
@@ -25,7 +26,12 @@ const productSummaryInclude = {
 
 type ProductSummary = Prisma.ProductGetPayload<{ include: typeof productSummaryInclude }>;
 
-function toItem(product: ProductSummary): RecommendationItem {
+/**
+ * @param resolveUrl turns a storage ref into a loadable URL. Passed in rather
+ *   than imported, because which provider is configured is a runtime fact the
+ *   service holds and this module-level helper does not.
+ */
+function toItem(product: ProductSummary, resolveUrl: (ref: string) => string): RecommendationItem {
   const prices = product.variants.map((v) => v.basePriceMinorUnits);
   return {
     productId: product.id,
@@ -36,6 +42,7 @@ function toItem(product: ProductSummary): RecommendationItem {
     avgRating: Number(product.avgRating),
     ratingCount: product.ratingCount,
     thumbnailRef: product.media[0]?.storageRef ?? null,
+    thumbnailUrl: product.media[0] ? resolveUrl(product.media[0].storageRef) : null,
   };
 }
 
@@ -67,7 +74,11 @@ export class RecommendationsService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly eventBus: EventBusService,
     private readonly settings: SettingsService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProviderPort,
   ) {}
+
+  /** Bound so it can be passed to `toItem` without losing `this`. */
+  private readonly resolveUrl = (ref: string): string => this.storage.resolveUrl(ref);
 
   onModuleInit(): void {
     // Maintains ProductCoOccurrence incrementally rather than computing FBT
@@ -296,7 +307,7 @@ export class RecommendationsService implements OnModuleInit {
       orderBy: [{ ratingCount: 'desc' }, { avgRating: 'desc' }],
       take: limit,
     });
-    return products.map(toItem);
+    return products.map((p) => toItem(p, this.resolveUrl));
   }
 
   // ── Personalized ──────────────────────────────────────────────────────────
@@ -391,7 +402,7 @@ export class RecommendationsService implements OnModuleInit {
       where: { id: { in: productIds }, status: ProductStatus.PUBLISHED, deletedAt: null },
       include: productSummaryInclude,
     });
-    const byId = new Map(products.map((p) => [p.id, toItem(p)]));
+    const byId = new Map(products.map((p) => [p.id, toItem(p, this.resolveUrl)]));
     return productIds.map((id) => byId.get(id)).filter((item): item is RecommendationItem => Boolean(item));
   }
 }

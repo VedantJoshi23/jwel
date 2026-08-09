@@ -273,7 +273,13 @@ export interface ServerCartLine {
     metal: string;
     size: string | null;
     basePriceMinorUnits: number;
-    product: { id: string; name: string; slug: string };
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      /** First image only — a cart row is a thumbnail. */
+      media?: { storageRef: string; url: string }[];
+    };
   };
 }
 
@@ -345,6 +351,8 @@ export interface RecommendedProduct {
   avgRating: number;
   ratingCount: number;
   thumbnailRef: string | null;
+  /** `thumbnailRef` resolved by the API — the raw ref means nothing here. */
+  thumbnailUrl: string | null;
   /** Present only on the personalised rail, which explains why it chose each item. */
   reason?: 'co_purchased' | 'category_affinity' | 'trending' | 'bestseller';
 }

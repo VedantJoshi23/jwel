@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import { CartService } from './cart.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 type MockPrisma = {
   cart: { findUnique: jest.Mock; create: jest.Mock };
@@ -9,8 +10,23 @@ type MockPrisma = {
   productVariant: { findUnique: jest.Mock };
 };
 
-function fakeCart(items: { id: string; variantId: string; quantity: number; giftWrap: boolean; giftNote?: string | null }[] = []) {
-  return { id: 'cart-1', userId: 'u1', items };
+/**
+ * Shaped as `cartInclude` actually returns it — each line carries its
+ * variant's product and that product's first image, which `withResolvedMedia`
+ * turns into a URL. Fixtures that omit it would make the service look
+ * defensive about a state the include cannot produce.
+ */
+function fakeCart(
+  items: { id: string; variantId: string; quantity: number; giftWrap: boolean; giftNote?: string | null }[] = [],
+) {
+  return {
+    id: 'cart-1',
+    userId: 'u1',
+    items: items.map((item) => ({
+      ...item,
+      variant: { product: { media: [{ storageRef: `local:products/${item.variantId}.png` }] } },
+    })),
+  };
 }
 
 describe('CartService', () => {
@@ -23,7 +39,9 @@ describe('CartService', () => {
       cartItem: { update: jest.fn(), create: jest.fn(), delete: jest.fn(), deleteMany: jest.fn() },
       productVariant: { findUnique: jest.fn() },
     };
-    service = new CartService(prisma as unknown as PrismaService);
+    // Resolves each line's image ref to a URL — see withResolvedMedia.
+    const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
+    service = new CartService(prisma as unknown as PrismaService, storage as unknown as StorageProviderPort);
   });
 
   describe('getCart', () => {
@@ -38,6 +56,38 @@ describe('CartService', () => {
       prisma.cart.findUnique.mockResolvedValue(fakeCart());
       await service.getCart({ userId: 'u1' });
       expect(prisma.cart.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('line images', () => {
+    it('returns a usable URL for each line, not a raw storage ref', async () => {
+      // The bug this fixes: the cart response carried no media at all, so the
+      // storefront had nothing to render and fell back to a stock photo of a
+      // different ring — the PDP showed one piece and the bag another.
+      prisma.cart.findUnique.mockResolvedValue(
+        fakeCart([{ id: 'item-1', variantId: 'v1', quantity: 1, giftWrap: false, giftNote: null }]),
+      );
+
+      const cart = await service.getCart({ userId: 'u1' });
+
+      expect(cart.items[0].variant.product.media[0]).toMatchObject({
+        storageRef: 'local:products/v1.png',
+        url: 'https://cdn.test/local:products/v1.png',
+      });
+    });
+
+    it('copes with a product that has no image', async () => {
+      prisma.cart.findUnique.mockResolvedValue({
+        id: 'cart-1',
+        userId: 'u1',
+        items: [{ id: 'i', variantId: 'v1', quantity: 1, variant: { product: { media: [] } } }],
+      });
+
+      const cart = await service.getCart({ userId: 'u1' });
+
+      // Empty, not undefined — the storefront's `media[0]?.url ?? stock`
+      // fallback then does its job.
+      expect(cart.items[0].variant.product.media).toEqual([]);
     });
   });
 

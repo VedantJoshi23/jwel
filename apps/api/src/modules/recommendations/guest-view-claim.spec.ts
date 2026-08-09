@@ -1,5 +1,6 @@
 import { RecommendationsService } from './recommendations.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { SettingsService } from '../settings/settings.service';
 
@@ -17,10 +18,12 @@ describe('RecommendationsService — claiming guest views', () => {
 
   beforeEach(() => {
     prisma = { productView: { updateMany: jest.fn().mockResolvedValue({ count: 3 }) } };
+    const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
     service = new RecommendationsService(
       prisma as unknown as PrismaService,
       { on: jest.fn(), emit: jest.fn() } as unknown as EventBusService,
       { get: jest.fn() } as unknown as SettingsService,
+      storage as unknown as StorageProviderPort,
     );
   });
 

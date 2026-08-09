@@ -29,6 +29,19 @@
 
 export type ClaimStatus = 'outstanding' | 'resolved';
 
+/**
+ * *How* a claim was resolved, because the two are opposites to check.
+ *
+ * - `corrected` — the copy still exists and now says something true, so the
+ *   pattern must still be **present**.
+ * - `removed` — the surface is gone, so the pattern must be **absent**.
+ *
+ * The registry originally assumed every claim would be corrected. Most of the
+ * remaining ones cannot be: COD is ruled out, customisation does not exist,
+ * and the newsletter has no provider — they end by deletion, not rewording.
+ */
+export type ResolvedBy = 'corrected' | 'removed';
+
 export interface StorefrontClaim {
   id: string;
   /** What the customer is told. */
@@ -42,6 +55,8 @@ export interface StorefrontClaim {
    */
   pattern: RegExp;
   status: ClaimStatus;
+  /** Required once `status` is `resolved`. See {@link ResolvedBy}. */
+  resolvedBy?: ResolvedBy;
   /** What the system actually does. */
   reality: string;
   /** What has to happen, and by whom. */
@@ -86,6 +101,7 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     where: ['app/(storefront)/faq/page.tsx', 'app/(storefront)/shipping/page.tsx'],
     pattern: /within 10 days of delivery/,
     status: 'resolved',
+    resolvedBy: 'corrected',
     reality:
       'Backed as of FEAT-SETTINGS-STORE: `returns.window_days` defaults to 10 and is enforced ' +
       'at request time, measured from the DELIVERED status entry.',
@@ -113,6 +129,7 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     where: ['app/(storefront)/faq/page.tsx'],
     pattern: /Start a return from your order history/,
     status: 'resolved',
+    resolvedBy: 'corrected',
     reality:
       'True as of FEAT-CUSTOMER-RETURNS. Every delivered order in the Orders tab carries a ' +
       '"Request a return" control per item, and a Returns tab shows each request\'s status.',
@@ -167,16 +184,20 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
   {
     id: 'newsletter-signup',
     claim: 'Newsletter sign-up — the cart opt-in and the footer form',
-    where: ['lib/brand.ts'],
-    pattern: /Sign up to our newsletter/,
-    status: 'outstanding',
+    // The **surface**, not `brand.ts`. The strings still exist there, unused;
+    // what mattered was whether anything rendered them at a customer.
+    where: ['components/layout/footer.tsx'],
+    pattern: /newsletterCta|newsletterPlaceholder/,
+    status: 'resolved',
+    resolvedBy: 'removed',
     reality:
-      'There is no newsletter. No list, no provider, no endpoint — the footer form posts ' +
-      'nowhere, and the cart opt-in was local state that was never sent anywhere. Found while ' +
-      'migrating the cart to the server (2026-08-09).',
+      'There was never a working sign-up. The "field" was a <p> with a line drawn under it — ' +
+      'you could not type in it — and the button had no handler. No list, no provider, no ' +
+      'endpoint behind it either.',
     resolution:
-      'Remove both, or connect a mailing provider. The cart checkbox is already gone — it ' +
-      'could not be honoured and collecting clicks nobody reads is worse than not asking.',
+      'Removed from display 2026-08-09 by owner decision, and left as commented markup in ' +
+      'footer.tsx with the steps to re-enable it properly — a real provider and a real form ' +
+      'first, the markup last. The cart opt-in went earlier, with the server-cart migration.',
   },
   {
     id: 'subscription',
@@ -193,6 +214,7 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     where: ['lib/brand.ts'],
     pattern: /WhatsApp us/,
     status: 'resolved',
+    resolvedBy: 'corrected',
     reality:
       'True as of 2026-08-08: the client supplied a WhatsApp number and the link is a real ' +
       'wa.me click-to-chat. It used to point at `#` and not even navigate.',

@@ -186,7 +186,10 @@ export default function CheckoutPage() {
               <div key={line.variantId} className="flex items-center gap-5 border border-border-sale p-5">
                 <div className="relative h-[90px] w-[120px] shrink-0 overflow-hidden bg-surface-alt">
                   <Image
-                    src={getProductStockImage(line.productSlug)}
+                    // Same fix as the cart: the real photograph when there is
+                    // one. Showing a different ring at the moment someone
+                    // parts with money is the worst place for it.
+                    src={line.imageUrl ?? getProductStockImage(line.productSlug)}
                     alt={line.productName}
                     fill
                     sizes="120px"

@@ -34,7 +34,10 @@ export function ProductRail({
             <Link href={`/product/${product.slug}`} className="group block">
               <div className="relative aspect-square overflow-hidden bg-surface-alt">
                 <Image
-                  src={getProductStockImage(product.slug)}
+                  // The product's own photograph when it has one. This rail
+                  // shipped using the stock image unconditionally, while the
+                  // API had been sending a usable ref all along.
+                  src={product.thumbnailUrl ?? getProductStockImage(product.slug)}
                   alt=""
                   fill
                   sizes="(min-width: 768px) 25vw, 50vw"
