@@ -7,10 +7,23 @@ export const metadata: Metadata = {
   description: `Get in touch with the ${brand.name} customer care team.`,
 };
 
+/**
+ * The client's real contact details, from `brand.ts` rather than typed here.
+ *
+ * This page previously listed `care@glint.example` — another brand's name —
+ * and `+91 98765 43210`, the standard dummy Indian number. A customer who
+ * tried either got nothing, on the one page whose entire purpose is being
+ * reachable. Worse than the tracked storefront claims, because those at least
+ * only over-promise; this failed at the thing it existed to do.
+ */
 const channels = [
-  { label: 'Email', value: 'care@glint.example', href: 'mailto:care@glint.example' },
-  { label: 'Phone', value: '+91 98765 43210', href: 'tel:+919876543210' },
-  { label: 'Support hours', value: 'Mon–Sat, 10am–7pm IST' },
+  { label: 'Email', value: brand.contact.email, href: `mailto:${brand.contact.email}` },
+  {
+    label: 'WhatsApp',
+    value: brand.contact.whatsappDisplay,
+    href: `https://wa.me/${brand.contact.whatsappE164}`,
+  },
+  { label: 'Support hours', value: brand.contact.hours },
 ];
 
 export default function ContactPage() {

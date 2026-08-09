@@ -13,6 +13,7 @@ import { getReturns } from '@/lib/api/returns';
 import { RequestReturnForm } from '@/components/profile/request-return-form';
 import { Badge } from '@/components/ui/badge';
 import { formatMinorUnits } from '@/lib/money';
+import { brand } from '@/lib/brand';
 import type { CustomerReturn, ReturnStatus } from '@/lib/api/types';
 
 export default function ProfilePage() {
@@ -189,10 +190,17 @@ function ReturnsTab({ token }: { token: string }) {
               )}
             </div>
           </div>
+          {/*
+            Invariant 6 sends exceptions out of band, so this has to name a
+            real way to reach someone — which it now can.
+          */}
           {request.status === 'REJECTED' && (
             <p className="mt-2 text-sm text-ink-secondary">
-              This request was not approved. Reply to your order email if you would like us to look
-              at it again.
+              This request was not approved. Write to{' '}
+              <a href={`mailto:${brand.contact.email}`} className="underline">
+                {brand.contact.email}
+              </a>{' '}
+              if you would like us to look at it again.
             </p>
           )}
         </li>

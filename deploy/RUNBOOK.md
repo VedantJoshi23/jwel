@@ -970,6 +970,22 @@ it takes real card details while still displaying the demo banner.
    was found during Discovery, not in production, which is the only reason it
    is written here rather than learned from a customer.
 
+0a. **Transactional email actually sends.** `NotificationsService` sends from
+   `Jwel <orders@jwel.example>` — a domain that does not exist. With no
+   `RESEND_API_KEY` it logs and skips, which is why nothing has broken; with a
+   key it will fail or land in spam, because Resend will not send from an
+   unverified domain.
+
+   The client's contact address is a Gmail account, and **Gmail cannot be
+   verified as a Resend sending domain** — only a domain you control can. So
+   this needs the shop's own domain (step 0 of this runbook buys one anyway),
+   a DNS verification in Resend, and the `from` address updated to match.
+
+   Until then: order confirmations, return updates and refund notices are not
+   reaching anyone. The storefront never claims they will, so this is not a
+   Law 1 problem — it is a silently missing capability, which is why it is on
+   this list rather than in the claims registry.
+
 0b. **Reporting definitions agree across surfaces.** The admin dashboard has
    one definition of revenue; **Metabase queries the database directly and does
    not share it** (`ADR-0017`). Any revenue figure produced there will disagree

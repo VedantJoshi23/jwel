@@ -158,7 +158,7 @@ describe('ProfilePage — returns', () => {
       const user = renderPage();
       await openTab(user, 'Returns');
 
-      expect(await screen.findByText(/Reply to your order email/)).toBeInTheDocument();
+      expect(await screen.findByText(/if you would like us to look at it again/)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /again|re-?request|cancel/i })).not.toBeInTheDocument();
     });
   });

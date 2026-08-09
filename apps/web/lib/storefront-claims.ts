@@ -178,11 +178,16 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     claim: '"WhatsApp us" in the footer',
     where: ['lib/brand.ts'],
     pattern: /WhatsApp us/,
-    status: 'outstanding',
+    status: 'resolved',
     reality:
-      'Notifications are email-only; WhatsApp is blocked on client credentials (KC-097). The ' +
-      'link points at `#`, so it does not even navigate.',
-    resolution: 'Blocked on FEAT-WHATSAPP-SMS-NOTIFICATIONS, or remove the link.',
+      'True as of 2026-08-08: the client supplied a WhatsApp number and the link is a real ' +
+      'wa.me click-to-chat. It used to point at `#` and not even navigate.',
+    resolution:
+      'Done — but note what it does **not** cover. This is a *contact* channel: a customer ' +
+      'starts the conversation. Automated WhatsApp *notifications* need Business API ' +
+      'credentials from Meta or a provider, which a phone number is not, so ' +
+      'FEAT-WHATSAPP-SMS-NOTIFICATIONS stays blocked. If the footer or FAQ ever promises ' +
+      'order updates by WhatsApp, that is a new claim.',
   },
 ];
 

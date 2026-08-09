@@ -192,6 +192,23 @@ export const brand = {
     placeCta: 'Place Order',
   },
 
+  // ── Contact ────────────────────────────────────────────────────────────────
+  //
+  // The client's real details, provided 2026-08-08. One source, because the
+  // contact page and the footer previously disagreed with each other and with
+  // reality: the page listed `care@glint.example` — a different brand's name —
+  // and `+91 98765 43210`, the standard dummy Indian number, while the footer's
+  // "WhatsApp us" pointed at `#`.
+  //
+  // `whatsappE164` is the number without punctuation, which is the only form
+  // wa.me accepts; `whatsappDisplay` is what a human should read.
+  contact: {
+    email: 'helloelysianornaments@gmail.com',
+    whatsappE164: '919335793085',
+    whatsappDisplay: '+91 93357 93085',
+    hours: 'Mon–Sat, 10am–7pm IST',
+  },
+
   // ── Footer ─────────────────────────────────────────────────────────────────
   footer: {
     newsletterHeadline: "Let's stay in touch!",
@@ -203,7 +220,11 @@ export const brand = {
       { label: 'Customer service', href: '/customer-service' },
       { label: 'Shipping & returns', href: '/shipping' },
       { label: 'Contact us', href: '/contact' },
-      { label: 'WhatsApp us', href: '#' },
+      // A real click-to-chat link. This is a *contact* channel, not a
+      // notification one — sending automated WhatsApp messages needs
+      // Business API credentials, which is a separate thing entirely
+      // (FEAT-WHATSAPP-SMS-NOTIFICATIONS).
+      { label: 'WhatsApp us', href: 'https://wa.me/919335793085' },
     ],
     otherLinks: [
       { label: 'Privacy Policy', href: '/privacy' },
