@@ -3,7 +3,9 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { CreateCartShareDto } from './dto/create-cart-share.dto';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('cart')
 @ApiBearerAuth()
@@ -43,5 +45,28 @@ export class CartController {
   @ApiOperation({ summary: 'Clear the entire cart' })
   clear(@CurrentUser() user: AuthenticatedUser) {
     return this.cartService.clear(user.userId);
+  }
+
+  /**
+   * Public, like the wishlist's share endpoint — and public on the *write*
+   * side too, which the wishlist's is not.
+   *
+   * A guest has a cart (Invariant 5) and may share it, so requiring an account
+   * would refuse the person most likely to be sending a link to someone else.
+   * The payload cannot express anything but variant ids and quantities, and
+   * the global throttle bounds the rest.
+   */
+  @Public()
+  @Post('shares')
+  @ApiOperation({ summary: 'Freeze the given cart lines and return a share token' })
+  createShare(@Body() dto: CreateCartShareDto) {
+    return this.cartService.createShare(dto);
+  }
+
+  @Public()
+  @Get('shared/:token')
+  @ApiOperation({ summary: 'Open a shared cart — frozen items, live prices (no auth)' })
+  getShare(@Param('token') token: string) {
+    return this.cartService.getShare(token);
   }
 }
