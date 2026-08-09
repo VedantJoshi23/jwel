@@ -1,45 +1,55 @@
 'use client';
 
-import { useState } from 'react';
-import { useProducts } from '@/hooks/use-products';
-import { ProductCard } from '@/components/product/product-card';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { PaginatedResult, Product } from '@/lib/api/types';
-import type { ProductSort } from '@/lib/api/products';
+import { searchProducts } from '@/lib/api/search';
+import { formatMinorUnits } from '@/lib/money';
+import { getProductStockImage } from '@/lib/jewellery-images';
+import type { SearchHit, SearchResult } from '@/lib/api/types';
 
+/**
+ * Search results, from the **search module** rather than `/products?q=`.
+ *
+ * KC-116: the storefront called the Postgres trigram fallback, whose own DTO
+ * says Elasticsearch is the primary path. `FR-3` asks for typo tolerance, and
+ * a trigram match does not provide it.
+ *
+ * **There is no sort control any more, and that is the point.** Results are
+ * ordered by *relevance* — how well each product matches what was typed — and
+ * `/search` has no sort parameter because a relevance search re-sorted by
+ * "newest" is no longer a relevance search. The old dropdown worked against
+ * `/products`, and keeping it here would have left a control that quietly did
+ * nothing. Category listings still sort, where sorting is the whole idea.
+ */
 export function SearchResults({
   query,
   initialData,
 }: {
   query: string;
-  initialData: PaginatedResult<Product>;
+  initialData: SearchResult;
 }) {
-  const [sort, setSort] = useState<ProductSort>('newest');
-  const { data, isFetching } = useProducts({ q: query, sort, pageSize: 24 });
+  const { data, isFetching } = useQuery({
+    queryKey: ['search', query],
+    queryFn: () => searchProducts({ q: query, pageSize: 24 }, false),
+    initialData,
+    retry: false,
+  });
+
   const result = data ?? initialData;
+  // Skeletons only when there is genuinely nothing to show. The page renders
+  // results on the server, and react-query refetches on mount — hiding them
+  // while that happens would blank a page that was already correct.
+  const showSkeletons = isFetching && result.items.length === 0;
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-ink-secondary" aria-live="polite">
-          {result.total} result{result.total === 1 ? '' : 's'} for &ldquo;{query}&rdquo;
-        </p>
-        <label className="flex items-center gap-2 text-sm">
-          Sort by
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as ProductSort)}
-            className="rounded-s border border-border bg-surface px-2 py-1.5"
-          >
-            <option value="newest">Newest</option>
-            <option value="price_asc">Price: low to high</option>
-            <option value="price_desc">Price: high to low</option>
-            <option value="popularity">Popularity</option>
-          </select>
-        </label>
-      </div>
+      <p className="mb-6 text-sm text-ink-secondary" aria-live="polite">
+        {result.total} result{result.total === 1 ? '' : 's'} for &ldquo;{query}&rdquo;
+      </p>
 
-      {isFetching && (
+      {showSkeletons && (
         <div className="mb-4 grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4" aria-hidden="true">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="aspect-square" />
@@ -53,13 +63,47 @@ export function SearchResults({
         </p>
       )}
 
-      {!isFetching && result.items.length > 0 && (
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-          {result.items.map((product) => (
-            <ProductCard key={product.id} product={product} />
+      {result.items.length > 0 && (
+        <ul className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+          {result.items.map((hit) => (
+            <li key={hit.productId}>
+              <SearchHitCard hit={hit} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
+  );
+}
+
+/**
+ * A search hit is not a `Product` — it carries no variants, which is what
+ * `ProductCard` derives its price range from. Rendering it through that card
+ * would mean inventing the missing half; the API already computed the price
+ * range, so this shows what the search actually returned.
+ */
+function SearchHitCard({ hit }: { hit: SearchHit }) {
+  const hasRange = hit.priceMaxMinorUnits > hit.priceMinMinorUnits;
+
+  return (
+    <Link href={`/product/${hit.slug}`} className="group block bg-surface">
+      <div className="relative aspect-square overflow-hidden bg-surface-alt">
+        <Image
+          src={getProductStockImage(hit.slug)}
+          alt=""
+          fill
+          sizes="(min-width: 1024px) 25vw, 50vw"
+          className="object-cover transition-transform group-hover:scale-105"
+        />
+      </div>
+      <p className="mt-2 text-sm font-medium">{hit.name}</p>
+      <p className="text-xs text-ink-muted">{hit.categoryName}</p>
+      <p className="mt-0.5 text-sm">
+        {formatMinorUnits(hit.priceMinMinorUnits)}
+        {hasRange && <span className="text-ink-muted"> – {formatMinorUnits(hit.priceMaxMinorUnits)}</span>}
+      </p>
+      {/* Text, not colour alone — STD-ACCESSIBILITY rule 6. */}
+      {!hit.inStock && <p className="mt-0.5 text-xs text-feedback-warning">Out of stock</p>}
+    </Link>
   );
 }

@@ -1,61 +1,104 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SearchResults } from './search-results';
-import { useProducts } from '@/hooks/use-products';
-import type { PaginatedResult, Product } from '@/lib/api/types';
+import { searchProducts } from '@/lib/api/search';
+import type { SearchHit, SearchResult } from '@/lib/api/types';
 
-vi.mock('@/hooks/use-products', () => ({ useProducts: vi.fn() }));
+vi.mock('@/lib/api/search', () => ({ searchProducts: vi.fn(), autocomplete: vi.fn() }));
+const search = vi.mocked(searchProducts);
 
-function fakeProduct(id: string): Product {
+function hit(over: Partial<SearchHit> = {}): SearchHit {
   return {
-    id,
-    name: `Product ${id}`,
-    slug: id,
-    description: 'd',
-    status: 'PUBLISHED',
-    certificationType: null,
-    avgRating: '0',
-    ratingCount: 0,
-    category: { id: 'c1', name: 'Rings', slug: 'rings', parentId: null },
-    variants: [{ id: 'v1', sku: 'S1', metal: 'GOLD', purity: null, size: null, weightGrams: '1', basePriceMinorUnits: 1000 }],
-    media: [],
+    productId: 'p1',
+    slug: 'diamond-halo-ring',
+    name: 'Diamond Halo Ring',
+    categorySlug: 'rings',
+    categoryName: 'Rings',
+    priceMinMinorUnits: 250000,
+    priceMaxMinorUnits: 250000,
+    avgRating: 4.5,
+    ratingCount: 10,
+    inStock: true,
+    ...over,
   };
 }
 
-const emptyResult: PaginatedResult<Product> = { items: [], page: 1, pageSize: 24, total: 0 };
+function result(items: SearchHit[] = [hit()], total = items.length): SearchResult {
+  return {
+    items,
+    total,
+    page: 1,
+    pageSize: 24,
+    facets: { metals: [], categories: [], certifications: [], priceRanges: [] },
+  };
+}
+
+function renderResults(initial: SearchResult = result()) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <SearchResults query="diamond" initialData={initial} />
+    </QueryClientProvider>,
+  );
+}
 
 describe('SearchResults', () => {
-  it('shows a loading skeleton while fetching', () => {
-    (useProducts as any).mockReturnValue({ data: undefined, isFetching: true });
-    render(<SearchResults query="ring" initialData={emptyResult} />);
-    expect(screen.queryByText(/result/)).toBeInTheDocument(); // count text always shown
-    expect(document.querySelectorAll('.animate-pulse').length).toBeGreaterThan(0);
+  beforeEach(() => {
+    search.mockReset();
+    search.mockResolvedValue(result());
   });
 
-  it('shows a "no results" message when the result set is empty', () => {
-    (useProducts as any).mockReturnValue({ data: emptyResult, isFetching: false });
-    render(<SearchResults query="nonexistent" initialData={emptyResult} />);
-    expect(screen.getByText(/No products matched/)).toBeInTheDocument();
+  it('queries the search module, not the products fallback', async () => {
+    // KC-116: the storefront called /products?q=, whose own DTO calls that
+    // path the Postgres trigram fallback.
+    renderResults();
+    await waitFor(() =>
+      expect(search).toHaveBeenCalledWith({ q: 'diamond', pageSize: 24 }, false),
+    );
   });
 
-  it('renders a product card per result', () => {
-    const result: PaginatedResult<Product> = { items: [fakeProduct('p1'), fakeProduct('p2')], page: 1, pageSize: 24, total: 2 };
-    (useProducts as any).mockReturnValue({ data: result, isFetching: false });
-    render(<SearchResults query="ring" initialData={emptyResult} />);
-    expect(screen.getAllByRole('link')).toHaveLength(2);
+  it('shows the result count and the hits', () => {
+    renderResults();
+    expect(screen.getByText(/1 result for/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Diamond Halo Ring/ })).toHaveAttribute(
+      'href',
+      '/product/diamond-halo-ring',
+    );
   });
 
-  it('falls back to initialData when the query has not resolved yet', () => {
-    const initial: PaginatedResult<Product> = { items: [fakeProduct('p1')], page: 1, pageSize: 24, total: 1 };
-    (useProducts as any).mockReturnValue({ data: undefined, isFetching: false });
-    render(<SearchResults query="ring" initialData={initial} />);
-    expect(screen.getByText(/^1 result for/)).toBeInTheDocument();
+  it('offers no sort control, because results are ordered by relevance', () => {
+    // /search has no sort parameter — a relevance search re-sorted by "newest"
+    // is not a relevance search. Keeping the old dropdown would have left a
+    // control that quietly did nothing.
+    renderResults();
+    expect(screen.queryByLabelText(/Sort by/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
-  it('pluralizes the result count correctly', () => {
-    const result: PaginatedResult<Product> = { items: [], page: 1, pageSize: 24, total: 5 };
-    (useProducts as any).mockReturnValue({ data: result, isFetching: false });
-    render(<SearchResults query="ring" initialData={emptyResult} />);
-    expect(screen.getByText(/^5 results for/)).toBeInTheDocument();
+  it('shows a price range only when the variants differ', () => {
+    renderResults(result([hit({ priceMaxMinorUnits: 400000 })]));
+    expect(screen.getByText(/–/)).toBeInTheDocument();
+  });
+
+  it('says when nothing matched', async () => {
+    // Waits for the refetch: with no results there is nothing to keep on
+    // screen, so this is the one case that shows skeletons first.
+    search.mockResolvedValue(result([], 0));
+    renderResults(result([], 0));
+    expect(await screen.findByText(/No products matched/)).toBeInTheDocument();
+  });
+
+  it('marks an out-of-stock hit in words, not colour alone', () => {
+    renderResults(result([hit({ inStock: false })]));
+    expect(screen.getByText('Out of stock')).toBeInTheDocument();
+  });
+
+  it('renders the server-rendered results before the client query resolves', () => {
+    // The page fetches once on the server; a blank flash while the client
+    // refetches would undo that.
+    search.mockImplementation(() => new Promise(() => {}));
+    renderResults();
+    expect(screen.getByRole('link', { name: /Diamond Halo Ring/ })).toBeInTheDocument();
   });
 });

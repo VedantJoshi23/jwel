@@ -7,6 +7,7 @@ import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
 import { brand } from '@/lib/brand';
+import { SearchSuggestions } from '@/components/common/search-suggestions';
 
 export function SiteHeader() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function SiteHeader() {
   const [query, setQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
 
   // Close any open mobile panel on navigation, rather than leaving it open
   // over the new page.
@@ -83,24 +85,44 @@ export function SiteHeader() {
         </nav>
 
         {/* Search — desktop/tablet */}
-        <form
-          role="search"
-          onSubmit={handleSearch}
-          className="ml-auto hidden items-center gap-2 rounded-s border border-brand-primary px-3 py-2.5 text-sm text-ink-muted md:flex md:w-full md:max-w-[170px] lg:max-w-[300px]"
-        >
-          <Search className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
-          <label htmlFor="site-search" className="sr-only">
-            Search products
-          </label>
-          <input
-            id="site-search"
-            type="search"
-            placeholder={brand.searchPlaceholder}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="w-full min-w-0 bg-transparent text-ink-primary outline-none placeholder:text-ink-muted"
-          />
-        </form>
+        <div className="relative ml-auto hidden md:block md:w-full md:max-w-[170px] lg:max-w-[300px]">
+          <form
+            role="search"
+            onSubmit={handleSearch}
+            className="flex items-center gap-2 rounded-s border border-brand-primary px-3 py-2.5 text-sm text-ink-muted"
+          >
+            <Search className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
+            <label htmlFor="site-search" className="sr-only">
+              Search products
+            </label>
+            <input
+              id="site-search"
+              type="search"
+              placeholder={brand.searchPlaceholder}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setSuggestionsOpen(true)}
+              // Closed on blur, but the suggestion buttons use onMouseDown so
+              // a choice still registers before this fires.
+              onBlur={() => setSuggestionsOpen(false)}
+              role="combobox"
+              aria-expanded={suggestionsOpen}
+              aria-controls="site-search-suggestions"
+              aria-autocomplete="list"
+              className="w-full min-w-0 bg-transparent text-ink-primary outline-none placeholder:text-ink-muted"
+            />
+          </form>
+          {suggestionsOpen && (
+            <SearchSuggestions
+              query={query}
+              inputId="site-search"
+              onNavigate={() => {
+                setSuggestionsOpen(false);
+                setQuery('');
+              }}
+            />
+          )}
+        </div>
 
         {/* Search toggle — mobile only */}
         <button
