@@ -1,7 +1,7 @@
 ---
 id: DOM-SHOPPING
 title: Jwel / ELYSIAN — Domain: Shopping
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -106,10 +106,11 @@ choice path preserves their items in the wishlist.
 
 ### Two consequences worth stating plainly
 
-**(a) Invariant 1 requires a schema change.** *(Still outstanding.
-`cart_share_items` was created without the offending unique constraint, but
-`cart_items` still carries it — dropping it belongs with the server-side cart,
-which is what writes that table.)* `cart_items` currently carries
+**(a) Invariant 1 requires a schema change.** *(**Done 2026-08-09** —
+`FEAT-SERVER-CART-API`. `@@unique([cartId, variantId])` dropped; line identity
+is the row id, with "same variant, same configuration" matched in the service
+on add. Lines are addressed by line id, since a variant id stopped identifying
+anything.)* `cart_items` currently carries
 `@@unique([cartId, variantId])` — one line per variant per cart. That constraint
 is **incompatible with per-line gift wrap** (Invariant 4) and with the merge
 rule (Invariant 15): both require the same ring to appear twice, wrapped and
@@ -145,11 +146,19 @@ not acceptable UX.
 
 ## 4. API Surface
 
-**Cart** *(server-side; exists in the API, not yet called by the web app —
-KC-114)*
+**Cart** *(server-side; **guest carts and claiming built 2026-08-09** —
+`FEAT-SERVER-CART-API`. Still not called by the web app, which keeps its
+localStorage cart until that migration lands — KC-114)*
 
-- `GET /cart` · `POST /cart/items` · `PATCH /cart/items/:variantId` ·
-  `DELETE /cart/items/:variantId` · `DELETE /cart`
+- `GET /cart` · `POST /cart/items` · `PATCH /cart/items/:lineId` ·
+  `DELETE /cart/items/:lineId` · `DELETE /cart` — all public with an optional
+  JWT, identified by account or by an `x-guest-cart-token` header (Invariant 5)
+- `POST /cart/claim` — hands a guest cart to the account that signed in
+  (Invariants 6, 17). Reports `conflict` and changes nothing when both carts
+  are non-empty, because Invariant 12 makes that the customer's choice
+
+Addressed by **line id**, not variant id: a variant can appear more than once
+once configuration is part of a line's identity.
 
 **Wishlist** *(**wired 2026-08-08** — `FEAT-WISHLIST-UI`; was KC-115, built with
 no storefront UI reaching it)*
