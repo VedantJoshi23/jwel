@@ -47,6 +47,17 @@ function toItem(product: ProductSummary): RecommendationItem {
  * (FR-14/FR-15) versus a real collaborative-filtering/embedding model, which
  * has no training data or infra to support it yet.
  */
+/**
+ * How far back a newly registered account may claim guest views — the server's
+ * expression of Invariant 9's "same session".
+ *
+ * A day rather than a typical 30-minute session window: someone can browse in
+ * the morning and sign up in the evening from the same browser, and that is
+ * plainly the same person. It is short enough to honour §8.6's "not a much
+ * earlier visit".
+ */
+const GUEST_VIEW_CLAIM_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class RecommendationsService implements OnModuleInit {
   private readonly logger = new Logger(RecommendationsService.name);
@@ -76,6 +87,44 @@ export class RecommendationsService implements OnModuleInit {
     await this.prisma.productView.create({
       data: { productId, userId: identity.userId, anonymousId: identity.userId ? null : identity.anonymousId },
     });
+  }
+
+  /**
+   * Transfers a guest's view history to the account they just created —
+   * `DOM-RECOMMENDATION` Invariant 9, so first-session personalisation
+   * survives sign-up.
+   *
+   * **Bounded in time, deliberately.** §8.6 says history transfers *"when it
+   * is the same session"*, and that across sessions it does not: *"an
+   * `anonymousId` from a different browser or a much earlier visit is not
+   * claimable, since there is no basis to believe it is the same person."*
+   *
+   * The server has no session for a guest, so "same session" is expressed as a
+   * recency window. Same *browser* is already guaranteed when the client sends
+   * its own `localStorage` id — the window is what bounds a **forged** one.
+   * An `anonymousId` is guessable only by being told it, but it travels in a
+   * registration payload, and a claim with no time bound would let anyone who
+   * learned one inherit another person's browsing history through the
+   * recommendations it produces (Invariant 3 exists to keep views un-joinable
+   * to a person; this keeps them un-transferable to the wrong one).
+   *
+   * Writes only this domain's own table, and takes the user id from the caller
+   * rather than reading Identity's — Recommendation reads other contexts and
+   * writes none of them (§7).
+   *
+   * @returns how many views were claimed, for the caller to log or ignore.
+   */
+  async claimGuestViews(userId: string, anonymousId: string): Promise<number> {
+    const cutoff = new Date(Date.now() - GUEST_VIEW_CLAIM_WINDOW_MS);
+
+    const { count } = await this.prisma.productView.updateMany({
+      where: { anonymousId, viewedAt: { gte: cutoff } },
+      // `anonymousId` is cleared in the same write: Invariant 2 is an XOR, and
+      // a row carrying both would satisfy neither branch of it.
+      data: { userId, anonymousId: null },
+    });
+
+    return count;
   }
 
   /**
