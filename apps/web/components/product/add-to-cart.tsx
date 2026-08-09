@@ -6,6 +6,7 @@ import { VariantSelector } from './variant-selector';
 import { QuantityStepper } from './quantity-stepper';
 import { PriceTag } from './price-tag';
 import { Button } from '@/components/ui/button';
+import { SaveToWishlist } from './save-to-wishlist';
 import type { Product } from '@/lib/api/types';
 
 export function AddToCart({ product }: { product: Product }) {
@@ -48,6 +49,9 @@ export function AddToCart({ product }: { product: Product }) {
       <Button size="l" className="w-full" onClick={handleAddToBag}>
         Add to bag
       </Button>
+
+      {/* Saves the selected variant, not the product — see SaveToWishlist. */}
+      <SaveToWishlist variantId={variant.id} productName={product.name} />
 
       <p role="status" aria-live="polite" className="text-sm text-feedback-success">
         {confirmed ? `Added ${product.name} to your bag.` : ''}

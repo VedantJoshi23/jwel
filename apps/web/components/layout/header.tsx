@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useState } from 'react';
-import { Menu, Search, ShoppingBag, User, X } from 'lucide-react';
+import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
 import { brand } from '@/lib/brand';
@@ -115,6 +115,17 @@ export function SiteHeader() {
         >
           {mobileSearchOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Search className="h-5 w-5" aria-hidden="true" />}
         </button>
+
+        {/*
+          Wishlist — shown only when signed in, because there is no guest
+          wishlist. An icon that leads to a login wall is worse than no icon:
+          it advertises something the visitor cannot use yet.
+        */}
+        {isAuthenticated && (
+          <Link href="/wishlist" className="shrink-0" aria-label="Wishlist">
+            <Heart className="h-5 w-5" aria-hidden="true" />
+          </Link>
+        )}
 
         {/* Cart */}
         <Link href="/cart" className="relative shrink-0" aria-label={`Shopping bag, ${itemCount} items`}>

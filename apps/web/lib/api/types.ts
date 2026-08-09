@@ -251,6 +251,38 @@ export interface AdminOrder extends Order {
   partiallyReturned: boolean;
 }
 
+export interface WishlistItem {
+  id: string;
+  variantId: string;
+  addedAt: string;
+  variant: {
+    id: string;
+    sku: string;
+    metal: string;
+    size: string | null;
+    basePriceMinorUnits: number;
+    product: { id: string; name: string; slug: string };
+  };
+}
+
+export interface Wishlist {
+  id: string;
+  /**
+   * The share link's only credential. Unguessable, and `DOM-SHOPPING`
+   * Invariant 9 makes what it opens read-only.
+   */
+  shareToken: string;
+  items: WishlistItem[];
+}
+
+/**
+ * What a share link returns: items and nothing else. The API omits the owner
+ * entirely rather than trusting the client not to render it (Invariant 9).
+ */
+export interface SharedWishlist {
+  items: WishlistItem[];
+}
+
 export type ReturnStatus = 'REQUESTED' | 'APPROVED' | 'REJECTED' | 'REFUND_PROCESSING' | 'REFUNDED';
 
 export type ReturnReason =

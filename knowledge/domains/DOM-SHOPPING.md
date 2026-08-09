@@ -1,7 +1,7 @@
 ---
 id: DOM-SHOPPING
 title: Jwel / ELYSIAN — Domain: Shopping
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -147,14 +147,19 @@ KC-114)*
 - `GET /cart` · `POST /cart/items` · `PATCH /cart/items/:variantId` ·
   `DELETE /cart/items/:variantId` · `DELETE /cart`
 
-**Wishlist** *(exists; no storefront UI reaches it — KC-115)*
+**Wishlist** *(**wired 2026-08-08** — `FEAT-WISHLIST-UI`; was KC-115, built with
+no storefront UI reaching it)*
 
 - `GET /wishlist` · `POST /wishlist/items` · `DELETE /wishlist/items/:variantId`
 - `GET /wishlist/shared/:shareToken` — public, unauthenticated
 
 **Shareable cart** — **does not exist** (KC-129, KC-137). Requires a share
 token on `Cart` and a public read endpoint. `Wishlist.shareToken` is the exact
-in-repo precedent.
+in-repo precedent, and as of `FEAT-WISHLIST-UI` that precedent now includes the
+**UI** side too: a read-only shared view that names nobody, is `noindex`, and
+404s on an unknown token. Invariants 11–17 are what the cart version adds on
+top — snapshot-versus-live, and the merge/replace prompt a wishlist never
+needs.
 
 ## 5. Events
 
