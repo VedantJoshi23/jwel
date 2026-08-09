@@ -18,7 +18,7 @@ actually blocks things here — not effort.
 | Group | Blocked on | Count |
 | --- | --- | --- |
 | **A. Client decisions** | Someone deciding what the business promises | 10 |
-| **B. Deployment** | Doing it, at deploy time | 4 |
+| **B. Deployment** | Doing it, at deploy time | 5 |
 | **C. Engineering** | Ordinary build work | 12 |
 | **D. Deferred features** | Client feedback already given: not now | 3 |
 | **E. Accepted, not to fix** | Recorded so nobody "fixes" them by accident | 4 |
@@ -68,7 +68,8 @@ wording change.
 
 ## B. Deployment
 
-Do these **at deploy time**, in this order. All four are recorded in the
+Do these **at deploy time**, in this order — except **B0, which has a
+deadline of 26 August and comes before everything**. All are recorded in the
 runbook so they are found there rather than here.
 
 ### B1. Transactional email actually sends — `RUNBOOK` step 0a
@@ -104,6 +105,20 @@ and turns the dashboard query into raw SQL.
 
 Until then: do not quote revenue from Metabase, or apply the same exclusions by
 hand — cancelled orders out, `REFUNDED` return amounts deducted.
+
+### B0. The domain expires 26 August 2026 — **do this first**
+
+`whisperingorion.dev` lapses on the 26th. Four hostnames depend on it —
+storefront, `api.`, `grafana.`, `metabase.` — and **there is no bare-IP
+fallback**, because Let's Encrypt will not issue for an IP.
+
+Valid certificates do not help: when registration lapses the domain stops
+resolving, so nothing reaches the box to present one. The apex certificate also
+renews on 21 September, *after* the lapse, so automatic renewal fails too.
+
+`RUNBOOK` **§12a** has the dated checklist — decide by 19 August, DNS by the
+21st, certs and rebuild by the 23rd, verify by the 24th. Renewing the existing
+domain is by far the cheapest outcome: nothing else changes.
 
 ### B4. Start Elasticsearch
 

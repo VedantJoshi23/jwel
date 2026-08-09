@@ -15,6 +15,10 @@ payments from test-mode to real money, in one ordered sequence.
 
 ## 0. Before touching the VM at all: get a domain pointed at it
 
+> **Deadline in force:** `whisperingorion.dev` expires **26 August 2026**. Four
+> hostnames depend on it and there is no bare-IP fallback. See **§12a**, which
+> has a dated checklist working backwards from that date.
+
 Caddy (the reverse proxy this stack uses) gets HTTPS certificates from Let's
 Encrypt automatically, but Let's Encrypt **will not issue a certificate for a
 bare IP address** (`80.225.213.151`) — only for a domain name. Without this
@@ -768,6 +772,31 @@ carry over; the client does not need a new account.
 | 10 | build arg `NEXT_PUBLIC_SITE_URL` | apex | **web image rebuild** |
 | 11 | Google OAuth redirect URI | api | Google Cloud console |
 | 12 | Razorpay webhook endpoint URL | api | Razorpay dashboard |
+| 13 | DNS A record, `grafana.` | new grafana | registrar |
+| 14 | DNS A record, `metabase.` | new metabase | registrar |
+| 15 | `/etc/nginx/sites-available/grafana` | grafana | render + reload |
+| 16 | `/etc/nginx/sites-available/metabase` | metabase | render + reload |
+| 17 | Let's Encrypt certs for both subdomains | both | `certbot` |
+| 18 | Grafana `root_url` / Metabase `site-url`, if set | each | container restart |
+
+**Rows 13–18 were missing from this table until 2026-08-09**, and are the ones
+this procedure would silently break: `deploy/nginx/render.sh` renders only
+`jwel.conf.template` (apex + api), so following the steps below without them
+leaves two vhosts pointing at a hostname that no longer resolves.
+
+Four hostnames are live on this box, not two:
+
+```
+whisperingorion.dev + www     storefront
+api.whisperingorion.dev       API
+grafana.whisperingorion.dev   observability
+metabase.whisperingorion.dev  reporting
+```
+
+`grafana.conf.template` and `metabase.conf.template` are installed as their own
+`sites-available` entries rather than folded into `main` — deliberately, so a
+mistake in one cannot take the storefront down with it. That also means each
+needs its own substitution, its own cert and its own reload.
 
 Rows 8–10 are the ones that catch people. `NEXT_PUBLIC_*` values are inlined
 into the JavaScript bundle at build time — they are **not** read from the
@@ -782,9 +811,11 @@ behaviour, not a symptom of the move.
 ### The procedure
 
 ```bash
-# 1. DNS first — both records, and WAIT for them before touching certbot.
-dig +short newdomain.com          # must print this server's IP
-dig +short api.newdomain.com      # must print this server's IP
+# 1. DNS first — ALL FIVE records, and WAIT for them before touching certbot.
+for h in newdomain.com www.newdomain.com api.newdomain.com \
+         grafana.newdomain.com metabase.newdomain.com; do
+    printf '%-28s %s\n' "$h" "$(dig +short "$h")"   # each must print this server's IP
+done
 ```
 
 Certbot failures count against Let's Encrypt's rate limit of 5 per hostname
@@ -796,6 +827,10 @@ per hour, so confirm `dig` before running it, not after.
 sudo certbot certonly --webroot -w /var/www/html \
   -d newdomain.com -d www.newdomain.com
 sudo certbot certonly --webroot -w /var/www/html -d api.newdomain.com
+# The observability subdomains need their own certs — they are separate
+# vhosts, and each template hardcodes its own ssl_certificate path.
+sudo certbot certonly --webroot -w /var/www/html -d grafana.newdomain.com
+sudo certbot certonly --webroot -w /var/www/html -d metabase.newdomain.com
 
 # 3. Rebuild the web image with the new build args. NEW git sha or a suffix —
 #    reusing the old tag means no rollback target.
@@ -823,10 +858,19 @@ cd deploy
 #                     CORS_ALLOWED_ORIGINS=https://newdomain.com
 #   .env:             WEB_TAG=<the new tag from step 3>
 
-# 6. Render and install the nginx config.
+# 6. Render and install the nginx configs — all three files, not just `main`.
 ./nginx/render.sh newdomain.com api.newdomain.com > /tmp/jwel.conf
 sudo cp /etc/nginx/sites-available/main /etc/nginx/sites-available/main.bak
 sudo cp /tmp/jwel.conf /etc/nginx/sites-available/main
+
+# grafana and metabase have no render.sh — substitute their one variable each.
+# (render.sh only knows jwel.conf.template; these are separate vhosts on
+# purpose, so that a mistake here cannot take the storefront down.)
+sed 's/${GRAFANA_DOMAIN}/grafana.newdomain.com/g' \
+    nginx/grafana.conf.template | sudo tee /etc/nginx/sites-available/grafana >/dev/null
+sed 's/${METABASE_DOMAIN}/metabase.newdomain.com/g' \
+    nginx/metabase.conf.template | sudo tee /etc/nginx/sites-available/metabase >/dev/null
+
 sudo nginx -t && sudo systemctl reload nginx
 
 # 7. Restart the app stack.
@@ -846,6 +890,18 @@ console means `CORS_ALLOWED_ORIGINS` still lists the old apex, or the API
 wasn't restarted after editing it. Load a product page and confirm its images
 render — that proves `PUBLIC_BASE_URL` took effect.
 
+**And check the other two, which have no traffic to tell you they are broken:**
+
+```bash
+curl -sI https://grafana.newdomain.com  | head -1   # expect 200 or 302
+curl -sI https://metabase.newdomain.com | head -1   # expect 200 or 302
+```
+
+A storefront failure is obvious within minutes because customers hit it.
+Grafana and Metabase can stay broken for weeks — nobody visits a dashboard
+until they need it, which is usually the moment something else has gone wrong
+and you least want a second problem.
+
 ### Rolling back
 
 ```bash
@@ -855,10 +911,85 @@ sudo nginx -t && sudo systemctl reload nginx
 docker compose -f docker-compose.api.yml up -d
 ```
 
+Roll back `grafana` and `metabase` the same way if you edited them — take a
+`.bak` of each before overwriting, as step 6 does for `main`. They roll back
+independently, which is the point of them being separate files.
+
 The old certificates and DNS records are untouched throughout, which is what
 makes the rollback fast. Keep the old domain registered and pointing at the
 server for a few weeks after the move — DNS caches, bookmarks and any links
 already shared will keep arriving on the old hostname.
+
+### 12a. When the domain is *expiring* rather than moving
+
+**`whisperingorion.dev` expires 26 August 2026.** Everything above still
+applies, but an expiry differs from a planned move in three ways that decide
+how much time you actually have.
+
+**A valid certificate does not save you.** As of 2026-08-09 the four certs run
+well past the expiry date — and that is irrelevant. When registration lapses
+the domain stops resolving, so nothing reaches the box to present a
+certificate with. **The binding date is the registration date, not the
+certificate date.** Do not let `certbot certificates` reassure you here:
+
+```
+whisperingorion.dev            2026-09-21
+api.whisperingorion.dev        2026-10-24
+grafana.whisperingorion.dev    2026-10-26
+metabase.whisperingorion.dev   2026-10-27
+```
+
+Note the apex renews first, on **21 September** — after the domain lapses. If
+the domain is gone by then the ACME HTTP-01 challenge cannot resolve either,
+so **the automatic renewal will fail as well**. An expired domain does not
+just stop serving; it stops the machinery that would have kept it serving.
+
+**There is no bare-IP fallback.** Step 0 explains why: Let's Encrypt will not
+issue for an IP address. The "Launching without a domain yet" section at the
+bottom of this runbook serves plain HTTP with no TLS and is marked *revert
+before going live* — it is a smoke-test aid, not a way to run a shop. So there
+is no HTTPS-capable configuration of this stack without a working domain.
+
+**It is not a same-day job.** In order: DNS propagation (minutes to hours),
+then **four** separate certbot issuances, then a **web image rebuild** for rows
+8–10, then four nginx reloads. Start it with days in hand, not on the 26th.
+
+#### The options, cheapest first
+
+| Option | What it costs | What changes |
+| --- | --- | --- |
+| **Renew `whisperingorion.dev`** | A renewal fee | **Nothing.** No config, no certs, no rebuild. By far the cheapest outcome |
+| **New domain, same box** | A registration, plus §12's full procedure ×4 hostnames | Rows 1–18 |
+| **Client's real domain** | Same work, done once | Rows 1–18, and it is the move you would have to make at launch anyway |
+
+If the client's own domain is close to being bought, doing the move **once**
+straight onto it is less work than moving twice.
+
+#### Deadline checklist
+
+Work backwards from 26 August:
+
+- [ ] **By 19 August** — decide: renew, or which replacement domain.
+- [ ] **By 21 August** — domain registered; A records for apex, `www`, `api.`,
+      `grafana.`, `metabase.` all pointing at `80.225.213.151`. Confirm with
+      `dig +short <host>` for each of the five.
+- [ ] **By 23 August** — certs issued for all four hostnames, nginx configs
+      rendered and reloaded, web image rebuilt with the new
+      `NEXT_PUBLIC_*` build args, API restarted with new `PUBLIC_BASE_URL`,
+      `FRONTEND_URL` and `CORS_ALLOWED_ORIGINS`.
+- [ ] **By 24 August** — verify in a browser: storefront loads over HTTPS, XHR
+      goes to the new API host, product images render, Grafana and Metabase
+      both load.
+- [ ] **After cutover** — keep the old domain registered as long as the
+      registrar allows, so shared links keep arriving.
+
+#### If the deadline is missed
+
+The site goes dark: DNS stops resolving and every hostname fails. **Nothing is
+lost** — the database, uploads, orders and accounts are all on the box and
+untouched, and §12's "What survives a domain change" applies unchanged. Point a
+new domain at the same IP and work through the checklist; recovery is the same
+procedure, just done under pressure with the shop down.
 
 ---
 
