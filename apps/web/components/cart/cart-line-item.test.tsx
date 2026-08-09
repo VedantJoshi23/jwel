@@ -4,7 +4,7 @@ import { CartLineItemRow } from './cart-line-item';
 import type { CartLine } from '@/hooks/use-cart';
 
 function fakeLine(overrides: Partial<CartLine> = {}): CartLine {
-  return { id: 'line-v1', giftWrap: false, giftNote: null, variantId: 'v1',
+  return { id: 'line-v1', giftWrap: false, giftNote: null, imageUrl: null, variantId: 'v1',
     productSlug: 'gold-ring',
     productName: 'Gold Ring',
     metal: 'GOLD',

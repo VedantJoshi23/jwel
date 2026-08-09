@@ -1,0 +1,573 @@
+<title>Jwel — Build Status &amp; What We Need From You</title>
+<style>
+  :root {
+    --ground: #F7F8F8;
+    --surface: #FFFFFF;
+    --surface-2: #F1F4F3;
+    --ink: #15191B;
+    --ink-soft: #3C464B;
+    --muted: #5D686E;
+    --line: #DFE5E4;
+    --line-soft: #ECF0EF;
+    --accent: #0E5B52;
+    --accent-soft: #DCEBE7;
+    --brass: #8A6D22;
+    --amber: #A2670F;
+    --amber-soft: #F6EBDA;
+    --slate: #5A6672;
+    --slate-soft: #E7EBEE;
+    --shadow: 0 1px 2px rgba(20, 30, 28, .05), 0 8px 24px -16px rgba(20, 30, 28, .28);
+
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1112;
+      --surface: #14191A;
+      --surface-2: #1A2122;
+      --ink: #E9EEEC;
+      --ink-soft: #C3CCCA;
+      --muted: #8E9A9A;
+      --line: #263030;
+      --line-soft: #1E2626;
+      --accent: #63BBAB;
+      --accent-soft: #16302C;
+      --brass: #C7A44E;
+      --amber: #D79A4A;
+      --amber-soft: #2E2416;
+      --slate: #93A0AC;
+      --slate-soft: #1D2429;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -20px rgba(0, 0, 0, .9);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0D1112;
+    --surface: #14191A;
+    --surface-2: #1A2122;
+    --ink: #E9EEEC;
+    --ink-soft: #C3CCCA;
+    --muted: #8E9A9A;
+    --line: #263030;
+    --line-soft: #1E2626;
+    --accent: #63BBAB;
+    --accent-soft: #16302C;
+    --brass: #C7A44E;
+    --amber: #D79A4A;
+    --amber-soft: #2E2416;
+    --slate: #93A0AC;
+    --slate-soft: #1D2429;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px -20px rgba(0, 0, 0, .9);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 50rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 4.5rem) clamp(1.1rem, 4vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(2.5rem, 5vw, 3.75rem);
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead { display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem .9rem;
+  }
+  .eyebrow .mark { color: var(--accent); }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(2rem, 5.4vw, 2.9rem);
+    line-height: 1.12;
+    letter-spacing: -.015em;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 1.09rem;
+    color: var(--ink-soft);
+    max-width: 40rem;
+  }
+
+  /* ---------- tiles ---------- */
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: .75rem;
+  }
+
+  .tile {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1rem 1.05rem 1.05rem;
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    box-shadow: var(--shadow);
+  }
+  .tile .num {
+    font-family: var(--display);
+    font-size: 2.05rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+  }
+  .tile.wait .num { color: var(--slate); }
+  .tile.ask .num { color: var(--amber); }
+  .tile .label { font-size: .87rem; color: var(--muted); }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  h2 {
+    font-family: var(--display);
+    font-size: clamp(1.35rem, 3vw, 1.65rem);
+    font-weight: 600;
+    letter-spacing: -.01em;
+    line-height: 1.25;
+    padding-bottom: .55rem;
+    border-bottom: 1px solid var(--line);
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-size: .96rem;
+    font-weight: 650;
+    letter-spacing: .005em;
+  }
+
+  .lede { color: var(--ink-soft); max-width: 40rem; }
+
+  /* ---------- built grid ---------- */
+
+  .built {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: .75rem;
+  }
+  .built .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1rem 1.1rem 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  .built .card p { font-size: .92rem; color: var(--muted); }
+  .built .card h3::before {
+    content: "";
+    display: inline-block;
+    width: .42rem;
+    height: .42rem;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: .55rem;
+    vertical-align: .12em;
+  }
+
+  /* ---------- decision rows ---------- */
+
+  .rows { display: flex; flex-direction: column; }
+
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr);
+    gap: .35rem 1.5rem;
+    padding: .95rem 0;
+    border-top: 1px solid var(--line-soft);
+    align-items: baseline;
+  }
+  .row:first-child { border-top: 1px solid var(--line); }
+  .row .what { font-weight: 620; font-size: .97rem; }
+  .row .rec { color: var(--muted); font-size: .93rem; }
+  .row .rec b { color: var(--ink-soft); font-weight: 620; }
+
+  @media (max-width: 34rem) {
+    .row { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- launch steps ---------- */
+
+  ol.steps { list-style: none; display: flex; flex-direction: column; gap: .9rem; counter-reset: step; }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 1.9rem minmax(0, 1fr);
+    gap: .2rem .8rem;
+    align-items: baseline;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--accent);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 2px;
+    text-align: center;
+    padding: .12rem 0;
+    align-self: start;
+    margin-top: .12rem;
+  }
+  ol.steps .body { font-size: .93rem; color: var(--muted); grid-column: 2; }
+
+  /* ---------- plain lists ---------- */
+
+  ul.plain { list-style: none; display: flex; flex-direction: column; gap: .8rem; }
+  ul.plain > li {
+    padding-left: 1rem;
+    border-left: 2px solid var(--line);
+  }
+  ul.plain .body { font-size: .93rem; color: var(--muted); }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: .2rem .5rem;
+    border-radius: 2px;
+    background: var(--slate-soft);
+    color: var(--slate);
+    margin-left: .5rem;
+    vertical-align: .1em;
+  }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .pill.ok { background: var(--accent-soft); color: var(--accent); }
+
+  /* ---------- callout ---------- */
+
+  .callout {
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    padding: 1rem 1.15rem;
+    border-radius: 0 3px 3px 0;
+    font-size: .95rem;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .callout strong { color: var(--ink); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 1.1rem;
+    font-size: .85rem;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <span class="mark">Jwel</span>
+      <span>Build status</span>
+      <span>9 August 2026</span>
+    </div>
+    <h1>The platform is built. What remains is mostly decisions, not development.</h1>
+    <p class="standfirst">
+      The storefront, checkout, payments, search, recommendations and admin portal are
+      complete and have been run end to end against real data and real test payments.
+      Before we can take the demo banner down and open the shop to customers, we need
+      ten answers from you — and none of them require you to understand anything technical.
+    </p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile">
+      <span class="num">11</span>
+      <span class="label">Stages of work complete, from discovery through testing and deployment</span>
+    </div>
+    <div class="tile ask">
+      <span class="num">10</span>
+      <span class="label">Decisions we need from you before launch</span>
+    </div>
+    <div class="tile wait">
+      <span class="num">3</span>
+      <span class="label">Features paused, waiting on outside accounts</span>
+    </div>
+    <div class="tile">
+      <span class="num">0</span>
+      <span class="label">Known faults in what has shipped</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>What is built and working</h2>
+    <p class="lede">
+      Each of these has been exercised against a live stack with real catalogue and
+      order data — not mocked up.
+    </p>
+    <div class="built">
+      <div class="card">
+        <h3>Storefront and shopping bag</h3>
+        <p>Browsing, product pages, wishlist, and a bag that follows the customer across
+        devices once they sign in. Bags can be shared by link.</p>
+      </div>
+      <div class="card">
+        <h3>Checkout and payments</h3>
+        <p>Razorpay is wired in and proven end to end on a live deployment — payments,
+        refunds and payment notifications all confirmed. Only your live account
+        credentials are outstanding.</p>
+      </div>
+      <div class="card">
+        <h3>Search and discovery</h3>
+        <p>Search with typo tolerance and as-you-type suggestions, plus a
+        recommendation engine that reacts to what customers actually view and buy.</p>
+      </div>
+      <div class="card">
+        <h3>Customer accounts</h3>
+        <p>Sign-in, order history, an order status timeline, reviews, and a
+        self-service returns request flow.</p>
+      </div>
+      <div class="card">
+        <h3>Admin portal</h3>
+        <p>Products, categories, coupons, banners, orders, returns and refunds — plus a
+        dashboard, with a separate reporting tool for deeper analysis.</p>
+      </div>
+      <div class="card">
+        <h3>Quality and hosting</h3>
+        <p>Automated test suite on every change, accessibility checks across 23 screens,
+        a full deployment setup, and backups that have been restored twice as a drill.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What we need from you</h2>
+    <p class="lede">
+      The website currently makes ten promises to customers that the business has not yet
+      committed to. For each one, we need a simple answer: <b>keep it</b> — and we make the
+      system honour it — or <b>drop it</b>, and we remove the wording. We have built an
+      automated check that refuses to launch while any of these are unanswered, so none of
+      them can quietly slip through.
+    </p>
+
+    <div class="rows">
+      <div class="row">
+        <div class="what">Cash on delivery</div>
+        <div class="rec"><b>Recommend: remove.</b> You have already ruled it out, so the wording should go.</div>
+      </div>
+      <div class="row">
+        <div class="what">Tarnish-resistant plating</div>
+        <div class="rec"><b>Your call alone.</b> This is a claim about the product itself — either you stand behind it or we take it off the site.</div>
+      </div>
+      <div class="row">
+        <div class="what">"Dispatched within 24 hours"</div>
+        <div class="rec">Tell us the dispatch commitment you can actually meet, or we soften the wording.</div>
+      </div>
+      <div class="row">
+        <div class="what">"Arrives in 3–6 business days"</div>
+        <div class="rec">Cannot be honest until the courier integration is live. Suggest removing the specific days for now.</div>
+      </div>
+      <div class="row">
+        <div class="what">Returns require unworn items and original packaging</div>
+        <div class="rec">Confirm the shop will genuinely refuse a worn piece — otherwise the policy reads stricter than reality.</div>
+      </div>
+      <div class="row">
+        <div class="what">Customisation on select styles</div>
+        <div class="rec">Either someone answers customisation enquiries through the Contact page, or we remove the offer.</div>
+      </div>
+      <div class="row">
+        <div class="what">Free shipping over ₹999</div>
+        <div class="rec"><b>Cheap once decided.</b> Give us one number and checkout will apply it automatically — adjustable later without a developer.</div>
+      </div>
+      <div class="row">
+        <div class="what">"Jewel Box" subscription</div>
+        <div class="rec">This is a product, not wording. Either it becomes a separate piece of work, or the section and footer link come off.</div>
+      </div>
+      <div class="row">
+        <div class="what">Live order tracking</div>
+        <div class="rec"><b>Cheap once decided.</b> The order status timeline already works — we suggest simply describing that instead.</div>
+      </div>
+      <div class="row">
+        <div class="what">Newsletter sign-up</div>
+        <div class="rec">Either you choose a mailing provider and we connect the form, or the form comes off the footer.</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <span><strong>The fastest path.</strong> Six of the ten can be settled in a single
+      conversation — they only need a yes, a no, or a number. That would leave four:
+      the plating claim, the subscription, customisation staffing, and the newsletter provider.</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>What we do on launch day</h2>
+    <p class="lede">
+      These are jobs for the day we go live, in order. They are already written into our
+      deployment checklist, so nothing here is at risk of being forgotten.
+    </p>
+    <ol class="steps">
+      <li>
+        <span>Register the shop's domain and connect the email sender</span>
+        <span class="body">Until this is done, order confirmations and refund notices do
+        not reach customers. This needs a domain you own — a Gmail address will not work
+        as a sender. It is the single most important launch-day item.</span>
+      </li>
+      <li>
+        <span>Switch on the full search engine</span>
+        <span class="body">Search works today either way, but typo tolerance, filters and
+        suggestions only come alive once this is running alongside the site.</span>
+      </li>
+      <li>
+        <span>Align the two revenue figures</span>
+        <span class="body">The admin dashboard subtracts refunds; the reporting tool does
+        not, so the two would disagree. Until we unify them, quote revenue from the
+        dashboard only.</span>
+      </li>
+      <li>
+        <span>Enter live payment credentials and run the go-live sequence</span>
+        <span class="body">The final step before the shop can take real money.</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Paused, waiting on something outside our control</h2>
+    <ul class="plain">
+      <li>
+        <span>Courier integration and shipment tracking <span class="pill">blocked</span></span>
+        <div class="body">Waiting on the courier account, which is currently blocked on their side.
+        This is what stands between us and an honest delivery estimate.</div>
+      </li>
+      <li>
+        <span>WhatsApp and SMS notifications <span class="pill">blocked</span></span>
+        <div class="body">Needs a WhatsApp <em>Business</em> account. The number we have today is an
+        ordinary chat contact, which cannot send automated messages.</div>
+      </li>
+      <li>
+        <span>Fraud scoring <span class="pill">withdrawn</span></span>
+        <div class="body">This existed to protect cash-on-delivery orders. With cash on delivery
+        dropped, there is nothing left to score.</div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Improvements planned after launch</h2>
+    <p class="lede">
+      None of these block going live. They are listed so you can tell us which matter to
+      the business and in what order.
+    </p>
+    <ul class="plain">
+      <li>
+        <span>Email customers when a return moves forward</span>
+        <div class="body">Today the customer sees the update in their account, but nothing tells
+        them to look. Likely resolves itself once the email sender is connected.</div>
+      </li>
+      <li>
+        <span>Filters on the search results page</span>
+        <div class="body">Filtering by metal, category, certification and price is already
+        calculated behind the scenes — it just needs a place on the page. A design question
+        more than a build one.</div>
+      </li>
+      <li>
+        <span>Sorting search results</span>
+        <div class="body">Deliberately left out rather than shipped as a control that did nothing.
+        Worth adding once we know how customers actually search.</div>
+      </li>
+      <li>
+        <span>Gift wrap chosen per item</span>
+        <div class="body">The system supports it end to end; the bag has no control for it yet.</div>
+      </li>
+      <li>
+        <span>Coupon rules stated in the published terms</span>
+        <div class="body">There is one rule customers can hit without warning. Small change, but it
+        needs your wording.</div>
+      </li>
+      <li>
+        <span>How long a shared bag stays valid</span>
+        <div class="body">A business decision first — how long should a shared link keep working? —
+        then we clear out the old ones automatically.</div>
+      </li>
+      <li>
+        <span>Tuning the recommendation engine</span>
+        <div class="body">The settings are adjustable without a developer, but we need real order
+        volume before we know what to set them to.</div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Worth scheduling before launch</h2>
+    <ul class="plain">
+      <li>
+        <span>A screen-reader session with someone who uses one <span class="pill ask">not done</span></span>
+        <div class="body">Automated accessibility checks pass across every screen, but they only
+        catch part of the picture. A person testing with a screen reader is the other part,
+        and no one has done it yet.</div>
+      </li>
+      <li>
+        <span>Agreeing what "fast enough" means <span class="pill ask">not set</span></span>
+        <div class="body">We can hold the site to a page-speed target automatically, but only once
+        someone decides what the target is.</div>
+      </li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Decisions already settled</h2>
+    <p class="lede">Recorded here so they are not reopened by accident.</p>
+    <ul class="plain">
+      <li>
+        <span>Returns do not apply to orders delivered before the policy existed <span class="pill ok">agreed</span></span>
+      </li>
+      <li>
+        <span>Unpaid orders are released after 30 minutes, not sooner <span class="pill ok">agreed</span></span>
+        <div class="body">Anything shorter risks cancelling an order someone is still paying for.</div>
+      </li>
+      <li>
+        <span>Razorpay is the only payment provider <span class="pill ok">agreed</span></span>
+      </li>
+      <li>
+        <span>Deleting a customer account hides them, it does not erase their data <span class="pill ok">agreed</span></span>
+        <div class="body">If a customer ever formally demands full erasure, that becomes a legal
+        question to revisit — flagging it now so it is not a surprise later.</div>
+      </li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Jwel — build status as at 9 August 2026. Prepared for the client.</span>
+    <span>Counts and status reflect the state of the platform on that date and will change as decisions land.</span>
+  </footer>
+
+</div>

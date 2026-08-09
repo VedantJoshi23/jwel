@@ -1,13 +1,27 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { CreateCartShareDto } from './dto/create-cart-share.dto';
+import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 const cartInclude = {
   items: {
-    include: { variant: { include: { product: true } } },
+    include: {
+      variant: {
+        include: {
+          // The product's own photograph, so the bag can show the piece the
+          // customer actually chose. Without this the storefront had nothing
+          // to render and fell back to a stock image of a different ring —
+          // the PDP showed one thing and the cart another.
+          //
+          // First image only, by sort order: a cart row is a thumbnail, and
+          // pulling a whole gallery per line to use one of them is waste.
+          product: { include: { media: { orderBy: { sortOrder: 'asc' }, take: 1 } } },
+        },
+      },
+    },
   },
 } as const;
 
@@ -16,6 +30,11 @@ const cartInclude = {
  * user **or** a guest session, never neither. Both columns are unique-nullable
  * in the schema, and this type is the application's half of that XOR.
  */
+/** A cart line with its product's first image, as `cartInclude` fetches it. */
+type CartLineWithMedia = {
+  variant: { product: { media: { storageRef: string }[] } };
+};
+
 export type CartIdentity = { userId: string; guestToken?: never } | { guestToken: string; userId?: never };
 
 /**
@@ -59,7 +78,37 @@ export interface CartClaimResult {
 export class CartService {
   private readonly logger = new Logger(CartService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProviderPort,
+  ) {}
+
+  /**
+   * Turns each line's stored `storageRef` into a URL the browser can load.
+   *
+   * Resolved here rather than in the client for the reason
+   * `StorageProviderPort` gives: only the server knows which provider is
+   * configured and how its refs map to URLs. A `local:products/x.png` means
+   * nothing to a browser.
+   */
+  private withResolvedMedia<T extends { items: CartLineWithMedia[] }>(cart: T): T {
+    return {
+      ...cart,
+      items: cart.items.map((item) => ({
+        ...item,
+        variant: {
+          ...item.variant,
+          product: {
+            ...item.variant.product,
+            media: item.variant.product.media.map((m) => ({
+              ...m,
+              url: this.storage.resolveUrl(m.storageRef),
+            })),
+          },
+        },
+      })),
+    };
+  }
 
   /**
    * Finds or creates the cart for this identity. Invariant 5's XOR is enforced
@@ -74,7 +123,7 @@ export class CartService {
   }
 
   async getCart(identity: CartIdentity) {
-    return this.getOrCreateCart(identity);
+    return this.withResolvedMedia(await this.getOrCreateCart(identity));
   }
 
   async addItem(identity: CartIdentity, dto: AddCartItemDto) {

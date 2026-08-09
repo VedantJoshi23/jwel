@@ -14,7 +14,7 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
 }
 
 const lines = [
-  { id: 'line-v1', giftWrap: false, giftNote: null, variantId: 'v1',
+  { id: 'line-v1', giftWrap: false, giftNote: null, imageUrl: null, variantId: 'v1',
     productSlug: 'ring',
     productName: 'Ring',
     metal: 'GOLD',

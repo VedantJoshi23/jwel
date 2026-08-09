@@ -1,6 +1,7 @@
 import { RecommendationsService } from './recommendations.service';
 import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 
 type MockPrisma = {
@@ -43,10 +44,12 @@ describe('RecommendationsService', () => {
     };
     eventBus = { on: jest.fn(), emit: jest.fn() };
     settings = { get: jest.fn().mockResolvedValue(5) };
+    const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
     service = new RecommendationsService(
       prisma as unknown as PrismaService,
       eventBus as unknown as EventBusService,
       settings as unknown as SettingsService,
+      storage as unknown as StorageProviderPort,
     );
   });
 

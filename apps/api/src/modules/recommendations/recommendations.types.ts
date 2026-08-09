@@ -7,6 +7,14 @@ export interface RecommendationItem {
   avgRating: number;
   ratingCount: number;
   thumbnailRef: string | null;
+  /**
+   * `thumbnailRef` resolved to something a browser can load.
+   *
+   * The raw ref (`local:products/x.png`) means nothing outside the API, so a
+   * client given only that had no way to show the product and fell back to a
+   * stock photo. Only the server knows which storage provider is configured.
+   */
+  thumbnailUrl: string | null;
 }
 
 export type RecommendationReason =

@@ -14,8 +14,27 @@ import { STOREFRONT_CLAIMS, outstandingClaims } from './storefront-claims';
  */
 const WEB_ROOT = join(__dirname, '..');
 
-function sourceOf(relativePath: string): string {
+/**
+ * Source with comments stripped.
+ *
+ * Commented-out markup is **not shipped**, so it must not count as a claim
+ * still being made — otherwise removing a surface by commenting it out (which
+ * is how the newsletter block came down, so re-enabling stays easy) would look
+ * identical to leaving it live.
+ *
+ * Deliberately crude: strings containing `//` are rare in copy, and the cost
+ * of being slightly over-eager here is a claim reported as removed when a
+ * fragment of it survives — which the `outstanding` direction catches from the
+ * other side.
+ */
+function rawSourceOf(relativePath: string): string {
   return readFileSync(join(WEB_ROOT, relativePath), 'utf8');
+}
+
+function sourceOf(relativePath: string): string {
+  return rawSourceOf(relativePath)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
 }
 
 describe('storefront claims registry', () => {
@@ -64,14 +83,32 @@ describe('storefront claims registry', () => {
     );
 
     it.each(STOREFRONT_CLAIMS.filter((c) => c.status === 'resolved'))(
-      'resolved: $id has not come back',
+      'resolved: $id matches how it was resolved',
       (claim) => {
-        // For a resolved claim the pattern describes the *corrected* copy, so
-        // it must be present and the old wording gone.
         const found = claim.where.some((file) => claim.pattern.test(sourceOf(file)));
+
+        if (claim.resolvedBy === 'removed') {
+          // The surface is gone. Commented-out markup does not count as
+          // present — see sourceOf.
+          expect(
+            found,
+            `"${claim.claim}" is marked removed but still appears in ${claim.where.join(', ')}.`,
+          ).toBe(false);
+          return;
+        }
+
+        // Corrected: the pattern describes the *new* copy, so it must be there.
         expect(found, `"${claim.claim}" is marked resolved but is missing from the copy.`).toBe(true);
       },
     );
+
+    it('says how every resolved claim was resolved', () => {
+      // Without this the two directions above cannot be told apart, and a
+      // missing `resolvedBy` would silently take the `corrected` branch.
+      for (const claim of STOREFRONT_CLAIMS.filter((c) => c.status === 'resolved')) {
+        expect(claim.resolvedBy, claim.id).toBeDefined();
+      }
+    });
   });
 
   describe('the specific regressions worth naming', () => {
@@ -83,10 +120,23 @@ describe('storefront claims registry', () => {
       }
     });
 
+    it('no longer renders the newsletter sign-up', () => {
+      // It was a <p> that looked like a field and a button with no handler,
+      // in front of no mailing list at all. Commented out rather than deleted
+      // so re-enabling is uncommenting — see footer.tsx.
+      const footer = sourceOf('components/layout/footer.tsx');
+      expect(footer).not.toMatch(/newsletterCta/);
+      expect(footer).not.toMatch(/newsletterPlaceholder/);
+    });
+
     it('keeps the placeholder markers on unreviewed copy', () => {
       // These markers are what stop the FAQ being mistaken for reviewed
       // content. They may only be removed together with the claims.
-      expect(sourceOf('app/(storefront)/faq/page.tsx')).toMatch(/MUST NOT GO LIVE AS-IS/);
+      //
+      // Reads the **raw** source deliberately: the marker is itself a comment,
+      // and the claim checks above strip comments because commented-out markup
+      // is not shipped. Two different questions, two different readers.
+      expect(rawSourceOf('app/(storefront)/faq/page.tsx')).toMatch(/MUST NOT GO LIVE AS-IS/);
     });
   });
 });

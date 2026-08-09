@@ -1,5 +1,6 @@
 import { CartService } from './cart.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 /**
  * Claiming a guest cart — `DOM-SHOPPING` Invariants 6, 12-15 and 17.
@@ -20,6 +21,8 @@ describe('CartService — claiming a guest cart', () => {
     quantity: 1,
     giftWrap: false,
     giftNote: null,
+    // As cartInclude returns it — see fakeCart in cart.service.spec.ts.
+    variant: { product: { media: [{ storageRef: `local:products/${id}.png` }] } },
     ...over,
   });
 
@@ -42,7 +45,9 @@ describe('CartService — claiming a guest cart', () => {
       },
       wishlistItem: { upsert: jest.fn().mockResolvedValue({}) },
     };
-    service = new CartService(prisma as unknown as PrismaService);
+    // Resolves each line's image ref to a URL — see withResolvedMedia.
+    const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
+    service = new CartService(prisma as unknown as PrismaService, storage as unknown as StorageProviderPort);
   });
 
   /** guest cart, then account cart, then the reload after the move */

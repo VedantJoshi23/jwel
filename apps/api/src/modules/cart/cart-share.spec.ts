@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CartService } from './cart.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 /**
  * DOM-SHOPPING Invariants 9, 11 and 16 — the shareable cart.
@@ -31,7 +32,9 @@ describe('CartService — sharing', () => {
         findUnique: jest.fn(),
       },
     };
-    service = new CartService(prisma as unknown as PrismaService);
+    // Resolves each line's image ref to a URL — see withResolvedMedia.
+    const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
+    service = new CartService(prisma as unknown as PrismaService, storage as unknown as StorageProviderPort);
   });
 
   describe('createShare', () => {

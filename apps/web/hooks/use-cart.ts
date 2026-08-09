@@ -45,6 +45,12 @@ export interface CartLine {
   quantity: number;
   giftWrap: boolean;
   giftNote: string | null;
+  /**
+   * The product's own photograph, resolved to a URL by the API. Null when the
+   * product has none — callers fall back to a stock image, the same way the
+   * PDP and the product card already do.
+   */
+  imageUrl: string | null;
 }
 
 function toCartLine(line: ServerCartLine): CartLine {
@@ -59,6 +65,7 @@ function toCartLine(line: ServerCartLine): CartLine {
     quantity: line.quantity,
     giftWrap: line.giftWrap,
     giftNote: line.giftNote,
+    imageUrl: line.variant.product.media?.[0]?.url ?? null,
   };
 }
 

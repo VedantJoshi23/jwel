@@ -20,7 +20,10 @@ export function CartLineItemRow({
     <div className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-5 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-5 sm:px-5">
       <div className="relative aspect-square overflow-hidden bg-surface-alt">
         <Image
-          src={getProductStockImage(line.productSlug)}
+          // The real photograph when the product has one. It used to be the
+          // stock image unconditionally, so the bag showed a different ring
+          // from the one on the product page.
+          src={line.imageUrl ?? getProductStockImage(line.productSlug)}
           alt={line.productName}
           fill
           sizes="(min-width: 640px) 120px, 84px"

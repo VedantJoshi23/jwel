@@ -13,6 +13,7 @@ function product(over: Partial<RecommendedProduct> = {}): RecommendedProduct {
     avgRating: 4.5,
     ratingCount: 10,
     thumbnailRef: null,
+    thumbnailUrl: null,
     ...over,
   };
 }
@@ -43,6 +44,20 @@ describe('ProductRail', () => {
       />,
     );
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('uses the product’s own photograph when the API sent one', () => {
+    // It used to render a stock image unconditionally, so a rail could show a
+    // different piece from the one it named.
+    const { container } = render(
+      <ProductRail title="Trending now" products={[product({ thumbnailUrl: '/uploads/real.jpg' })]} />,
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('real.jpg');
+  });
+
+  it('falls back to a stock image for a product with no photograph', () => {
+    const { container } = render(<ProductRail title="Trending now" products={[product()]} />);
+    expect(container.querySelector('img')?.getAttribute('src')).toBeTruthy();
   });
 
   it('marks the thumbnails decorative rather than repeating the product name', () => {
