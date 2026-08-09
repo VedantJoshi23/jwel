@@ -59,7 +59,7 @@ the storefront surfaces that would display recommendations.
 | 6 | Co-occurrence must be **recomputable in bulk** from order history, because the event bus is at-most-once. | `ARCH-001` §3.1, `ADR-0010` |
 | 7 | Recommendations never write to Catalog or Ordering. | Law 5 |
 | 8 | A product pair is only recommendable at **co-occurrence count >= 5**. Below that threshold the pair is treated as noise and not surfaced. The value is a starting heuristic to be tuned against real data, not a tuned figure. **Built 2026-08-09** (`FEAT-RECOMMENDATION-RAILS`) as the setting `recommendations.min_co_occurrence` — a heuristic meant to be tuned should not need a deploy to change. | Owner decision, 2026-08-07 |
-| 9 | A guest's `anonymousId` view history **transfers to the user on registration when it is the same session**, so first-session personalisation survives sign-up. | Owner decision, 2026-08-07 |
+| 9 | A guest's `anonymousId` view history **transfers to the user on registration when it is the same session**, so first-session personalisation survives sign-up. **Built 2026-08-09** (`FEAT-GUEST-VIEW-CLAIM`). Identity commands Recommendation; "same session" is expressed as a 24-hour recency bound, since the server has no session for a guest. | Owner decision, 2026-08-07 |
 
 **Invariant 8 is a minimum-support rule, deliberately not a confidence rule.**
 The problem it solves is sparse-data noise: with two published products, a
@@ -135,6 +135,18 @@ depending on Payments, Returns, Reviews or Shopping.
    session (Invariant 9). Across sessions it does not — an `anonymousId` from a
    different browser or a much earlier visit is not claimable, since there is no
    basis to believe it is the same person.
+
+   *Built 2026-08-09.* Same **browser** is guaranteed by construction: the
+   client sends the id out of its own `localStorage`. The 24-hour bound is
+   what limits a **forged** id — one travels in a registration payload, and an
+   unbounded claim would let anyone who learned another person's id inherit
+   their browsing history through the recommendations it produces. Verified: a
+   view backdated three days is left unclaimed while a same-day view under the
+   same id transfers.
+
+   **Login is not covered**, only registration, which is what the invariant
+   says. A returning customer who browses as a guest and then signs in to an
+   existing account leaves those views behind — recorded rather than assumed.
 7. **Widest schema exposure.** This domain reads four other contexts' tables
    (KC-154), so a schema change elsewhere breaks it first.
 

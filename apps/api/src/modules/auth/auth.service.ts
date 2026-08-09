@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
+import { RecommendationsService } from '../recommendations/recommendations.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Role } from '../../common/enums/role.enum';
@@ -13,10 +14,13 @@ const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly metrics: MetricsService,
+    private readonly recommendations: RecommendationsService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -35,6 +39,28 @@ export class AuthService {
         role: Role.CUSTOMER,
       },
     });
+
+    // DOM-RECOMMENDATION Invariant 9 — the views this person made while
+    // browsing as a guest become theirs, so first-session personalisation
+    // survives sign-up.
+    //
+    // Identity **commands** Recommendation rather than writing `product_views`
+    // itself (Law 5), and the call is deliberately outside the account
+    // creation: a failure here must not cost someone their registration. They
+    // would lose a little personalisation; they would otherwise lose the
+    // account they just made.
+    if (dto.anonymousId) {
+      try {
+        const claimed = await this.recommendations.claimGuestViews(user.id, dto.anonymousId);
+        if (claimed > 0) {
+          this.logger.log(`Claimed ${claimed} guest view(s) for new account ${user.id}`);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not claim guest views for ${user.id}: ${(error as Error).message}`,
+        );
+      }
+    }
 
     return this.buildAuthResponse(user.id, user.email, user.name, user.role as Role);
   }
