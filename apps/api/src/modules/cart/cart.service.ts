@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
+import { CreateCartShareDto } from './dto/create-cart-share.dto';
 
 const cartInclude = {
   items: {
@@ -86,5 +88,89 @@ export class CartService {
   async clear(userId: string): Promise<void> {
     const cart = await this.getOrCreateCart(userId);
     await this.prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // SHAREABLE CART — DOM-SHOPPING Invariants 9, 11 and 16
+  // ────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Freezes a set of cart lines and returns the token that opens them.
+   *
+   * **The lines come from the client**, which reads oddly for an API and is
+   * correct here: the storefront cart lives in the browser (`lib/cart-store`),
+   * not in `carts`. Sharing a server cart the storefront does not use would
+   * share an empty one.
+   *
+   * Nothing is trusted from that payload beyond *which variant* and *how
+   * many*: no price is accepted or stored, because Invariant 11 resolves price
+   * at open time. The worst a forged payload can do is produce a link to
+   * products that exist.
+   *
+   * Variants are validated **at share time** so a typo or a stale browser
+   * cannot mint a link to nothing. Availability is deliberately *not* checked
+   * here — that is an open-time fact, and a piece that sells out between share
+   * and open must show as unavailable rather than 404 the whole link.
+   */
+  async createShare(dto: CreateCartShareDto) {
+    const variantIds = [...new Set(dto.items.map((item) => item.variantId))];
+    const found = await this.prisma.productVariant.count({ where: { id: { in: variantIds } } });
+    if (found !== variantIds.length) {
+      throw new BadRequestException('One or more of these items no longer exists');
+    }
+
+    const share = await this.prisma.cartShare.create({
+      data: {
+        token: randomBytes(16).toString('hex'),
+        items: {
+          create: dto.items.map((item) => ({
+            variantId: item.variantId,
+            quantity: item.quantity,
+            giftWrap: item.giftWrap ?? false,
+            giftNote: item.giftNote,
+          })),
+        },
+      },
+    });
+
+    return { token: share.token };
+  }
+
+  /**
+   * Opens a shared cart. Public — the token is the only credential.
+   *
+   * Returns the frozen lines with **live** price and availability, which is
+   * Invariant 11's other half. An unavailable line is returned marked, not
+   * dropped: the recipient should see that the sender meant to send it and
+   * that they cannot have it, rather than silently receiving a shorter cart.
+   *
+   * Says nothing about who shared it — there is no owner column to leak
+   * (Invariant 9).
+   */
+  async getShare(token: string) {
+    const share = await this.prisma.cartShare.findUnique({
+      where: { token },
+      include: { items: { include: { variant: { include: { product: true } } } } },
+    });
+    if (!share) {
+      throw new NotFoundException('This cart link is invalid or has expired');
+    }
+
+    return {
+      items: share.items.map((item) => ({
+        variantId: item.variantId,
+        quantity: item.quantity,
+        giftWrap: item.giftWrap,
+        giftNote: item.giftNote,
+        productName: item.variant.product.name,
+        productSlug: item.variant.product.slug,
+        metal: item.variant.metal,
+        size: item.variant.size,
+        // Read now, not at share time.
+        unitPriceMinorUnits: item.variant.basePriceMinorUnits,
+        available:
+          item.variant.product.status === ProductStatus.PUBLISHED && !item.variant.product.deletedAt,
+      })),
+    };
   }
 }

@@ -6,6 +6,7 @@ import { useCart } from '@/hooks/use-cart';
 import { CartLineItemRow } from '@/components/cart/cart-line-item';
 import { Button } from '@/components/ui/button';
 import { brand } from '@/lib/brand';
+import { ShareCart } from '@/components/cart/share-cart';
 import { formatMinorUnits } from '@/lib/money';
 
 export default function CartPage() {
@@ -84,6 +85,10 @@ export default function CartPage() {
         <Button asChild variant="secondary" size="l">
           <Link href="/collections/all">{brand.cart.continueCta}</Link>
         </Button>
+        {/* Gift options are per line (Invariant 4) and the local cart does not
+            carry them yet, so a share currently freezes variants and
+            quantities only — see FEAT-SHAREABLE-CART §9. */}
+        <ShareCart lines={lines} />
       </div>
     </div>
   );

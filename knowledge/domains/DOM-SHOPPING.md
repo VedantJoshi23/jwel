@@ -1,7 +1,7 @@
 ---
 id: DOM-SHOPPING
 title: Jwel / ELYSIAN — Domain: Shopping
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -106,7 +106,10 @@ choice path preserves their items in the wishlist.
 
 ### Two consequences worth stating plainly
 
-**(a) Invariant 1 requires a schema change.** `cart_items` currently carries
+**(a) Invariant 1 requires a schema change.** *(Still outstanding.
+`cart_share_items` was created without the offending unique constraint, but
+`cart_items` still carries it — dropping it belongs with the server-side cart,
+which is what writes that table.)* `cart_items` currently carries
 `@@unique([cartId, variantId])` — one line per variant per cart. That constraint
 is **incompatible with per-line gift wrap** (Invariant 4) and with the merge
 rule (Invariant 15): both require the same ring to appear twice, wrapped and
@@ -118,7 +121,8 @@ question is simply what surfaced it. The constraint must be dropped, and line
 identity becomes the row id, with "same variant, same configuration" matched in
 application logic on add.
 
-**(b) Invariant 11's snapshot needs storage that does not exist.** KC-137
+**(b) Invariant 11's snapshot needs storage that does not exist.** *(Resolved
+2026-08-08 — `cart_shares` / `cart_share_items`.)* KC-137
 recorded the requirement as "a share token on `Cart`" — that gives a *live*
 view of the sender's cart, which is now only half of what is wanted. A snapshot
 of items and configuration must be captured at share time and stored
@@ -153,13 +157,16 @@ no storefront UI reaching it)*
 - `GET /wishlist` · `POST /wishlist/items` · `DELETE /wishlist/items/:variantId`
 - `GET /wishlist/shared/:shareToken` — public, unauthenticated
 
-**Shareable cart** — **does not exist** (KC-129, KC-137). Requires a share
-token on `Cart` and a public read endpoint. `Wishlist.shareToken` is the exact
-in-repo precedent, and as of `FEAT-WISHLIST-UI` that precedent now includes the
-**UI** side too: a read-only shared view that names nobody, is `noindex`, and
-404s on an unknown token. Invariants 11–17 are what the cart version adds on
-top — snapshot-versus-live, and the merge/replace prompt a wishlist never
-needs.
+**Shareable cart** — **built 2026-08-08** (`FEAT-SHAREABLE-CART`).
+
+- `POST /cart/shares` — freeze the given lines, return a token. Public.
+- `GET /cart/shared/:token` — frozen items, live prices. Public.
+
+KC-137 recorded the requirement as "a share token on `Cart`". That was
+**wrong**, for the reason consequence (b) gives: it yields a live view, and the
+sender's later edits would rewrite what the recipient sees. The snapshot is its
+own table instead, storing no price — so Invariant 11's live half is true by
+construction — and no owner, so Invariant 9's is too.
 
 ## 5. Events
 

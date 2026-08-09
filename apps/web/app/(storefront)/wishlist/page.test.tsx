@@ -26,7 +26,7 @@ const item = {
     metal: 'GOLD',
     size: '16',
     basePriceMinorUnits: 250000,
-    product: { id: 'p1', name: 'Gold Ring', slug: 'gold-ring' },
+    product: { id: 'p1', name: 'Gold Ring', slug: 'gold-ring', status: 'PUBLISHED', deletedAt: null },
   },
 };
 
@@ -97,6 +97,64 @@ describe('WishlistPage', () => {
     expect(link).toHaveAttribute('href', expect.stringContaining('wa.me'));
     expect(link).toHaveAttribute('href', expect.stringContaining('tok-123'));
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  describe('a saved piece that is no longer on sale', () => {
+    const unavailable = (over: Record<string, unknown>) => ({
+      ...item,
+      variant: { ...item.variant, product: { ...item.variant.product, ...over } },
+    });
+
+    it('is kept and explained, not silently dropped', async () => {
+      // The customer chose to save it. A list that quietly shrinks is worse
+      // than one that says what happened.
+      get.mockResolvedValue({
+        id: 'w1',
+        shareToken: 'tok-123',
+        items: [unavailable({ status: 'ARCHIVED' })],
+      } as never);
+
+      renderPage();
+
+      expect(await screen.findByText(/No longer available/)).toBeInTheDocument();
+      // Still listed — the name appears in the row and again in the Remove
+      // button's screen-reader label.
+      expect(screen.getAllByText(/Gold Ring/).length).toBeGreaterThan(0);
+    });
+
+    it('cannot be added to the bag', async () => {
+      get.mockResolvedValue({
+        id: 'w1',
+        shareToken: 'tok-123',
+        items: [unavailable({ status: 'DRAFT' })],
+      } as never);
+
+      renderPage();
+      await screen.findByText(/No longer available/);
+
+      expect(screen.queryByRole('button', { name: 'Add to bag' })).not.toBeInTheDocument();
+      // Removing it must still work — otherwise it is stuck there forever.
+      expect(screen.getByRole('button', { name: /Remove/ })).toBeInTheDocument();
+    });
+
+    it('does not link to a product page that would 404', async () => {
+      get.mockResolvedValue({
+        id: 'w1',
+        shareToken: 'tok-123',
+        items: [unavailable({ deletedAt: '2026-08-01T00:00:00Z' })],
+      } as never);
+
+      renderPage();
+      await screen.findByText(/No longer available/);
+
+      expect(screen.queryByRole('link', { name: 'Gold Ring' })).not.toBeInTheDocument();
+    });
+
+    it('leaves an available piece alone', async () => {
+      renderPage();
+      expect(await screen.findByRole('link', { name: 'Gold Ring' })).toBeInTheDocument();
+      expect(screen.queryByText(/No longer available/)).not.toBeInTheDocument();
+    });
   });
 
   it('says nothing is saved rather than showing an empty share box', async () => {

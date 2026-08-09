@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ProductStatus } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -53,11 +54,20 @@ export class WishlistService {
   // Public, unauthenticated read — backs the "share wishlist via WhatsApp"
   // journey from PRODUCT.md Journey A / DESIGN.md §5.7. The token is the only
   // credential; no account details beyond the saved items are exposed.
+  //
+  // Unpublished and soft-deleted products are **filtered out here**, unlike on
+  // the owner's own list where they are shown as unavailable. The asymmetry is
+  // deliberate: the owner should not silently lose a save they made, but a
+  // share link is a public URL, and letting one expose the name and price of a
+  // product the shop has not published turns a wishlist into a catalogue leak.
   async getByShareToken(shareToken: string) {
     const wishlist = await this.prisma.wishlist.findUnique({ where: { shareToken }, include: wishlistInclude });
     if (!wishlist) {
       throw new NotFoundException('This wishlist link is invalid or has expired');
     }
-    return { items: wishlist.items };
+    const items = wishlist.items.filter(
+      (item) => item.variant.product.status === ProductStatus.PUBLISHED && !item.variant.product.deletedAt,
+    );
+    return { items };
   }
 }
