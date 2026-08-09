@@ -158,7 +158,9 @@ feature. Law 2 — sourced. Law 4 — Invariant 2's limitation is documented, pe
 
 ## Open items
 
-- **No storefront surface exists** (KC-118, KC-123).
+- ~~**No storefront surface exists** (KC-118, KC-123)~~ — **built
+  2026-08-09** (`FEAT-RECOMMENDATION-RAILS`): view tracking, frequently-bought-
+  together, recently-viewed, trending and personalised rails.
 - ~~Edge case 2~~ — settled: minimum support of 5 (Invariant 8).
 - ~~Edge case 6~~ — settled: same-session transfer (Invariant 9).
 - **Invariant 8's threshold needs tuning** once real order volume exists.

@@ -314,10 +314,12 @@ Three notes on Invariant 17 that the feature spec must not lose:
   it to the both-carts-non-empty case keeps it rare, and registration never
   triggers it at all — a new account has no prior cart.
 
-**Carried to the shareable-cart `FEAT-` spec at M6:**
+**Carried to the shareable-cart `FEAT-` spec at M6 — both now done:**
 
-- Snapshot storage for shared items and configuration (consequence (b) above).
-- Dropping `@@unique([cartId, variantId])` (consequence (a) above) — required
+- ~~Snapshot storage for shared items and configuration (consequence (b))~~ —
+  `cart_shares` / `cart_share_items`, `FEAT-SHAREABLE-CART`.
+- ~~Dropping `@@unique([cartId, variantId])` (consequence (a))~~ —
+  `FEAT-SERVER-CART-API`. Required
   by per-line gift wrap regardless of the shareable cart, so arguably it should
   land with the server-side cart migration instead.
 
