@@ -85,6 +85,15 @@ export const SETTINGS = {
     // window can have one.
     365,
   ),
+  'recommendations.min_co_occurrence': positiveIntSetting(
+    'DOM-RECOMMENDATION',
+    'How many times two products must have been bought together before the pair is ' +
+      'recommendable. Below this the pair is treated as noise (Invariant 8).',
+    5,
+    // No sensible upper bound in principle — the guard is against a typo that
+    // would silently empty every rail.
+    1000,
+  ),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

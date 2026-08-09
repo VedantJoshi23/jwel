@@ -3,7 +3,7 @@ import { SettingsService } from './settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
-import { SETTINGS } from './settings.registry';
+import { SETTINGS, SETTING_KEYS } from './settings.registry';
 
 const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
@@ -77,7 +77,7 @@ describe('SettingsService', () => {
   describe('list', () => {
     it('reports every declared setting with its default and overridden=false', async () => {
       const list = await service.list();
-      expect(list).toEqual([
+      expect(list).toContainEqual(
         expect.objectContaining({
           key: 'returns.window_days',
           value: 10,
@@ -85,7 +85,19 @@ describe('SettingsService', () => {
           owner: 'DOM-RETURNS',
           overridden: false,
         }),
-      ]);
+      );
+      expect(list).toContainEqual(
+        expect.objectContaining({
+          key: 'recommendations.min_co_occurrence',
+          value: 5,
+          default: 5,
+          owner: 'DOM-RECOMMENDATION',
+          overridden: false,
+        }),
+      );
+      // Every declared setting, not a subset — a registry entry that never
+      // reaches the admin page is a value nobody can tune.
+      expect(list).toHaveLength(SETTING_KEYS.length);
     });
 
     it('marks a setting overridden once a row exists', async () => {

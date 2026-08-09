@@ -10,6 +10,10 @@ import { AddToCart } from '@/components/product/add-to-cart';
 import { SizeGuide } from '@/components/product/size-guide';
 import { ProductCard } from '@/components/product/product-card';
 import { ProductGallery } from '@/components/product/product-gallery';
+import { ProductRail } from '@/components/recommendations/product-rail';
+import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
+import { RecordProductView } from '@/components/recommendations/record-product-view';
+import { getFrequentlyBoughtTogether } from '@/lib/api/recommendations';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 
@@ -39,9 +43,11 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = await loadProduct(slug);
-  const [reviews, related] = await Promise.all([
+  const [reviews, related, boughtTogether] = await Promise.all([
     getProductReviews(product.id).catch(() => ({ items: [], total: 0, page: 1, pageSize: 10 })),
     getProducts({ sort: 'popularity', pageSize: 4 }).catch(() => ({ items: [] })),
+    // A rail that cannot load renders as no rail, never as a failed page.
+    getFrequentlyBoughtTogether(product.id).catch(() => []),
   ]);
 
   const minPrice = Math.min(...product.variants.map((v) => v.basePriceMinorUnits));
@@ -168,6 +174,20 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </section>
       )}
 
+      {/*
+        Recommendation rails. `DOM-RECOMMENDATION`'s endpoints all existed with
+        nothing calling them — including the view recorder these rails are
+        computed from, which is why they had no data to work with.
+
+        "Frequently bought together" is fetched on the server: it depends only
+        on the product, so it can render with the page. "Recently viewed"
+        cannot — it needs the guest identity in this browser's localStorage.
+      */}
+      <div className="px-6 lg:px-8">
+        <ProductRail title="Frequently bought together" products={boughtTogether} />
+        <RecentlyViewedRail excludeProductId={product.id} />
+      </div>
+
       {/* Reviews */}
       <section aria-labelledby="reviews-heading" className="px-6 py-12 lg:px-8">
         <h2 id="reviews-heading" className="font-display text-2xl font-bold">
@@ -194,6 +214,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
         <ReviewForm productId={product.id} />
       </section>
+
+      {/* Renders nothing; records that this product was viewed. */}
+      <RecordProductView productId={product.id} />
 
       <p className="sr-only">Starting from {formatMinorUnits(minPrice)}</p>
     </div>

@@ -1,7 +1,7 @@
 ---
 id: DOM-RECOMMENDATION
 title: 'Jwel / ELYSIAN — Domain: Recommendation'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -58,7 +58,7 @@ the storefront surfaces that would display recommendations.
 | 5 | Co-occurrence is maintained incrementally on `order.confirmed` — the only precomputed signal. Trending and personalised results are computed on read. | KC-150 |
 | 6 | Co-occurrence must be **recomputable in bulk** from order history, because the event bus is at-most-once. | `ARCH-001` §3.1, `ADR-0010` |
 | 7 | Recommendations never write to Catalog or Ordering. | Law 5 |
-| 8 | A product pair is only recommendable at **co-occurrence count >= 5**. Below that threshold the pair is treated as noise and not surfaced. The value is a starting heuristic to be tuned against real data, not a tuned figure. | Owner decision, 2026-08-07 |
+| 8 | A product pair is only recommendable at **co-occurrence count >= 5**. Below that threshold the pair is treated as noise and not surfaced. The value is a starting heuristic to be tuned against real data, not a tuned figure. **Built 2026-08-09** (`FEAT-RECOMMENDATION-RAILS`) as the setting `recommendations.min_co_occurrence` — a heuristic meant to be tuned should not need a deploy to change. | Owner decision, 2026-08-07 |
 | 9 | A guest's `anonymousId` view history **transfers to the user on registration when it is the same session**, so first-session personalisation survives sign-up. | Owner decision, 2026-08-07 |
 
 **Invariant 8 is a minimum-support rule, deliberately not a confidence rule.**
@@ -119,6 +119,13 @@ depending on Payments, Returns, Reviews or Shopping.
    consequence: at current data volume the frequently-bought-together rail will
    correctly render **empty**, and the UI must handle that rather than showing
    a broken section.
+
+   *Enforced 2026-08-09.* The service used to top the rail up with
+   same-category bestsellers whenever co-occurrence returned too few — which
+   defeated Invariant 8 in practice (a filtered-out pair returned through the
+   fallback) and made a heading saying *frequently bought together* describe
+   items nobody bought together. The fallback is gone; the rail renders
+   nothing, and the UI handles that.
 3. **A view logged with neither `userId` nor `anonymousId`.** Rejected by the
    service (Invariant 2); the database would accept it.
 4. **Lost `order.confirmed`.** Pairs are missing until a backfill (Invariant 6).

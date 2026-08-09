@@ -1,4 +1,5 @@
 import { RecommendationsService } from './recommendations.service';
+import { SettingsService } from '../settings/settings.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 
@@ -28,6 +29,7 @@ function fakeProduct(id: string, overrides: Partial<Record<string, unknown>> = {
 describe('RecommendationsService', () => {
   let prisma: MockPrisma;
   let eventBus: { on: jest.Mock; emit: jest.Mock };
+  let settings: { get: jest.Mock };
   let service: RecommendationsService;
 
   beforeEach(() => {
@@ -40,7 +42,12 @@ describe('RecommendationsService', () => {
       productVariant: { findMany: jest.fn() },
     };
     eventBus = { on: jest.fn(), emit: jest.fn() };
-    service = new RecommendationsService(prisma as unknown as PrismaService, eventBus as unknown as EventBusService);
+    settings = { get: jest.fn().mockResolvedValue(5) };
+    service = new RecommendationsService(
+      prisma as unknown as PrismaService,
+      eventBus as unknown as EventBusService,
+      settings as unknown as SettingsService,
+    );
   });
 
   describe('onModuleInit', () => {
@@ -111,26 +118,30 @@ describe('RecommendationsService', () => {
       expect(result.map((i) => i.productId)).toEqual(['other-1', 'other-2']);
     });
 
-    it('falls back to same-category bestsellers when there are fewer co-occurrence results than the limit', async () => {
+    it('returns a short rail rather than padding it with same-category products', async () => {
+      // There used to be a cold-start fallback here. DOM-RECOMMENDATION §8.2
+      // is explicit that with Invariant 8's minimum support this rail "will
+      // correctly render empty, and the UI must handle that" — padding it
+      // makes a heading that says *frequently bought together* describe items
+      // nobody bought together.
       prisma.productCoOccurrence.findMany.mockResolvedValue([
         { productAId: 'self', productBId: 'other-1', coOccurrenceCount: 5 },
       ]);
-      prisma.product.findMany
-        .mockResolvedValueOnce([fakeProduct('other-1')]) // fetchPublishedInOrder
-        .mockResolvedValueOnce([fakeProduct('fallback-1')]); // category fallback
-      prisma.product.findUnique.mockResolvedValue({ categoryId: 'cat-1' });
+      prisma.product.findMany.mockResolvedValueOnce([fakeProduct('other-1')]);
 
       const result = await service.getFrequentlyBoughtTogether('self', 3);
-      expect(result.map((i) => i.productId)).toEqual(['other-1', 'fallback-1']);
+
+      expect(result.map((i) => i.productId)).toEqual(['other-1']);
+      // One lookup, not two: no category query happens at all.
+      expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
+      expect(prisma.product.findUnique).not.toHaveBeenCalled();
     });
 
-    it('returns just the co-occurrence results (no fallback lookup) when self product cannot be found', async () => {
+    it('returns empty when nothing clears the threshold', async () => {
       prisma.productCoOccurrence.findMany.mockResolvedValue([]);
       prisma.product.findMany.mockResolvedValueOnce([]);
-      prisma.product.findUnique.mockResolvedValue(null);
 
-      const result = await service.getFrequentlyBoughtTogether('ghost', 3);
-      expect(result).toEqual([]);
+      expect(await service.getFrequentlyBoughtTogether('ghost', 3)).toEqual([]);
     });
   });
 
