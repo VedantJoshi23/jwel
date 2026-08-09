@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api/client';
 import { createCartShare } from '@/lib/api/cart-share';
 import { brand } from '@/lib/brand';
-import type { CartLine } from '@/lib/cart-store';
+import type { CartLine } from '@/hooks/use-cart';
 
 /**
  * Shares the current bag — `DOM-SHOPPING` Invariant 11.
@@ -28,8 +28,18 @@ export function ShareCart({ lines }: { lines: CartLine[] }) {
     setBusy(true);
     setError('');
     try {
+      // Gift wrap and note travel with the share now. FEAT-SHAREABLE-CART §10
+      // recorded that the API, the snapshot and the shared view all handled
+      // them while the sender's browser cart could not supply them — the
+      // server cart can, and "which gift options were shared" is half of what
+      // Invariant 11 freezes.
       const { token } = await createCartShare(
-        lines.map((line) => ({ variantId: line.variantId, quantity: line.quantity })),
+        lines.map((line) => ({
+          variantId: line.variantId,
+          quantity: line.quantity,
+          giftWrap: line.giftWrap,
+          giftNote: line.giftNote ?? undefined,
+        })),
       );
       const shareUrl = `${window.location.origin}/cart/shared/${token}`;
       setUrl(shareUrl);

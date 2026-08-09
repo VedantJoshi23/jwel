@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
-import { useCartStore } from '@/lib/cart-store';
+import { useCart } from '@/hooks/use-cart';
 import { addToWishlist } from '@/lib/api/wishlist';
 import type { SharedCartLine } from '@/lib/api/cart-share';
 
@@ -34,30 +34,29 @@ import type { SharedCartLine } from '@/lib/api/cart-share';
 export function AdoptSharedCart({ lines }: { lines: SharedCartLine[] }) {
   const router = useRouter();
   const { token, isAuthenticated } = useAuth();
-  const cartLines = useCartStore((s) => s.lines);
+  const { lines: cartLines, addLine, clear } = useCart();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
 
   const adoptable = lines.filter((line) => line.available);
   const hasOwnCart = cartLines.length > 0;
 
-  function toCartLine(line: SharedCartLine) {
-    return {
-      variantId: line.variantId,
-      productSlug: line.productSlug,
-      productName: line.productName,
-      metal: line.metal,
-      size: line.size,
-      unitPriceMinorUnits: line.unitPriceMinorUnits,
-      quantity: line.quantity,
-    };
-  }
-
-  /** Invariant 15 — addLine already sums quantities for a matching line. */
-  function merge() {
+  /**
+   * Invariant 15 — the server sums quantities for a line with matching
+   * variant *and* configuration, and keeps differing configurations separate.
+   * That used to be the browser store's job and is now the API's, which is
+   * where Invariant 1 is actually enforced.
+   */
+  async function merge() {
     setBusy(true);
-    const { addLine } = useCartStore.getState();
-    adoptable.forEach((line) => addLine(toCartLine(line)));
+    for (const line of adoptable) {
+      await addLine({
+        variantId: line.variantId,
+        quantity: line.quantity,
+        giftWrap: line.giftWrap,
+        giftNote: line.giftNote ?? undefined,
+      });
+    }
     router.push('/cart');
   }
 
@@ -78,9 +77,15 @@ export function AdoptSharedCart({ lines }: { lines: SharedCartLine[] }) {
       }
     }
 
-    const { clear, addLine } = useCartStore.getState();
-    clear();
-    adoptable.forEach((line) => addLine(toCartLine(line)));
+    await clear();
+    for (const line of adoptable) {
+      await addLine({
+        variantId: line.variantId,
+        quantity: line.quantity,
+        giftWrap: line.giftWrap,
+        giftNote: line.giftNote ?? undefined,
+      });
+    }
 
     if (saved.length < cartLines.length) {
       setNote('Some of your pieces could not be saved to your wishlist.');

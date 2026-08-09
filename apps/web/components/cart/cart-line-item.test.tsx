@@ -1,11 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CartLineItemRow } from './cart-line-item';
-import type { CartLine } from '@/lib/cart-store';
+import type { CartLine } from '@/hooks/use-cart';
 
 function fakeLine(overrides: Partial<CartLine> = {}): CartLine {
-  return {
-    variantId: 'v1',
+  return { id: 'line-v1', giftWrap: false, giftNote: null, variantId: 'v1',
     productSlug: 'gold-ring',
     productName: 'Gold Ring',
     metal: 'GOLD',

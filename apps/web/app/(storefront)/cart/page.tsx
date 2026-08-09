@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { CartLineItemRow } from '@/components/cart/cart-line-item';
 import { Button } from '@/components/ui/button';
@@ -10,9 +9,17 @@ import { ShareCart } from '@/components/cart/share-cart';
 import { formatMinorUnits } from '@/lib/money';
 
 export default function CartPage() {
-  const { lines, updateQuantity, removeLine, subtotalMinorUnits } = useCart();
-  const [giftWrap, setGiftWrap] = useState(false);
-  const [newsletterOptIn, setNewsletterOptIn] = useState(false);
+  const { lines, updateQuantity, removeLine, subtotalMinorUnits, isLoading } = useCart();
+
+  // Distinguished from empty on purpose: the bag is fetched now, and showing
+  // "your bag is empty" while it loads tells a shopper their items are gone.
+  if (isLoading) {
+    return (
+      <div className="px-6 py-16 text-center lg:px-8">
+        <p className="text-ink-secondary">Loading your bag…</p>
+      </div>
+    );
+  }
 
   if (lines.length === 0) {
     return (
@@ -34,39 +41,31 @@ export default function CartPage() {
 
       <h1 className="mb-6 font-display text-4xl font-bold tracking-tight">{brand.cart.headline}</h1>
 
+
       {/* Cart item(s) — bordered card matching wireframe 05 */}
       <div className="mb-6 border border-border-sale">
+        {/* Keyed and addressed by line id — the same variant can appear
+            twice with different gift options (DOM-SHOPPING Invariant 1). */}
         {lines.map((line) => (
           <CartLineItemRow
-            key={line.variantId}
+            key={line.id}
             line={line}
-            onQuantityChange={(q) => updateQuantity(line.variantId, q)}
-            onRemove={() => removeLine(line.variantId)}
+            onQuantityChange={(q) => void updateQuantity(line.id, q)}
+            onRemove={() => void removeLine(line.id)}
           />
         ))}
       </div>
 
-      {/* Gift wrap + newsletter opt-ins */}
-      <div className="mb-6 flex flex-col gap-3.5">
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-ink-primary">
-          <input
-            type="checkbox"
-            checked={giftWrap}
-            onChange={(e) => setGiftWrap(e.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-brand-primary"
-          />
-          {brand.cart.giftWrapLabel}
-        </label>
-        <label className="flex cursor-pointer items-start gap-3 text-sm text-ink-primary">
-          <input
-            type="checkbox"
-            checked={newsletterOptIn}
-            onChange={(e) => setNewsletterOptIn(e.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-brand-primary"
-          />
-          {brand.cart.newsletterOptInLabel}
-        </label>
-      </div>
+      {/*
+        The cart-wide gift-wrap checkbox that used to sit here was local state
+        that went nowhere — never sent, never stored. Gift wrap is **per line**
+        (DOM-SHOPPING Invariant 4) and the server now holds it, so a single
+        cart-level switch could not express it even in principle.
+
+        The newsletter opt-in was the same: a checkbox with nothing behind it.
+        It is now tracked as an outstanding storefront claim rather than
+        quietly collecting clicks — see lib/storefront-claims.ts.
+      */}
 
       {/* Subtotal summary */}
       <div className="mb-6 border border-border-sale p-5">

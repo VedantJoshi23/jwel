@@ -3,9 +3,10 @@ import { apiFetch } from './client';
 /**
  * Shareable carts — `DOM-SHOPPING` Invariants 9, 11 and 16.
  *
- * The lines are sent from here because the cart lives in this browser
- * (`lib/cart-store`), not on the server. Sharing a server cart the storefront
- * does not use would share an empty one.
+ * The lines are still sent from here rather than read from the sender's cart
+ * server-side. That was a necessity when the cart lived in the browser; it is
+ * now a choice, and a defensible one — a share is a snapshot of what the
+ * sender chose to send, which need not be their whole bag.
  */
 
 export interface CartShareLineInput {

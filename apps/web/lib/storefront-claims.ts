@@ -165,6 +165,20 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
       'actually applies. Until then every variant is unbacked.',
   },
   {
+    id: 'newsletter-signup',
+    claim: 'Newsletter sign-up — the cart opt-in and the footer form',
+    where: ['lib/brand.ts'],
+    pattern: /Sign up to our newsletter/,
+    status: 'outstanding',
+    reality:
+      'There is no newsletter. No list, no provider, no endpoint — the footer form posts ' +
+      'nowhere, and the cart opt-in was local state that was never sent anywhere. Found while ' +
+      'migrating the cart to the server (2026-08-09).',
+    resolution:
+      'Remove both, or connect a mailing provider. The cart checkbox is already gone — it ' +
+      'could not be honoured and collecting clicks nobody reads is worse than not asking.',
+  },
+  {
     id: 'subscription',
     claim: 'Monthly "Jewel Box" subscription',
     where: ['lib/brand.ts', 'app/(storefront)/page.tsx'],

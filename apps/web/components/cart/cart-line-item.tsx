@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { QuantityStepper } from '@/components/product/quantity-stepper';
 import { PriceTag } from '@/components/product/price-tag';
 import { getProductStockImage } from '@/lib/jewellery-images';
-import type { CartLine } from '@/lib/cart-store';
+import type { CartLine } from '@/hooks/use-cart';
 
 export function CartLineItemRow({
   line,

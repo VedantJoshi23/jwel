@@ -20,16 +20,11 @@ export function AddToCart({ product }: { product: Product }) {
     return <p className="text-feedback-warning">This product is currently unavailable.</p>;
   }
 
-  function handleAddToBag() {
-    addLine({
-      variantId: variant.id,
-      productSlug: product.slug,
-      productName: product.name,
-      metal: variant.metal,
-      size: variant.size,
-      unitPriceMinorUnits: variant.basePriceMinorUnits,
-      quantity,
-    });
+  async function handleAddToBag() {
+    // Only the variant and the quantity: the server holds the name, the price
+    // and everything else, so nothing here can disagree with the catalogue.
+    // The old local cart carried a copy of all of it and could drift.
+    await addLine({ variantId: variant.id, quantity });
     setConfirmed(true);
     setTimeout(() => setConfirmed(false), 3000);
   }

@@ -70,15 +70,7 @@ export default function WishlistPage() {
       : '';
 
   function handleAddToBag(item: WishlistItem) {
-    addLine({
-      variantId: item.variantId,
-      productSlug: item.variant.product.slug,
-      productName: item.variant.product.name,
-      metal: item.variant.metal,
-      size: item.variant.size,
-      unitPriceMinorUnits: item.variant.basePriceMinorUnits,
-      quantity: 1,
-    });
+    void addLine({ variantId: item.variantId, quantity: 1 });
   }
 
   return (
