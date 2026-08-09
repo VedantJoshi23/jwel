@@ -1,8 +1,9 @@
-import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OAuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
+import { RecommendationsService } from '../recommendations/recommendations.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../common/enums/role.enum';
 
@@ -17,6 +18,7 @@ describe('AuthService', () => {
   let prisma: MockPrisma;
   let jwt: { sign: jest.Mock };
   let metrics: { authFailuresTotal: { inc: jest.Mock } };
+  let recommendations: { claimGuestViews: jest.Mock };
   let service: AuthService;
 
   beforeEach(() => {
@@ -26,10 +28,12 @@ describe('AuthService', () => {
     };
     jwt = { sign: jest.fn().mockReturnValue('signed-jwt-token') };
     metrics = { authFailuresTotal: { inc: jest.fn() } };
+    recommendations = { claimGuestViews: jest.fn().mockResolvedValue(0) };
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt as unknown as JwtService,
       metrics as any,
+      recommendations as unknown as RecommendationsService,
     );
     jest.clearAllMocks();
     jwt.sign.mockReturnValue('signed-jwt-token');
@@ -72,6 +76,54 @@ describe('AuthService', () => {
       await service.register({ email: 'a@b.com', password: 'password123' });
 
       expect(jwt.sign).toHaveBeenCalledWith({ sub: 'u1', email: 'a@b.com', role: Role.CUSTOMER });
+    });
+  });
+
+  describe('register — claiming a guest\'s view history (Invariant 9)', () => {
+    beforeEach(() => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.create.mockResolvedValue({
+        id: 'u-new',
+        email: 'a@b.c',
+        name: null,
+        role: 'CUSTOMER',
+      });
+    });
+
+    it('commands Recommendation to claim the views, rather than writing them itself', async () => {
+      // Law 5 — Identity does not write another context's table.
+      await service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never);
+
+      expect(recommendations.claimGuestViews).toHaveBeenCalledWith('u-new', 'anon-1');
+    });
+
+    it('claims nothing when the client sent no anonymous id', async () => {
+      await service.register({ email: 'a@b.c', password: 'a-strong-password' } as never);
+      expect(recommendations.claimGuestViews).not.toHaveBeenCalled();
+    });
+
+    it('still registers the account when the claim fails', async () => {
+      // A failure here costs a little personalisation. Letting it propagate
+      // would cost the account someone just created.
+      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      recommendations.claimGuestViews.mockRejectedValue(new Error('database is having a day'));
+
+      await expect(
+        service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never),
+      ).resolves.toMatchObject({ user: expect.objectContaining({ email: 'a@b.c' }) });
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Could not claim guest views'));
+      warn.mockRestore();
+    });
+
+    it('does not claim for a registration that was refused', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
+
+      await expect(
+        service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never),
+      ).rejects.toThrow(ConflictException);
+
+      expect(recommendations.claimGuestViews).not.toHaveBeenCalled();
     });
   });
 

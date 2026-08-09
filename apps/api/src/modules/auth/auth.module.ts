@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { RecommendationsModule } from '../recommendations/recommendations.module';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -12,6 +13,10 @@ import { GoogleConfiguredGuard, FacebookConfiguredGuard, AppleConfiguredGuard } 
 
 @Module({
   imports: [
+    // Identity commands Recommendation to claim a new account's guest view
+    // history (DOM-RECOMMENDATION Invariant 9). One direction only.
+    RecommendationsModule,
+    
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
