@@ -144,13 +144,11 @@ Verified against the live API and a production web build:
 
 ## 9. What this does not do
 
-- **A saved variant that is later unpublished or deleted still appears.** The
-  API returns whatever the variant row says; nothing filters on publication
-  state. A customer could open a saved piece and reach a 404. Worth fixing on
-  the API side, where the same filter already exists for cart and search.
-- **The shareable *cart* still does not exist** (KC-129, KC-137). It needs a
-  share token on `Cart` and a public read endpoint, and it depends on the
-  server-side cart, which the storefront also does not use yet. `DOM-SHOPPING`
-  Invariants 11–17 specify it in full; this feature is the in-repo precedent
-  those invariants point at.
+- ~~**A saved variant that is later unpublished or deleted still appears.**~~ —
+  **fixed 2026-08-08** (`FEAT-SHAREABLE-CART` §6), asymmetrically: shown and
+  marked unavailable on the owner's own list, filtered out entirely from a
+  shared one.
+- ~~**The shareable *cart* still does not exist**~~ — **built 2026-08-08**
+  (`FEAT-SHAREABLE-CART`). It did not need the server-side cart after all: the
+  snapshot is its own table and the sender's lines come from the browser.
 - **Nothing notifies anyone.** Sharing is a link the owner sends themselves.

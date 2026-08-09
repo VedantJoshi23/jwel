@@ -251,11 +251,11 @@ model Address {
 // ──────────────────────────────────────────────────────────────────────────
 
 model Category {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String
-  slug      String    @unique
-  parentId  String?   @map("parent_id") @db.Uuid
-  sortOrder Int       @default(0) @map("sort_order")
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  slug       String      @unique
+  parentId   String?     @map("parent_id") @db.Uuid
+  sortOrder  Int         @default(0) @map("sort_order")
   // NULL means "inherit from my parent"; SizeScheme.NONE means "no size at
   // all". A root category with NULL resolves to unsized because there is
   // nothing to inherit — that is how Earrings works. An Adjustable ring under
@@ -263,9 +263,9 @@ model Category {
   // Resolution walks the ancestor chain in ProductsService, since a recursive
   // default cannot be expressed as a column default.
   sizeScheme SizeScheme? @map("size_scheme")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+  deletedAt  DateTime?   @map("deleted_at")
 
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children Category[] @relation("CategoryHierarchy")
@@ -281,17 +281,17 @@ model Category {
 // "Wedding 2026" seasonal collection). Not in the original Milestone-2 ERD;
 // added here because Collections is an explicit required entity this milestone.
 model Collection {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name          String
-  slug          String         @unique
-  type          CollectionType
-  description   String?
-  heroImageRef  String?        @map("hero_image_ref")
-  isFeatured    Boolean        @default(false) @map("is_featured")
-  startsAt      DateTime?      @map("starts_at")
-  endsAt        DateTime?      @map("ends_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  slug         String         @unique
+  type         CollectionType
+  description  String?
+  heroImageRef String?        @map("hero_image_ref")
+  isFeatured   Boolean        @default(false) @map("is_featured")
+  startsAt     DateTime?      @map("starts_at")
+  endsAt       DateTime?      @map("ends_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
 
   products CollectionProduct[]
 
@@ -314,36 +314,36 @@ model CollectionProduct {
 }
 
 model Product {
-  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String
-  slug                 String            @unique
-  categoryId           String            @map("category_id") @db.Uuid
-  description          String
-  status               ProductStatus     @default(DRAFT)
-  certificationType    CertificationType? @map("certification_type")
-  certificationDocRef  String?           @map("certification_doc_ref")
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  slug                String             @unique
+  categoryId          String             @map("category_id") @db.Uuid
+  description         String
+  status              ProductStatus      @default(DRAFT)
+  certificationType   CertificationType? @map("certification_type")
+  certificationDocRef String?            @map("certification_doc_ref")
   // Denormalized rating aggregates — avoids a COUNT/AVG over `reviews` on every
   // PLP/PDP read (High Read Load optimization). Recomputed via trigger or
   // application-layer write-through on Review insert/moderation-approve.
-  avgRating            Decimal           @default(0) @map("avg_rating") @db.Decimal(3, 2)
-  ratingCount          Int               @default(0) @map("rating_count")
-  createdAt            DateTime          @default(now()) @map("created_at")
-  updatedAt            DateTime          @updatedAt @map("updated_at")
-  deletedAt            DateTime?         @map("deleted_at")
+  avgRating           Decimal            @default(0) @map("avg_rating") @db.Decimal(3, 2)
+  ratingCount         Int                @default(0) @map("rating_count")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  deletedAt           DateTime?          @map("deleted_at")
 
   // Full-text search fallback for admin/internal search and as a degraded-mode
   // path if Elasticsearch is unavailable. Populated by a generated-column
   // migration (see MIGRATIONS section in DATABASE.md) — not writable from Prisma.
   searchVector Unsupported("tsvector")? @map("search_vector")
 
-  category              Category             @relation(fields: [categoryId], references: [id])
-  variants              ProductVariant[]
-  media                 ProductMedia[]
-  reviews               Review[]
-  collections           CollectionProduct[]
-  views                 ProductView[]
-  coOccurrencesAsA      ProductCoOccurrence[] @relation("CoOccurrenceA")
-  coOccurrencesAsB      ProductCoOccurrence[] @relation("CoOccurrenceB")
+  category         Category              @relation(fields: [categoryId], references: [id])
+  variants         ProductVariant[]
+  media            ProductMedia[]
+  reviews          Review[]
+  collections      CollectionProduct[]
+  views            ProductView[]
+  coOccurrencesAsA ProductCoOccurrence[] @relation("CoOccurrenceA")
+  coOccurrencesAsB ProductCoOccurrence[] @relation("CoOccurrenceB")
 
   // Search/read optimizations:
   @@index([categoryId, status])
@@ -356,25 +356,26 @@ model Product {
 }
 
 model ProductVariant {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId           String   @map("product_id") @db.Uuid
-  sku                 String   @unique
-  metal                MetalType
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId           String    @map("product_id") @db.Uuid
+  sku                 String    @unique
+  metal               MetalType
   purity              String? // e.g. "18K", "925"
   // Constrained to SizeOption.value for the scheme resolved from this
   // product's category (FEAT-SIZE-TAXONOMY). Null is correct and required for
   // categories with no scheme. Not an FK — see the SizeOption model comment.
   size                String?
-  weightGrams         Decimal  @map("weight_grams") @db.Decimal(6, 2)
-  basePriceMinorUnits Int      @map("base_price_minor_units")
-  createdAt           DateTime @default(now()) @map("created_at")
-  updatedAt           DateTime @updatedAt @map("updated_at")
+  weightGrams         Decimal   @map("weight_grams") @db.Decimal(6, 2)
+  basePriceMinorUnits Int       @map("base_price_minor_units")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  inventory Inventory?
-  cartItems CartItem[]
-  orderItems OrderItem[]
-  wishlistItems WishlistItem[]
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory      Inventory?
+  cartItems      CartItem[]
+  cartShareItems CartShareItem[]
+  orderItems     OrderItem[]
+  wishlistItems  WishlistItem[]
 
   @@index([productId])
   @@map("product_variants")
@@ -429,30 +430,30 @@ model Inventory {
 // three joins away — not expressible as an FK. Validation is therefore
 // application-layer in ProductsService, documented per STD-DATABASE r6.
 model SizeOption {
-  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  scheme           SizeScheme
+  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheme          SizeScheme
   // Canonical stored value, matched against ProductVariant.size.
-  value            String
+  value           String
   // What a customer sees. Usually equal to `value`, but kept separate so a
   // length scheme can display "45 cm" for a stored "450".
-  label            String
-  diameterMm       Decimal?   @map("diameter_mm") @db.Decimal(5, 2)
+  label           String
+  diameterMm      Decimal?   @map("diameter_mm") @db.Decimal(5, 2)
   // NOT NULL for curated rows, nullable for custom ones — enforced by the
   // `curated_has_circumference` CHECK constraint. A legacy value like
   // "Free size" has no measurement, and inventing one to satisfy the column
   // would be the fabrication Law 1 forbids.
-  circumferenceMm  Decimal?   @map("circumference_mm") @db.Decimal(5, 2)
-  usEquivalent     String?    @map("us_equivalent")
-  ukEquivalent     String?    @map("uk_equivalent")
-  sortOrder        Int        @map("sort_order")
+  circumferenceMm Decimal?   @map("circumference_mm") @db.Decimal(5, 2)
+  usEquivalent    String?    @map("us_equivalent")
+  ukEquivalent    String?    @map("uk_equivalent")
+  sortOrder       Int        @map("sort_order")
   // True for values recovered from legacy free-text data that matched no
   // curated size. They are real — a ring genuinely made at 16.5 is not a 16 —
   // so they stay filterable and displayable, but they are never offered when
   // creating a new product, or the vocabulary drifts again (FEAT-SIZE-TAXONOMY
   // criteria 8, 10).
-  isCustom         Boolean    @default(false) @map("is_custom")
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
+  isCustom        Boolean    @default(false) @map("is_custom")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
 
   @@unique([scheme, value])
   // Admin selector reads curated-only; the filter and guide read everything.
@@ -500,26 +501,75 @@ model CartItem {
   @@map("cart_items")
 }
 
+// A cart someone chose to share, frozen at the moment they shared it.
+//
+// DOM-SHOPPING Invariant 11 splits a shared cart in two: **which** variants,
+// quantities and gift options were shared is fixed at share time, while price,
+// availability and coupon applicability are resolved when the link is opened.
+// A share token on `carts` would give the wrong half — a live view, where the
+// sender editing their own cart afterwards silently rewrites what the
+// recipient sees.
+//
+// So the snapshot is its own table. It intentionally stores **no price**:
+// prices are read from the variant at open time, which is what makes the
+// second half of Invariant 11 true by construction rather than by remembering
+// to refresh.
+//
+// There is no owner column, and that is deliberate rather than an omission.
+// Invariant 9 says a shared view never exposes the owner's identity, and the
+// simplest way to guarantee that is to never record it.
+model CartShare {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // The only credential. Unguessable, and Invariant 9 makes what it opens
+  // read-only.
+  token     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  items CartShareItem[]
+
+  @@map("cart_shares")
+}
+
+model CartShareItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shareId   String  @map("share_id") @db.Uuid
+  variantId String  @map("variant_id") @db.Uuid
+  quantity  Int
+  giftWrap  Boolean @default(false) @map("gift_wrap")
+  giftNote  String? @map("gift_note")
+
+  share   CartShare      @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  // No unique on (shareId, variantId): Invariant 1 makes a line's identity
+  // variant *plus configuration*, so the same ring wrapped and unwrapped is
+  // two lines. `cart_items` still carries the old unique constraint that this
+  // deliberately does not copy — see DOM-SHOPPING consequence (a).
+  @@index([shareId])
+  @@index([variantId])
+  @@map("cart_share_items")
+}
+
 // ──────────────────────────────────────────────────────────────────────────
 // COUPONS
 // ──────────────────────────────────────────────────────────────────────────
 
 model Coupon {
-  id                      String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code                    String       @unique
-  discountType            DiscountType @map("discount_type")
+  id                       String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                     String       @unique
+  discountType             DiscountType @map("discount_type")
   // For PERCENTAGE: 0-100. For FLAT/FIRST_ORDER: minor units. Validated in the
   // application layer, not the DB, since meaning is type-dependent.
-  value                   Int
-  minOrderAmountMinorUnits Int?        @map("min_order_amount_minor_units")
-  maxRedemptions          Int?         @map("max_redemptions")
+  value                    Int
+  minOrderAmountMinorUnits Int?         @map("min_order_amount_minor_units")
+  maxRedemptions           Int?         @map("max_redemptions")
   maxRedemptionsPerUser    Int          @default(1) @map("max_redemptions_per_user")
-  validFrom               DateTime     @map("valid_from")
-  validTo                 DateTime     @map("valid_to")
-  isActive                Boolean      @default(true) @map("is_active")
-  createdAt               DateTime     @default(now()) @map("created_at")
-  updatedAt               DateTime     @updatedAt @map("updated_at")
-  deletedAt                DateTime?   @map("deleted_at")
+  validFrom                DateTime     @map("valid_from")
+  validTo                  DateTime     @map("valid_to")
+  isActive                 Boolean      @default(true) @map("is_active")
+  createdAt                DateTime     @default(now()) @map("created_at")
+  updatedAt                DateTime     @updatedAt @map("updated_at")
+  deletedAt                DateTime?    @map("deleted_at")
 
   redemptions CouponRedemption[]
   orders      Order[]
@@ -550,27 +600,27 @@ model CouponRedemption {
 // ──────────────────────────────────────────────────────────────────────────
 
 model Order {
-  id                    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId                String      @map("user_id") @db.Uuid
-  status                OrderStatus @default(PLACED)
-  subtotalMinorUnits    Int         @map("subtotal_minor_units")
-  discountMinorUnits    Int         @default(0) @map("discount_minor_units")
-  shippingMinorUnits    Int         @default(0) @map("shipping_minor_units")
-  totalMinorUnits       Int         @map("total_minor_units")
-  couponId              String?     @map("coupon_id") @db.Uuid
+  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String      @map("user_id") @db.Uuid
+  status             OrderStatus @default(PLACED)
+  subtotalMinorUnits Int         @map("subtotal_minor_units")
+  discountMinorUnits Int         @default(0) @map("discount_minor_units")
+  shippingMinorUnits Int         @default(0) @map("shipping_minor_units")
+  totalMinorUnits    Int         @map("total_minor_units")
+  couponId           String?     @map("coupon_id") @db.Uuid
   // RESOLVED (was open in DATABASE.md Milestone 2): shipping address is stored as
   // an immutable JSON snapshot taken at checkout time, NOT a live FK to Address.
   // This guarantees historical order accuracy even if the user edits/deletes the
   // saved address later, with no separate snapshot table needed.
-  shippingAddress       Json        @map("shipping_address")
-  createdAt             DateTime    @default(now()) @map("created_at")
-  updatedAt             DateTime    @updatedAt @map("updated_at")
+  shippingAddress    Json        @map("shipping_address")
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
-  user          User                @relation(fields: [userId], references: [id])
-  coupon        Coupon?             @relation(fields: [couponId], references: [id])
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
-  payment       Payment?
+  user             User                 @relation(fields: [userId], references: [id])
+  coupon           Coupon?              @relation(fields: [couponId], references: [id])
+  items            OrderItem[]
+  statusHistory    OrderStatusHistory[]
+  payment          Payment?
   couponRedemption CouponRedemption?
 
   // Reporting/analytics (Analytics module, read-replica target): date-range sales
@@ -583,8 +633,8 @@ model Order {
 
 model OrderItem {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId              String   @map("order_id") @db.Uuid
-  variantId            String   @map("variant_id") @db.Uuid
+  orderId             String   @map("order_id") @db.Uuid
+  variantId           String   @map("variant_id") @db.Uuid
   // Immutable snapshots — an order must reflect exactly what was sold, regardless
   // of later catalog edits.
   productNameSnapshot String   @map("product_name_snapshot")
@@ -593,8 +643,8 @@ model OrderItem {
   unitPriceMinorUnits Int      @map("unit_price_minor_units")
   createdAt           DateTime @default(now()) @map("created_at")
 
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  variant ProductVariant  @relation(fields: [variantId], references: [id])
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant       ProductVariant @relation(fields: [variantId], references: [id])
   returnRequest ReturnRequest?
 
   // Reporting: best-selling SKU / "frequently bought together" queries scan this
@@ -645,16 +695,16 @@ model Payment {
 // ──────────────────────────────────────────────────────────────────────────
 
 model ReturnRequest {
-  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderItemId           String       @unique @map("order_item_id") @db.Uuid
-  reason                ReturnReason
-  notes                 String?
-  status                ReturnStatus @default(REQUESTED)
-  refundAmountMinorUnits Int?        @map("refund_amount_minor_units")
-  createdAt             DateTime     @default(now()) @map("created_at")
-  updatedAt             DateTime     @updatedAt @map("updated_at")
+  id                     String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderItemId            String       @unique @map("order_item_id") @db.Uuid
+  reason                 ReturnReason
+  notes                  String?
+  status                 ReturnStatus @default(REQUESTED)
+  refundAmountMinorUnits Int?         @map("refund_amount_minor_units")
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
 
-  orderItem     OrderItem            @relation(fields: [orderItemId], references: [id])
+  orderItem     OrderItem             @relation(fields: [orderItemId], references: [id])
   statusHistory ReturnStatusHistory[]
 
   @@index([status])
@@ -704,11 +754,11 @@ model Review {
 // ──────────────────────────────────────────────────────────────────────────
 
 model Wishlist {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId      String   @unique @map("user_id") @db.Uuid
-  shareToken  String   @unique @map("share_token")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @unique @map("user_id") @db.Uuid
+  shareToken String   @unique @map("share_token")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   items WishlistItem[]

@@ -14,6 +14,21 @@ import { brand } from '@/lib/brand';
 import type { WishlistItem } from '@/lib/api/types';
 
 /**
+ * A saved piece whose product has since been unpublished, archived or deleted.
+ *
+ * Shown rather than hidden: the customer chose to save it, and a list that
+ * quietly shrinks is worse than one that explains itself. The shared view does
+ * the opposite and filters these out, because that URL is public and would
+ * otherwise leak unpublished catalogue.
+ */
+function isUnavailable(item: WishlistItem): boolean {
+  const { status, deletedAt } = item.variant.product;
+  // `status` is absent on a shared wishlist, where the API has already
+  // filtered; absent means "nothing says otherwise", so available.
+  return (status !== undefined && status !== 'PUBLISHED') || Boolean(deletedAt);
+}
+
+/**
  * The wishlist, and the share link the API has carried since it was built.
  *
  * `DOM-SHOPPING` §4 recorded this surface as missing (KC-115): every endpoint
@@ -84,13 +99,24 @@ export default function WishlistPage() {
               {items.map((item) => (
                 <li key={item.id} className="flex items-center justify-between gap-4 py-4">
                   <div>
-                    <Link href={`/product/${item.variant.product.slug}`} className="font-medium underline">
-                      {item.variant.product.name}
-                    </Link>
+                    {isUnavailable(item) ? (
+                      // No link: it would lead to a 404, which is a worse
+                      // answer than the sentence underneath.
+                      <p className="font-medium text-ink-muted">{item.variant.product.name}</p>
+                    ) : (
+                      <Link href={`/product/${item.variant.product.slug}`} className="font-medium underline">
+                        {item.variant.product.name}
+                      </Link>
+                    )}
                     <p className="text-sm text-ink-secondary">
                       {item.variant.metal}
                       {item.variant.size && ` · Size ${item.variant.size}`}
                     </p>
+                    {isUnavailable(item) && (
+                      <p className="mt-1 text-sm text-feedback-warning">
+                        No longer available. You can remove it, or keep it saved in case it returns.
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     {/* Live price, read now rather than at save time — a saved
@@ -98,9 +124,11 @@ export default function WishlistPage() {
                     <span className="font-medium">
                       {formatMinorUnits(item.variant.basePriceMinorUnits)}
                     </span>
+                    {!isUnavailable(item) && (
                     <Button size="s" onClick={() => handleAddToBag(item)}>
                       Add to bag
                     </Button>
+                    )}
                     <Button
                       size="s"
                       variant="ghost"
