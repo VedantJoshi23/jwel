@@ -125,6 +125,7 @@ no cross-context writes.
 
 ## Open items
 
-- The release sweep is **Ordering's** to build (`DOM-ORDERING` inv. 11);
-  Inventory needs no change.
+- ~~The release sweep is **Ordering's** to build~~ — **built** as
+  `OrdersService.expireStalePendingOrders` (`DOM-ORDERING` inv. 11).
+  Inventory needed no change, as expected.
 - The partial-index comment (KC-145) should be corrected.

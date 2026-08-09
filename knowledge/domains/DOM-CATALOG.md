@@ -159,8 +159,9 @@ Catalog the sole writer of its own aggregate.
 
 ## Open items
 
-- **Invariant 2 is unbuilt** and gates safe hand-off of the catalog to the
-  client.
+- ~~**Invariant 2 is unbuilt**~~ — **built 2026-08-07**
+  (`FEAT-PUBLISH-COMPLETENESS`), as §3 of this document already said. This
+  entry contradicted it until 2026-08-09.
 - ~~**Invariant 5 is unbuilt** — `ADR-0008`'s refactor~~ — **built
   2026-08-08** (`FEAT-RATING-OWNERSHIP`), with bulk reconciliation.
 - `searchVector`'s raw-SQL index is invisible to Prisma drift detection
