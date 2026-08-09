@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { OrderStatus, Prisma, ProductStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SettingsService } from '../settings/settings.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { RecommendationItem, ScoredRecommendationItem } from './recommendations.types';
 
@@ -54,6 +55,7 @@ export class RecommendationsService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventBus: EventBusService,
+    private readonly settings: SettingsService,
   ) {}
 
   onModuleInit(): void {
@@ -142,33 +144,46 @@ export class RecommendationsService implements OnModuleInit {
 
   // ── Frequently Bought Together ───────────────────────────────────────────
 
+  /**
+   * `DOM-RECOMMENDATION` Invariant 8: a pair is only recommendable at a
+   * co-occurrence count at or above the threshold. Below it the pair is noise
+   * — two people who happened to buy the same two things is not a pattern, and
+   * a rail headed "frequently bought together" that fires on a single
+   * co-purchase asserts something untrue (Law 1).
+   *
+   * The threshold is a **setting**, not a constant, because the invariant says
+   * so in as many words: *"a starting heuristic to be tuned against real data,
+   * not a tuned figure"*. Tuning it should not require a deploy.
+   */
   async getFrequentlyBoughtTogether(productId: string, limit: number): Promise<RecommendationItem[]> {
+    const minCoOccurrence = await this.settings.get('recommendations.min_co_occurrence');
     const pairs = await this.prisma.productCoOccurrence.findMany({
-      where: { OR: [{ productAId: productId }, { productBId: productId }] },
+      where: {
+        OR: [{ productAId: productId }, { productBId: productId }],
+        coOccurrenceCount: { gte: minCoOccurrence },
+      },
       orderBy: { coOccurrenceCount: 'desc' },
       take: limit,
     });
     const coOccurringIds = pairs.map((pair) => (pair.productAId === productId ? pair.productBId : pair.productAId));
-    const items = await this.fetchPublishedInOrder(coOccurringIds);
 
-    if (items.length >= limit) {
-      return items;
-    }
-
-    // Cold start for a product with little/no purchase history yet: fill
-    // remaining slots with same-category bestsellers rather than returning
-    // a half-empty (or empty) "frequently bought together" rail.
-    const self = await this.prisma.product.findUnique({ where: { id: productId }, select: { categoryId: true } });
-    if (!self) return items;
-
-    const excludeIds = [productId, ...items.map((i) => i.productId)];
-    const fallback = await this.prisma.product.findMany({
-      where: { categoryId: self.categoryId, status: ProductStatus.PUBLISHED, deletedAt: null, id: { notIn: excludeIds } },
-      include: productSummaryInclude,
-      orderBy: { ratingCount: 'desc' },
-      take: limit - items.length,
-    });
-    return [...items, ...fallback.map(toItem)];
+    // Returned as-is, including empty. There used to be a cold-start fallback
+    // here that topped the rail up with same-category bestsellers, and it
+    // predates the decision that removed its justification.
+    //
+    // `DOM-RECOMMENDATION` §8.2 is explicit: with Invariant 8's minimum
+    // support, *"the frequently-bought-together rail will correctly render
+    // empty, and the UI must handle that rather than showing a broken
+    // section."* Filling it with same-category products makes a heading that
+    // says **frequently bought together** describe items nobody bought
+    // together — which is Law 1, not a nicety, and it defeated the threshold
+    // in practice: a noisy pair filtered out of the query came straight back
+    // in through the fallback.
+    //
+    // The product page already carries a separate popularity-based rail for
+    // exactly this cold-start purpose, under a heading that does not claim
+    // co-purchase.
+    return this.fetchPublishedInOrder(coOccurringIds);
   }
 
   // ── Trending ──────────────────────────────────────────────────────────────
@@ -257,8 +272,14 @@ export class RecommendationsService implements OnModuleInit {
 
     const scored = new Map<string, { score: number; reason: ScoredRecommendationItem['reason'] }>();
 
+    // Same threshold as Frequently Bought Together — Invariant 8 is about the
+    // pair being meaningful, not about which rail is asking.
+    const minCoOccurrence = await this.settings.get('recommendations.min_co_occurrence');
     const coOccurrences = await this.prisma.productCoOccurrence.findMany({
-      where: { OR: [{ productAId: { in: recentPurchasedIds } }, { productBId: { in: recentPurchasedIds } }] },
+      where: {
+        OR: [{ productAId: { in: recentPurchasedIds } }, { productBId: { in: recentPurchasedIds } }],
+        coOccurrenceCount: { gte: minCoOccurrence },
+      },
       orderBy: { coOccurrenceCount: 'desc' },
       take: limit * 4,
     });

@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { ProductRail } from './product-rail';
+import type { RecommendedProduct } from '@/lib/api/types';
+
+function product(over: Partial<RecommendedProduct> = {}): RecommendedProduct {
+  return {
+    productId: 'p1',
+    slug: 'gold-ring',
+    name: 'Gold Ring',
+    categorySlug: 'rings',
+    priceMinMinorUnits: 250000,
+    avgRating: 4.5,
+    ratingCount: 10,
+    thumbnailRef: null,
+    ...over,
+  };
+}
+
+describe('ProductRail', () => {
+  it('renders nothing when there is nothing to recommend', () => {
+    // A heading above an empty strip tells a shopper the shop is broken.
+    // Saying nothing is the honest answer when there is no signal — and on
+    // this catalogue that is the common case, not the edge one.
+    const { container } = render(<ProductRail title="Frequently bought together" products={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows the products with their prices', () => {
+    render(<ProductRail title="Trending now" products={[product()]} />);
+    expect(screen.getByRole('heading', { name: 'Trending now' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Gold Ring/ })).toHaveAttribute(
+      'href',
+      '/product/gold-ring',
+    );
+  });
+
+  it('is a list, so a screen reader can say how many there are', () => {
+    render(
+      <ProductRail
+        title="Trending now"
+        products={[product(), product({ productId: 'p2', slug: 'silver-ring', name: 'Silver Ring' })]}
+      />,
+    );
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+  });
+
+  it('marks the thumbnails decorative rather than repeating the product name', () => {
+    // STD-ACCESSIBILITY rule 4 — decorative images are explicitly marked as
+    // such. The link already carries the name; an alt repeating it would make
+    // a screen reader say it twice. `alt=""` also removes the img role, which
+    // is why this asserts on the element rather than by role.
+    const { container } = render(<ProductRail title="Trending now" products={[product()]} />);
+    const image = container.querySelector('img');
+    expect(image).toHaveAttribute('alt', '');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+});

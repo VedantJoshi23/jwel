@@ -9,6 +9,8 @@ import { PromoBanners } from '@/components/home/promo-banners';
 import { brand } from '@/lib/brand';
 import { categoryImages, heroImage } from '@/lib/jewellery-images';
 import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
+import { RecommendedRail } from '@/components/recommendations/personalized-rail';
+import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -170,6 +172,16 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/*
+        "Recommended for you" when signed in, "Trending now" otherwise — the
+        heading follows the source, because calling a trending list personalised
+        would claim something that did not happen. Renders nothing at all when
+        there is no signal yet, which on this catalogue is the common case.
+      */}
+      <div className="px-6 lg:px-8">
+        <RecommendedRail />
+        <RecentlyViewedRail />
+      </div>
     </>
   );
 }

@@ -251,6 +251,20 @@ export interface AdminOrder extends Order {
   partiallyReturned: boolean;
 }
 
+/** Mirrors the API's `RecommendationItem` — a product summary for a rail. */
+export interface RecommendedProduct {
+  productId: string;
+  slug: string;
+  name: string;
+  categorySlug: string;
+  priceMinMinorUnits: number;
+  avgRating: number;
+  ratingCount: number;
+  thumbnailRef: string | null;
+  /** Present only on the personalised rail, which explains why it chose each item. */
+  reason?: 'co_purchased' | 'category_affinity' | 'trending' | 'bestseller';
+}
+
 export interface WishlistItem {
   id: string;
   variantId: string;
