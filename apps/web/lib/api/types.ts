@@ -261,7 +261,18 @@ export interface WishlistItem {
     metal: string;
     size: string | null;
     basePriceMinorUnits: number;
-    product: { id: string; name: string; slug: string };
+    product: {
+      id: string;
+      name: string;
+      slug: string;
+      /**
+       * Present on the owner's own wishlist, absent from a shared one — the
+       * share endpoint filters unpublished products out entirely rather than
+       * exposing them on a public URL.
+       */
+      status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+      deletedAt?: string | null;
+    };
   };
 }
 
