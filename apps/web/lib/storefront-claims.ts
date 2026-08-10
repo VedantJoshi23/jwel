@@ -187,7 +187,10 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     // The **surface**, not `brand.ts`. The strings still exist there, unused;
     // what mattered was whether anything rendered them at a customer.
     where: ['components/layout/footer.tsx'],
-    pattern: /newsletterCta|newsletterPlaceholder/,
+    // All four strings, not just the form's two. The headline and subtext
+    // sit in a different column, and matching only the form let "Sign up to
+    // our newsletter" survive a check that reported the claim resolved.
+    pattern: /newsletterCta|newsletterPlaceholder|newsletterHeadline|newsletterSubtext/,
     status: 'resolved',
     resolvedBy: 'removed',
     reality:

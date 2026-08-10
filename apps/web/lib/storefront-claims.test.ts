@@ -125,8 +125,17 @@ describe('storefront claims registry', () => {
       // in front of no mailing list at all. Commented out rather than deleted
       // so re-enabling is uncommenting — see footer.tsx.
       const footer = sourceOf('components/layout/footer.tsx');
-      expect(footer).not.toMatch(/newsletterCta/);
-      expect(footer).not.toMatch(/newsletterPlaceholder/);
+      // All four, in two different columns. Checking only the form's two let
+      // "Sign up to our newsletter and get the best deals" survive in the
+      // brand column — an invitation with nothing left to accept it.
+      for (const key of [
+        'newsletterCta',
+        'newsletterPlaceholder',
+        'newsletterHeadline',
+        'newsletterSubtext',
+      ]) {
+        expect(footer, key).not.toContain(key);
+      }
     });
 
     it('keeps the placeholder markers on unreviewed copy', () => {
