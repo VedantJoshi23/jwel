@@ -32,10 +32,18 @@ export function SiteFooter() {
       <div className="grid gap-10 px-6 py-11 lg:grid-cols-2 lg:px-8">
         {/* Col 1 — brand + social */}
         <div>
-          <p className="mb-2.5 font-bold">{brand.footer.newsletterHeadline}</p>
-          <p className="mb-5 max-w-[220px] text-sm text-footer-accent">
-            {brand.footer.newsletterSubtext}
-          </p>
+          {/*
+            The newsletter headline and subtext come out with the form below —
+            see the block in col 2. Leaving them was worse than leaving the
+            whole thing: "Sign up to our newsletter and get the best deals"
+            with nothing to sign up *with* invites an action that no longer has
+            an affordance. Restore both together.
+
+            <p className="mb-2.5 font-bold">{brand.footer.newsletterHeadline}</p>
+            <p className="mb-5 max-w-[220px] text-sm text-footer-accent">
+              {brand.footer.newsletterSubtext}
+            </p>
+          */}
           <div className="w-fit border-[1.5px] border-footer-divider px-4 py-3 font-display text-sm font-bold tracking-logo">
             {brand.name}
           </div>
