@@ -33,9 +33,15 @@ export default function ContactPage() {
       <div className="mx-auto max-w-2xl px-6 py-12 lg:px-8">
         <dl className="grid gap-6 sm:grid-cols-3">
           {channels.map((c) => (
-            <div key={c.label}>
+            // `min-w-0`: grid items default to `min-width: auto`, which
+            // refuses to shrink a cell below its content's intrinsic width.
+            // An email address has no spaces for the browser to wrap at, so
+            // without this the cell held its natural full-length width and
+            // spilled text across the WhatsApp column next to it rather than
+            // wrapping — an overlap, not a rendering glitch.
+            <div key={c.label} className="min-w-0">
               <dt className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{c.label}</dt>
-              <dd className="mt-1.5 text-sm text-ink-primary">
+              <dd className="mt-1.5 break-words text-sm text-ink-primary">
                 {c.href ? (
                   <a href={c.href} className="underline">
                     {c.value}

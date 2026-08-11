@@ -9,6 +9,7 @@ import { login as loginRequest } from '@/lib/api/auth';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api/client';
 import { SocialLoginButtons } from '@/components/auth/social-login-buttons';
+import { brand } from '@/lib/brand';
 
 export default function LoginPage() {
   return (
@@ -77,7 +78,7 @@ function LoginForm() {
         <SocialLoginButtons />
       </div>
       <p className="mt-5 text-center text-sm text-ink-secondary">
-        New to Jwel?{' '}
+        New to {brand.name}?{' '}
         <Link href="/register" className="underline">
           Create an account
         </Link>

@@ -24,7 +24,7 @@ export function CollectionView({ collection, searchParams }: CollectionViewProps
   return (
     <div>
       <div className="grid md:grid-cols-2">
-        <div className="flex flex-col justify-center gap-4 bg-[#DFD0B0] px-12 py-14">
+        <div className="flex flex-col justify-center gap-4 bg-surface-band px-12 py-14">
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
             {collection.name}
           </h1>

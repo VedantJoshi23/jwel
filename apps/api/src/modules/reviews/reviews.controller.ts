@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
@@ -26,6 +26,23 @@ export class ReviewsController {
   @ApiOperation({ summary: 'List approved reviews for a product (FR-5)' })
   listForProduct(@Param('productId') productId: string, @Query() query: PaginationQueryDto) {
     return this.reviewsService.listForProduct(productId, query);
+  }
+
+  @ApiBearerAuth()
+  @Get('reviews/mine')
+  @ApiOperation({
+    summary:
+      "The caller's own review for a product, in any moderation state (FEAT-PENDING-REVIEW-VISIBILITY)",
+  })
+  async findMine(@CurrentUser() user: AuthenticatedUser, @Query('productId') productId: string) {
+    const review = await this.reviewsService.findMine(user.userId, productId);
+    // Not-yet-reviewed is a normal state, not a server error — a distinct
+    // 404 body a frontend can distinguish from "the request failed", per
+    // FEAT-PENDING-REVIEW-VISIBILITY §7 edge case 2.
+    if (!review) {
+      throw new NotFoundException('You have not reviewed this product');
+    }
+    return review;
   }
 
   @ApiBearerAuth()

@@ -224,7 +224,7 @@ export default function CheckoutPage() {
           {/* Shipping */}
           <div className="mt-6">
             <p className="mb-3 font-semibold">{brand.checkout.shippingLabel}</p>
-            <div className="flex items-center justify-between rounded-s border border-brand-primary px-4 py-3.5 text-sm">
+            <div className="flex items-center justify-between rounded-s border border-brand-ink px-4 py-3.5 text-sm">
               <span className="flex items-center gap-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-brand-primary" />
                 {brand.checkout.standardDeliveryLabel}

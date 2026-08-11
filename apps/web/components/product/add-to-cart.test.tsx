@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { AddToCart } from './add-to-cart';
 import { addCartLine } from '@/lib/api/cart';
 
@@ -15,7 +16,10 @@ vi.mock('@/lib/api/cart', () => ({
   claimGuestCart: vi.fn(),
 }));
 
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
 const add = vi.mocked(addCartLine);
+const toastSuccess = vi.mocked(toast.success);
 import type { Product } from '@/lib/api/types';
 
 /**
@@ -50,6 +54,7 @@ function fakeProduct(overrides: Partial<Product> = {}): Product {
 describe('AddToCart', () => {
   beforeEach(() => {
     add.mockClear();
+    toastSuccess.mockClear();
   });
 
   it('shows an unavailable message when the product has no variants', () => {
@@ -80,6 +85,16 @@ describe('AddToCart', () => {
       vi.advanceTimersByTime(3000);
     });
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
+  });
+
+  it('shows a toast naming the product and variant — the confirmation a visitor actually notices', async () => {
+    renderWithQuery(<AddToCart product={fakeProduct()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
+    await act(async () => {});
+
+    expect(toastSuccess).toHaveBeenCalledWith('Added to bag', {
+      description: 'Gold Ring — GOLD · 18K',
+    });
   });
 
   it('multiplies price by the selected quantity', () => {

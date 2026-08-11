@@ -27,9 +27,39 @@ function apiOriginPattern() {
   }
 }
 
+/**
+ * Dev-against-a-remote-VM support. `lib/api/client.ts` falls back to a
+ * relative `/api/v1` in the browser whenever `NEXT_PUBLIC_API_URL` is unset —
+ * this rewrite is what makes that relative path resolve to anything. Without
+ * it, a browser on a machine other than the VM (reached via a forwarded dev
+ * port, e.g. VS Code's Ports panel forwarding 3123) has no way to reach the
+ * API at all: `http://localhost:4000` in that browser means the visitor's own
+ * laptop, not the VM, and the API container only binds `127.0.0.1:4000` on
+ * the VM itself — reachable from the Next.js *server* process (same host),
+ * never directly from a remote browser.
+ *
+ * Routing the browser's calls through this same-origin rewrite instead means:
+ * only the one already-forwarded port needs forwarding, and the request
+ * becomes same-origin from the browser's perspective — no separate port-4000
+ * tunnel, and no CORS entanglement with the deployed API container's
+ * `CORS_ALLOWED_ORIGINS`, which is (correctly) locked to the production
+ * domain and has no reason to know about a developer's forwarded localhost.
+ *
+ * Only added when `NEXT_PUBLIC_API_URL` is unset — an explicit value means a
+ * real deployment already has its own working path to the API and this
+ * rewrite would just be dead weight.
+ */
+function devApiRewrites() {
+  if (process.env.NEXT_PUBLIC_API_URL) return [];
+  return [{ source: '/api/v1/:path*', destination: 'http://127.0.0.1:4000/api/v1/:path*' }];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    return devApiRewrites();
+  },
   // Produces .next/standalone: a self-contained server bundle with only the
   // node_modules it actually traces, instead of the full monorepo install.
   // The Docker runtime stage copies just that folder — no npm install needed

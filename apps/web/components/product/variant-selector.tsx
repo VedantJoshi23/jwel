@@ -25,8 +25,11 @@ export function VariantSelector({
             aria-checked={selected}
             onClick={() => onSelect(variant.id)}
             className={cn(
-              'min-h-[44px] rounded-s border px-5 py-2.5 text-sm font-medium',
-              selected ? 'border-brand-primary' : 'border-border bg-surface-alt text-ink-secondary',
+              // Pill, not box — this always was DESIGN.md §3's spec for
+              // `VariantSelector` ("pill-group"); the implementation had
+              // drifted to `rounded-s`, ADR-0019 brings it back in line.
+              'min-h-[44px] rounded-full border px-5 py-2.5 text-sm font-medium transition-colors',
+              selected ? 'border-brand-ink bg-brand-ink/10' : 'border-border bg-surface-alt text-ink-secondary',
             )}
           >
             {label}

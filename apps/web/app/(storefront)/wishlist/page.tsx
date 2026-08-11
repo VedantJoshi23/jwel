@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,7 +71,10 @@ export default function WishlistPage() {
       : '';
 
   function handleAddToBag(item: WishlistItem) {
+    // Previously fire-and-forget with no feedback at all — the one surface on
+    // this page with nothing telling the visitor their click did anything.
     void addLine({ variantId: item.variantId, quantity: 1 });
+    toast.success('Added to bag', { description: item.variant.product.name });
   }
 
   return (

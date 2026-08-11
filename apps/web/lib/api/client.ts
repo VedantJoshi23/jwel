@@ -1,6 +1,20 @@
 import type { ApiErrorEnvelope } from './types';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+/**
+ * An explicit `NEXT_PUBLIC_API_URL` always wins — that's how a real
+ * deployment points at its own API. Only the bare local-dev fallback differs
+ * by side: server-side code (SSR data fetching) runs inside the same Node
+ * process the API is reachable from, so `localhost:4000` is genuinely correct
+ * there. Client-side code runs in whatever browser loaded the page, which on
+ * a forwarded remote dev server is a *different machine* — `localhost:4000`
+ * there means the visitor's own laptop, not the API. The relative `/api/v1`
+ * fallback instead resolves against whatever origin the browser actually
+ * used, and `next.config.mjs`'s `devApiRewrites()` proxies it server-side to
+ * the real API — see the comment there for the full reasoning.
+ */
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (typeof window === 'undefined' ? 'http://localhost:4000/api/v1' : '/api/v1');
 
 export class ApiError extends Error {
   constructor(
