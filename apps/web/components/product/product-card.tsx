@@ -18,12 +18,22 @@ export function ProductCard({ product, isNew }: ProductCardProps) {
   const compareAt = maxPrice > minPrice ? maxPrice : undefined;
 
   return (
-    <Link href={`/product/${product.slug}`} className="group block bg-surface">
+    // `overflow-hidden` here is load-bearing, not decorative: `material-card`
+    // gives this Link rounded corners, and without clipping, the sharp-edged
+    // photo beneath sat flush against the card boundary and visibly poked
+    // past the rounded corners at all four points — a rounded frame around an
+    // un-rounded photo, which is exactly the "boxy" look the roundness was
+    // supposed to remove. Clipping the image to the card's own radius is what
+    // makes the two read as one considered shape instead of two mismatched
+    // ones. The card body gets its own padding for the same reason: it used
+    // to sit flush against the card's left/right/bottom edges with nothing
+    // but `pt-5` above it.
+    <Link href={`/product/${product.slug}`} className="material-card group block overflow-hidden">
       {/* Image placeholder with optional NEW ARRIVAL badge */}
       <div className="relative">
         {isNew && (
           <div
-            className="absolute left-3 top-3 z-10 flex h-14 w-14 items-center justify-center rounded-full border border-brand-primary bg-surface text-center font-mono text-[8px] font-semibold leading-tight text-ink-primary"
+            className="absolute left-3 top-3 z-10 flex h-14 w-14 items-center justify-center rounded-full border border-brand-ink bg-surface text-center font-mono text-[8px] font-semibold leading-tight text-ink-primary"
             aria-label="New arrival"
           >
             NEW
@@ -43,7 +53,7 @@ export function ProductCard({ product, isNew }: ProductCardProps) {
       </div>
 
       {/* Card body */}
-      <div className="space-y-2.5 pt-5">
+      <div className="space-y-2.5 p-4">
         <p className="font-medium leading-tight">{product.name}</p>
         {product.description && (
           <p className="line-clamp-2 text-xs leading-relaxed text-ink-secondary">{product.description}</p>

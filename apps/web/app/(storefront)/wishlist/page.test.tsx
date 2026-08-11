@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import WishlistPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
 import { addCartLine } from '@/lib/api/cart';
@@ -20,9 +21,11 @@ vi.mock('@/lib/api/wishlist', () => ({
   removeFromWishlist: vi.fn(),
   addToWishlist: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const get = vi.mocked(getWishlist);
 const remove = vi.mocked(removeFromWishlist);
+const toastSuccess = vi.mocked(toast.success);
 
 const item = {
   id: 'i1',
@@ -55,6 +58,7 @@ describe('WishlistPage', () => {
     get.mockResolvedValue({ id: 'w1', shareToken: 'tok-123', items: [item] } as never);
     remove.mockResolvedValue({} as never);
     vi.mocked(addCartLine).mockClear();
+    toastSuccess.mockClear();
     useAuthStore.getState().setSession('token-1', {
       id: 'u1',
       email: 'a@b.c',
@@ -84,6 +88,12 @@ describe('WishlistPage', () => {
     await waitFor(() =>
       expect(addCartLine).toHaveBeenCalledWith(expect.anything(), { variantId: 'v1', quantity: 1 }),
     );
+  });
+
+  it('confirms the move with a toast — previously this click gave no feedback at all', async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Add to bag' }));
+    expect(toastSuccess).toHaveBeenCalledWith('Added to bag', { description: 'Gold Ring' });
   });
 
   it('removes a saved piece', async () => {

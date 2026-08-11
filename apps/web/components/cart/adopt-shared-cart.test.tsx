@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { AdoptSharedCart } from './adopt-shared-cart';
 import { useAuthStore } from '@/lib/auth-store';
 import { addToWishlist } from '@/lib/api/wishlist';
@@ -19,11 +20,13 @@ vi.mock('@/lib/api/cart', () => ({
   clearCart: vi.fn(),
   claimGuestCart: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const save = vi.mocked(addToWishlist);
 const cart = vi.mocked(getCart);
 const addLine = vi.mocked(addCartLine);
 const emptyCart = vi.mocked(clearCart);
+const toastSuccess = vi.mocked(toast.success);
 
 function sharedLine(over: Partial<SharedCartLine> = {}): SharedCartLine {
   return {
@@ -99,6 +102,7 @@ describe('AdoptSharedCart', () => {
     cart.mockResolvedValue(serverCart());
     addLine.mockResolvedValue(serverCart());
     emptyCart.mockResolvedValue(undefined as never);
+    toastSuccess.mockClear();
   });
   afterEach(() => useAuthStore.getState().logout());
 
@@ -118,6 +122,12 @@ describe('AdoptSharedCart', () => {
         }),
       );
       expect(push).toHaveBeenCalledWith('/cart');
+    });
+
+    it('confirms the adoption with a toast before navigating away', async () => {
+      const user = renderAdopt([sharedLine()]);
+      await user.click(screen.getByRole('button', { name: /Add these to my bag/ }));
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Added to bag'));
     });
 
     it('carries the gift options the sender chose', async () => {

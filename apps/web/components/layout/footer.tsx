@@ -25,7 +25,10 @@ function FooterLink({ href, label }: { href: string; label: string }) {
 
 export function SiteFooter() {
   return (
-    <footer className="bg-footer-bg text-footer-ink">
+    // No `bg-footer-bg` alongside `material-panel-deep`: the utility layer
+    // would silently outrank the component-layer glass background (same
+    // fix as the header — see components/layout/header.tsx).
+    <footer className="material-panel-deep text-footer-ink">
       {/* `lg:grid-cols-2` since the newsletter column below is commented out.
           Restore to `lg:grid-cols-3` when re-enabling it, or the two remaining
           columns stretch across a gap where it used to be. */}

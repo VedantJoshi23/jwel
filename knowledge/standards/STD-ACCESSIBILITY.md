@@ -1,13 +1,13 @@
 ---
 id: STD-ACCESSIBILITY
 title: Jwel / ELYSIAN — Standard: Accessibility
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-10
 milestone: M4
 category: Standards
 priority: High
@@ -17,6 +17,7 @@ depends_on:
 required_by: []
 related_decisions:
   - ADR-0013
+  - ADR-0018
 tags:
   - standards
   - accessibility
@@ -38,8 +39,14 @@ least-verified commitment in the project and the only one carrying legal
 exposure.
 
 `axe` now runs in CI over twenty-three surfaces — every public page, the
-checkout form, and all ten admin routes (`FEAT-ACCESSIBILITY-AXE`). It found
-**six real defects**, all shipping, all through human review: an invalid `<dl>`
+checkout form, and all ten admin routes (`FEAT-ACCESSIBILITY-AXE`). A second,
+dark "Aurora" palette briefly doubled that to thirty-two surfaces
+(`ADR-0018`); Aurora was removed by explicit decision after live evaluation
+(`ADR-0020`), and its scans went with it — rule 8 below is retained as
+guidance for if a second palette is ever added again, not as a currently
+active gate.
+
+It found **six real defects**, all shipping, all through human review: an invalid `<dl>`
 on the FAQ, two unnamed filter `<select>`s, a coupon form labelled only by
 placeholders, and three contrast failures. All fixed.
 
@@ -90,6 +97,21 @@ attribute lost in a refactor — now fails the build instead of shipping.
    *Rationale:* checkout and login are the highest-consequence forms; an
    unlabelled field is unusable with a screen reader.
 
+8. **Every visual theme a visitor can select is scanned, not just the
+   default.** A theme that ships without its own `axe` pass is an unscanned
+   surface regardless of how few files it touches.
+   *Rationale:* `ADR-0018`. Rules 5 and 6 are palette-level, so a second
+   palette re-opens every question the first one had to answer — and a
+   translucent surface is the harder case, because its effective background is
+   a blend rather than a flat colour. Note the limit honestly: axe reports
+   contrast against translucency as *incomplete* rather than failing, so this
+   rule narrows human review, it does not remove it.
+   *Currently moot:* the second theme this rule was written for (Aurora) was
+   removed (`ADR-0020`) — there is only one palette to scan, and that scan is
+   rule 2's. Kept as standing guidance, not deleted, because the rule is
+   correct independent of Aurora specifically and should apply again the day
+   a second theme does.
+
 ## Examples
 
 **Compliant** — status carries a text label, not colour alone:
@@ -114,6 +136,10 @@ integration point, and the surrounding flow must remain navigable.
 
 - Rule 2: **CI** — `e2e/accessibility.spec.ts`, in the Playwright job, over
   every key journey including the checkout form.
+- Rule 8: **not currently enforced** — no second theme exists to scan
+  (`ADR-0020`). Re-enforce the same way it was done for Aurora if one ships
+  again: assert the theme attribute actually applied before scanning, so a
+  theme that silently failed to switch doesn't pass as a scan of the default.
 - Rules 3–7: **human review**, still. Automated coverage does not reach them.
 - Automated checks do not certify compliance. They catch regressions; they do
   not establish that AA is met. Claiming otherwise would violate Law 1.

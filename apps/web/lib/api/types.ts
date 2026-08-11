@@ -146,6 +146,13 @@ export interface Review {
   body: string;
   verifiedPurchase: boolean;
   createdAt: string;
+  /**
+   * Absent from the public list response (every item there is implicitly
+   * `APPROVED` — `GET /products/:productId/reviews` filters server-side) but
+   * present on `getMyReview`'s result, which returns a review in any state.
+   * FEAT-PENDING-REVIEW-VISIBILITY.
+   */
+  moderationStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface AuthUser {

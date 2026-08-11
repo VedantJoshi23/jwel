@@ -1,20 +1,21 @@
 ---
 id: DOM-REVIEWS
 title: 'Jwel / ELYSIAN — Domain: Reviews'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-11
 milestone: M5
 category: Domains
 priority: High
 depends_on:
   - ARCH-001
   - CONSTITUTION
-required_by: []
+required_by:
+  - FEAT-PENDING-REVIEW-VISIBILITY
 related_documents:
   - DISC-005
   - DISC-008
@@ -51,7 +52,7 @@ aggregate.
 | --- | --- | --- |
 | 1 | **Anyone may review any product without having bought it.** Purchase is not a gate. | KC-184 |
 | 2 | `verifiedPurchase` is a **computed badge** — true when the user has a `DELIVERED` order containing the product — not a permission. | KC-184 |
-| 3 | Reviews are created `PENDING` and are invisible until moderated to `APPROVED`. | KC-184 |
+| 3 | Reviews are created `PENDING` and are invisible **to the public** until moderated to `APPROVED`. Narrowed 2026-08-11 (`FEAT-PENDING-REVIEW-VISIBILITY`): the review's own author may always see it, in any moderation state, via `GET /reviews/mine`. Every other visitor's view is unchanged. | KC-184; narrowed by owner decision, 2026-08-11 |
 | 4 | Only `APPROVED` reviews are displayed **or counted in rating aggregates**. | KC-184 |
 | 5 | One review per user per product, enforced by a unique constraint on `(productId, userId)`. | schema |
 | 6 | `rating` is 1–5, enforced by the `rating_range` CHECK constraint. | KC-134 |
@@ -89,7 +90,10 @@ it suppresses review submissions from anyone who reads it.
 
 ## 4. API Surface
 
-**Customer** — `POST /reviews`, `GET /products/:productId/reviews`
+**Customer** — `POST /reviews`, `GET /products/:productId/reviews` (public,
+`APPROVED` only, unchanged by the entry below), `GET /reviews/mine?productId=`
+(authenticated; the caller's own review for that product in any moderation
+state — `FEAT-PENDING-REVIEW-VISIBILITY`, 2026-08-11)
 **Admin** — `GET /admin/reviews/pending`, `PATCH /admin/reviews/:id/moderate`
 
 ## 5. Events
@@ -148,3 +152,11 @@ that brings this domain into compliance.
 - **Edge case 2** — whether `verifiedPurchase` should update retroactively.
 - **Invariant 8 is unbuilt** — the read path currently has no
   deleted-user branch.
+- **The admin moderation UI does not exist.** `GET /admin/reviews/pending`
+  and `PATCH /admin/reviews/:id/moderate` (§4) are real, working endpoints;
+  nothing in the admin frontend calls either. `admin/page.tsx` shows a
+  pending-count stat card and stops there. Found 2026-08-11 investigating why
+  a submitted review never became visible — every review is currently
+  permanently `PENDING` in practice, with no operational path to `APPROVED`.
+  Explicitly out of scope for `FEAT-PENDING-REVIEW-VISIBILITY`, by owner
+  decision — recorded here so the gap reads as tracked, not undiscovered.

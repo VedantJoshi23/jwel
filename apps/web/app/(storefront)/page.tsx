@@ -11,6 +11,8 @@ import { categoryImages, heroImage } from '@/lib/jewellery-images';
 import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
 import { RecommendedRail } from '@/components/recommendations/personalized-rail';
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
+import { RevealSection } from '@/components/motion/reveal';
+import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -48,18 +50,12 @@ export default async function HomePage() {
             {hero.subtext}
           </p>
           <div className="flex flex-wrap gap-3.5 pt-1">
-            <Link
-              href={hero.primaryCtaHref}
-              className="bg-brand-primary px-7 py-3.5 text-sm font-semibold text-white hover:bg-brand-dark"
-            >
-              {hero.primaryCta}
-            </Link>
-            <Link
-              href={hero.secondaryCtaHref}
-              className="border-[1.5px] border-brand-primary px-7 py-3.5 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5"
-            >
-              {hero.secondaryCta}
-            </Link>
+            <Button asChild size="l">
+              <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
+            </Button>
+            <Button asChild size="l" variant="secondary">
+              <Link href={hero.secondaryCtaHref}>{hero.secondaryCta}</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -68,11 +64,19 @@ export default async function HomePage() {
              active, so the page is unchanged on a store with no campaign ── */}
       <PromoBanners banners={banners} />
 
+      {/*
+        Sections below the fold materialise as they scroll in. Deliberately
+        not applied to the hero: the first thing on the page should already
+        be there, not arrive.
+      */}
       {/* ── Category trio ─────────────────────────────────────────────────── */}
-      <section className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
+      <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
         {brand.homeCategories.map((category) => (
           <Link key={category.slug} href={`/collections/${category.slug}`} className="group">
-            <div className="relative h-[200px] overflow-hidden">
+            {/* `rounded-m`, not `none` — this is navigational lifestyle
+                photography, not the product-card imagery DESIGN.md §2.4 keeps
+                sharp-framed; nothing about that rationale extends here. */}
+            <div className="relative h-[200px] overflow-hidden rounded-m">
               <Image
                 src={categoryImages[category.slug] ?? heroImage}
                 alt={category.name}
@@ -84,10 +88,10 @@ export default async function HomePage() {
             <p className="mt-3.5 text-center font-medium">{category.name}</p>
           </Link>
         ))}
-      </section>
+      </RevealSection>
 
       {/* ── New Arrivals ───────────────────────────────────────────────────── */}
-      <section className="bg-surface-warm px-6 py-12 lg:px-8">
+      <RevealSection className="bg-surface-warm px-6 py-12 lg:px-8">
         <div className="text-center">
           <h2 className="font-display text-3xl font-bold tracking-tight">
             {brand.newArrivals.headline}
@@ -112,10 +116,10 @@ export default async function HomePage() {
             New arrivals coming soon — check back shortly.
           </p>
         )}
-      </section>
+      </RevealSection>
 
       {/* ── Subscription / Jewel Box ──────────────────────────────────────── */}
-      <section className="px-6 py-14 text-center lg:px-8">
+      <RevealSection className="px-6 py-14 text-center lg:px-8">
         <h2 className="font-display text-3xl font-bold tracking-tight">
           {brand.subscription.headline}
         </h2>
@@ -128,7 +132,7 @@ export default async function HomePage() {
             const Icon = SUBSCRIPTION_STEP_ICONS[step] ?? Sparkles;
             return (
               <div key={step} className="text-center">
-                <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-[14px] bg-price-bg text-brand-primary">
+                <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-[14px] bg-price-bg text-brand-ink">
                   <Icon className="h-7 w-7" aria-hidden="true" />
                 </div>
                 <p className="mt-3 text-sm font-medium">{step}</p>
@@ -148,11 +152,11 @@ export default async function HomePage() {
             {brand.subscription.manageLink}
           </Link>
         </div>
-      </section>
+      </RevealSection>
 
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
-        <section className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.4fr] lg:items-center lg:px-8">
+        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.4fr] lg:items-center lg:px-8">
           <div>
             <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">
               {brand.bestsellers.headline}
@@ -162,14 +166,14 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="flex items-center gap-5">
-            <div className="grid flex-1 grid-cols-2 gap-5">
+            <div className="grid flex-1 grid-cols-2 gap-6">
               {bestsellers.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
             <span className="shrink-0 text-3xl font-light text-ink-muted" aria-hidden="true">›</span>
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {/*

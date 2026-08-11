@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import ProfilePage from './page';
 import { useAuthStore } from '@/lib/auth-store';
 import { getOrders } from '@/lib/api/orders';
 import { getReturns } from '@/lib/api/returns';
-import { listAddresses } from '@/lib/api/users';
+import { listAddresses, addAddress } from '@/lib/api/users';
+import { ApiError } from '@/lib/api/client';
 import type { CustomerReturn, Order } from '@/lib/api/types';
 
 vi.mock('@/lib/api/orders', () => ({ getOrders: vi.fn() }));
@@ -16,9 +18,13 @@ vi.mock('@/lib/api/users', () => ({
   listAddresses: vi.fn(),
   addAddress: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const orders = vi.mocked(getOrders);
 const returns = vi.mocked(getReturns);
+const addAddressMock = vi.mocked(addAddress);
+const toastSuccess = vi.mocked(toast.success);
+const toastError = vi.mocked(toast.error);
 
 function makeOrder(over: Partial<Order> = {}): Order {
   return {
@@ -82,6 +88,9 @@ describe('ProfilePage — returns', () => {
   beforeEach(() => {
     orders.mockReset();
     returns.mockReset();
+    addAddressMock.mockReset();
+    toastSuccess.mockClear();
+    toastError.mockClear();
     vi.mocked(listAddresses).mockResolvedValue([] as never);
     orders.mockResolvedValue({ items: [makeOrder()], page: 1, pageSize: 10, total: 1 } as never);
     returns.mockResolvedValue([] as never);
@@ -93,6 +102,15 @@ describe('ProfilePage — returns', () => {
     });
   });
   afterEach(() => useAuthStore.getState().logout());
+
+  it('shows a proper button for logging out, not bare text', () => {
+    renderPage();
+    // A `variant="ghost"` button with no icon and no border reads as plain
+    // text until hovered — this asserts the fix, not just that a click
+    // handler exists.
+    const button = screen.getByRole('button', { name: 'Log out' });
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
 
   it('offers a return on a delivered order', async () => {
     const user = renderPage();
@@ -160,6 +178,48 @@ describe('ProfilePage — returns', () => {
 
       expect(await screen.findByText(/if you would like us to look at it again/)).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /again|re-?request|cancel/i })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('the Addresses tab', () => {
+    async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
+      await openTab(user, 'Addresses');
+      await user.type(await screen.findByPlaceholderText('Address line 1'), '221B Baker Street');
+      await user.type(screen.getByPlaceholderText('City'), 'Mumbai');
+      await user.type(screen.getByPlaceholderText('State'), 'Maharashtra');
+      await user.type(screen.getByPlaceholderText('Pincode'), '400001');
+      await user.click(screen.getByRole('button', { name: 'Save address' }));
+    }
+
+    it('confirms a successful save with a toast — previously there was no catch block at all, so a failed save and a successful one looked identical', async () => {
+      addAddressMock.mockResolvedValue({} as never);
+      const user = renderPage();
+      await fillAndSubmit(user);
+
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Address saved'));
+      expect(toastError).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a failed save instead of silently discarding it', async () => {
+      addAddressMock.mockRejectedValue(new ApiError('Pincode is invalid', 422));
+      const user = renderPage();
+      await fillAndSubmit(user);
+
+      await waitFor(() => expect(toastError).toHaveBeenCalledWith('Pincode is invalid'));
+      expect(toastSuccess).not.toHaveBeenCalled();
+    });
+
+    it('reloads the list so a saved address is actually visible, not just assumed', async () => {
+      addAddressMock.mockResolvedValue({} as never);
+      vi.mocked(listAddresses)
+        .mockResolvedValueOnce([] as never)
+        .mockResolvedValue([
+          { id: 'a1', line1: '221B Baker Street', city: 'Mumbai', state: 'Maharashtra', pincode: '400001' },
+        ] as never);
+      const user = renderPage();
+      await fillAndSubmit(user);
+
+      expect(await screen.findByText(/221B Baker Street/)).toBeInTheDocument();
     });
   });
 });

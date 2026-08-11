@@ -84,6 +84,30 @@ describe('SiteHeader', () => {
     );
   });
 
+  it('updates the badge when the cart count changes after mount, without crashing', async () => {
+    // Regression coverage for CartIcon's itemCount-driven pop (§ "added to
+    // bag" feedback) — it renders a `motion.span` and drives an animation
+    // controller off `itemCount` changing. The pop's exact timing/keyframes
+    // are cosmetic and not asserted here (this codebase's other motion tests
+    // — components/motion/reveal.test.tsx — take the same view); what has to
+    // hold is that a mid-session count change (a real "add to bag" anywhere
+    // in the app) still lands correctly on the badge, and the effect that
+    // reacts to it doesn't throw.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    cart.mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] } as never);
+    render(
+      <QueryClientProvider client={client}>
+        <SiteHeader />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByLabelText('Shopping bag, 0 items')).toBeInTheDocument());
+
+    cart.mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [line(2)] } as never);
+    client.invalidateQueries({ queryKey: ['cart'] });
+
+    await waitFor(() => expect(screen.getByLabelText('Shopping bag, 2 items')).toBeInTheDocument());
+  });
+
   it('links the account icon to /login when not authenticated', () => {
     renderHeader();
     expect(screen.getByLabelText('Log in')).toHaveAttribute('href', '/login');
