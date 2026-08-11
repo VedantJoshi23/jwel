@@ -28,7 +28,7 @@ export default function CustomerServicePage() {
             <Link
               key={l.href}
               href={l.href}
-              className="rounded-s border border-border-warm p-5 transition-colors hover:border-brand-primary"
+              className="material-card block rounded-m border border-border-warm p-5 transition-colors hover:border-brand-ink"
             >
               <h2 className="font-display text-lg font-bold">{l.title}</h2>
               <p className="mt-1.5 text-sm text-ink-secondary">{l.body}</p>

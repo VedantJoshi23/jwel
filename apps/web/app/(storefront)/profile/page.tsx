@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
+import { LogOut } from 'lucide-react';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +16,7 @@ import { RequestReturnForm } from '@/components/profile/request-return-form';
 import { Badge } from '@/components/ui/badge';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
+import { ApiError } from '@/lib/api/client';
 import type { CustomerReturn, ReturnStatus } from '@/lib/api/types';
 
 export default function ProfilePage() {
@@ -34,7 +37,11 @@ export default function ProfilePage() {
     <div className="px-6 py-10 lg:px-8">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="font-display text-4xl font-bold">My account</h1>
-        <Button variant="ghost" onClick={logout}>
+        {/* `ghost` has no border and reads as plain text until hovered —
+            exactly the "just text" complaint. `secondary`'s pill outline plus
+            an icon reads as a control on first glance, not on discovery. */}
+        <Button variant="secondary" size="s" onClick={logout}>
+          <LogOut className="h-4 w-4" aria-hidden="true" />
           Log out
         </Button>
       </div>
@@ -223,7 +230,16 @@ function AddressesTab({ token }: { token: string }) {
     try {
       await addAddress(token, { ...form, line2: null, country: 'IN', isDefault: false, label: null });
       setForm({ line1: '', city: '', state: '', pincode: '' });
-      refetch();
+      await refetch();
+      toast.success('Address saved');
+    } catch (err) {
+      // Previously had no catch at all — a failed save left the form as-is
+      // with no error shown, which reads exactly like a successful save that
+      // silently didn't persist. `await refetch()` above is deliberate too:
+      // the toast now fires only once the list has actually reloaded, not
+      // just once the POST resolved, so "saved" only says so once it's
+      // visible in the list right below it.
+      toast.error(err instanceof ApiError ? err.message : 'Could not save this address. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -236,7 +252,7 @@ function AddressesTab({ token }: { token: string }) {
       ) : (
         <ul className="space-y-3">
           {data?.map((address) => (
-            <li key={address.id} className="border border-border p-4 text-sm">
+            <li key={address.id} className="material-card rounded-m border border-border p-4 text-sm">
               {address.line1}, {address.city}, {address.state} {address.pincode}
             </li>
           ))}

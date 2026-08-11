@@ -25,7 +25,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminGuard>
       <div className="flex min-h-screen">
-        <aside className="w-56 shrink-0 border-r border-border bg-surface-alt px-4 py-6">
+        {/* Heavier material than the content beside it: §12's rule that
+            darker/heavier surfaces separate structural regions. Inert under
+            the classic theme. */}
+        {/* No `bg-surface-alt` alongside `material-panel`: the utility layer
+            would silently outrank the component-layer glass background (same
+            fix as the header — see components/layout/header.tsx). */}
+        <aside className="material-panel w-56 shrink-0 border-r border-border px-4 py-6">
           <Link href="/admin" className="mb-6 block font-display text-xl font-bold">
             Jwel Admin
           </Link>

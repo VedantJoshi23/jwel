@@ -135,7 +135,7 @@ export default function AdminProductMediaPage() {
           }}
           className={cn(
             'rounded-s border-2 border-dashed p-2 transition-colors',
-            isDraggingOver ? 'border-brand-primary bg-brand-primary/5' : 'border-transparent',
+            isDraggingOver ? 'border-brand-ink bg-brand-ink/10' : 'border-transparent',
           )}
         >
           <input

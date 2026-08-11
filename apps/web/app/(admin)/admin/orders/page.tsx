@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminListOrders, adminUpdateOrderStatus } from '@/lib/api/admin-orders';
 import { formatMinorUnits } from '@/lib/money';
@@ -105,13 +106,15 @@ export default function AdminOrdersPage() {
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       {TRANSITIONS[order.status].map((next) => (
-                        <button
+                        <Button
                           key={next}
+                          variant="secondary"
+                          size="s"
+                          className="h-auto px-2.5 py-1 text-xs"
                           onClick={() => handleStatusChange(order.id, next)}
-                          className="rounded-s border border-border px-2 py-1 text-xs hover:bg-surface-alt"
                         >
                           {next}
-                        </button>
+                        </Button>
                       ))}
                       {TRANSITIONS[order.status].length === 0 && (
                         <span className="text-xs text-ink-muted">final state</span>

@@ -126,7 +126,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     <div>
       {/* Split category hero — wireframe 03 */}
       <div className="grid md:grid-cols-2">
-        <div className="flex items-center bg-[#DFD0B0] px-12 py-14">
+        <div className="flex items-center bg-surface-band px-12 py-14">
           <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
             {collectionTitle}
             <br />
@@ -155,10 +155,10 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               <a
                 key={type}
                 href={`/collections/${typeSlug}`}
-                className={`rounded-s border px-5 py-2.5 text-sm font-medium ${
+                className={`rounded-full border px-5 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'border-brand-primary text-ink-primary'
-                    : 'border-border-warm text-ink-primary hover:border-brand-primary'
+                    ? 'border-brand-ink bg-brand-ink/10 text-ink-primary'
+                    : 'border-border-warm text-ink-primary hover:border-brand-ink'
                 }`}
               >
                 {type}
@@ -187,7 +187,12 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                 />
               </div>
             </details>
-            <div className="hidden md:block">
+            {/* The form previously rendered with no padding of its own,
+                flush against the sidebar column's edges — a `material-card`
+                panel gives it the same breathing room and rounded, glassy
+                treatment every other content surface on the page already
+                has, instead of bare controls floating in the gutter. */}
+            <div className="material-card hidden rounded-m border border-border p-5 md:block">
               <FilterForm
                 basePath={`/collections/${resolvedParams.slug}`}
                 defaultMetal={resolvedSearchParams.metal}

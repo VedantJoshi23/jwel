@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
@@ -57,6 +58,11 @@ export function AdoptSharedCart({ lines }: { lines: SharedCartLine[] }) {
         giftNote: line.giftNote ?? undefined,
       });
     }
+    // One toast for the whole batch, not one per line — this can add several
+    // lines in a loop, and a toast per line would spam rather than confirm.
+    toast.success(
+      adoptable.length === 1 ? 'Added to bag' : `Added ${adoptable.length} pieces to bag`,
+    );
     router.push('/cart');
   }
 
@@ -90,6 +96,9 @@ export function AdoptSharedCart({ lines }: { lines: SharedCartLine[] }) {
     if (saved.length < cartLines.length) {
       setNote('Some of your pieces could not be saved to your wishlist.');
     }
+    toast.success(
+      adoptable.length === 1 ? 'Added to bag' : `Added ${adoptable.length} pieces to bag`,
+    );
     router.push('/cart');
   }
 

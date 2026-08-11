@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { useCart } from '@/hooks/use-cart';
 import { VariantSelector } from './variant-selector';
 import { QuantityStepper } from './quantity-stepper';
@@ -27,6 +28,16 @@ export function AddToCart({ product }: { product: Product }) {
     await addLine({ variantId: variant.id, quantity });
     setConfirmed(true);
     setTimeout(() => setConfirmed(false), 3000);
+
+    // The inline `role="status"` line below is the accessible announcement
+    // and stays for that; this toast is the thing a sighted visitor actually
+    // notices — the line alone measured as easy to miss in practice. The
+    // header's cart-icon pop (components/layout/header.tsx) is the third leg,
+    // reacting to `itemCount` on its own rather than being triggered from here.
+    const descriptor = [variant.metal.replace('_', ' '), variant.purity, variant.size]
+      .filter(Boolean)
+      .join(' · ');
+    toast.success('Added to bag', { description: `${product.name} — ${descriptor}` });
   }
 
   return (

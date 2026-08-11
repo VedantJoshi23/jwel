@@ -1,4 +1,5 @@
 import { brand } from '@/lib/brand';
+import { Button } from '@/components/ui/button';
 import type { SizeOption } from '@/lib/api/types';
 
 const SORT_OPTIONS = [
@@ -23,7 +24,7 @@ function CheckmarkOption({
     <label className="flex items-center gap-3">
       <input type="radio" name={name} value={value} defaultChecked={checked} className="peer sr-only" />
       <span
-        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border border-[#C4A060] text-transparent peer-checked:border-brand-primary peer-checked:text-brand-primary"
+        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border border-[#C4A060] text-transparent peer-checked:border-brand-ink peer-checked:text-brand-ink"
         aria-hidden="true"
       >
         <svg viewBox="0 0 12 10" className="h-2.5 w-2.5 fill-none stroke-current" strokeWidth={1.6}>
@@ -71,7 +72,7 @@ export function FilterForm({
       <div className="pb-7">
         <p className="mb-4 text-sm font-semibold">Price</p>
         <div className="flex items-center gap-3">
-          <label className="flex flex-1 items-center gap-1.5 rounded-s border border-border-warm bg-surface px-3 py-2">
+          <label className="material-raised flex flex-1 items-center gap-1.5 rounded-full border border-border-warm bg-surface px-4 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -88,7 +89,7 @@ export function FilterForm({
           <span className="text-ink-muted" aria-hidden="true">
             –
           </span>
-          <label className="flex flex-1 items-center gap-1.5 rounded-s border border-border-warm bg-surface px-3 py-2">
+          <label className="material-raised flex flex-1 items-center gap-1.5 rounded-full border border-border-warm bg-surface px-4 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -156,7 +157,7 @@ export function FilterForm({
           <select
             name="sort"
             defaultValue={defaultSort ?? 'newest'}
-            className="mt-3 block w-full rounded-s border border-border-warm bg-surface px-3 py-2 text-sm text-ink-primary"
+            className="material-raised mt-3 block w-full rounded-full border border-border-warm bg-surface px-4 py-2 text-sm text-ink-primary"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
@@ -168,12 +169,9 @@ export function FilterForm({
       </div>
 
       <div className="pt-7">
-        <button
-          type="submit"
-          className="w-full border border-brand-primary px-4 py-3 text-sm font-semibold text-brand-primary hover:bg-brand-primary/5"
-        >
+        <Button type="submit" variant="secondary" size="l" className="w-full">
           Apply filters
-        </button>
+        </Button>
       </div>
     </form>
   );

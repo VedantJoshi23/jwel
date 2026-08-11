@@ -61,7 +61,7 @@ export function SocialLoginButtons() {
         <a
           key={provider.name}
           href={`${API_URL}/auth/${provider.name}`}
-          className="flex h-11 w-full items-center justify-center gap-3 rounded-s border border-border text-sm font-medium hover:bg-surface-alt"
+          className="material-raised flex h-11 w-full items-center justify-center gap-3 rounded-full border border-border text-sm font-medium hover:bg-surface-alt"
         >
           {provider.icon}
           {provider.label}

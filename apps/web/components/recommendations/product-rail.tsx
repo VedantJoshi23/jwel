@@ -28,7 +28,7 @@ export function ProductRail({
       <h2 className="mb-5 font-display text-2xl font-bold">{title}</h2>
       {/* A list, so a screen reader announces how many there are before
           reading them out. */}
-      <ul className="grid grid-cols-2 gap-5 md:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-6 md:grid-cols-4">
         {products.map((product) => (
           <li key={product.productId}>
             <Link href={`/product/${product.slug}`} className="group block">

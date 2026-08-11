@@ -44,7 +44,7 @@ export function ProductGallery({ media, productId, productName }: ProductGallery
               aria-current={index === selectedIndex}
               className={cn(
                 'relative h-16 w-16 shrink-0 overflow-hidden rounded-m border-2 bg-surface-alt',
-                index === selectedIndex ? 'border-brand-primary' : 'border-border',
+                index === selectedIndex ? 'border-brand-ink' : 'border-border',
               )}
             >
               <Image src={image.url} alt="" fill sizes="64px" className="object-cover" />

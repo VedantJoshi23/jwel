@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { apiFetch, ApiError } from './client';
 import type { PaginatedResult, Product, Review } from './types';
 
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popularity';
@@ -65,4 +65,22 @@ export function createReview(token: string, input: CreateReviewInput) {
     token,
     body: JSON.stringify(input),
   });
+}
+
+/**
+ * The caller's own review for a product, in any moderation state — or `null`
+ * if they haven't reviewed it. `FEAT-PENDING-REVIEW-VISIBILITY`.
+ *
+ * The API 404s for "no review yet" (a normal state, not a failure — see the
+ * feature spec §7 edge case 2); this function is what turns that back into a
+ * plain `null` for callers, the same way `getProductBySlug`'s 404 becomes
+ * `notFound()` rather than a thrown error the caller has to keep unwrapping.
+ */
+export async function getMyReview(token: string, productId: string): Promise<Review | null> {
+  try {
+    return await apiFetch<Review>(`/reviews/mine${toQueryString({ productId })}`, { token });
+  } catch (error) {
+    if (error instanceof ApiError && error.statusCode === 404) return null;
+    throw error;
+  }
 }

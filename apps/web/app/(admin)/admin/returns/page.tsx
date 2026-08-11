@@ -188,14 +188,16 @@ export default function AdminReturnsPage() {
                       ) : (
                         <div className="flex gap-2">
                           {nextOptions.map((next) => (
-                            <button
+                            <Button
                               key={next}
+                              variant="secondary"
+                              size="s"
+                              className="h-auto px-2.5 py-1 text-xs"
                               disabled={busyId === ret.id}
                               onClick={() => handleTransition(ret, next)}
-                              className="rounded-s border border-border px-2 py-1 text-xs hover:bg-surface-alt disabled:opacity-50"
                             >
                               {next}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       )}

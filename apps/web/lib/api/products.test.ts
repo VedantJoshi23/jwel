@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getProducts, getProductBySlug, getProductReviews } from './products';
+import { getProducts, getProductBySlug, getProductReviews, getMyReview } from './products';
 
 describe('getProducts query string building', () => {
   beforeEach(() => {
@@ -47,5 +47,42 @@ describe('getProducts query string building', () => {
     const [url] = (fetch as any).mock.calls[0];
     expect(url).toContain('page=2');
     expect(url).toContain('pageSize=5');
+  });
+});
+
+describe('getMyReview — FEAT-PENDING-REVIEW-VISIBILITY', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('requests /reviews/mine with the productId and bearer token', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ id: 'r1', moderationStatus: 'PENDING' }), { status: 200 }),
+      ),
+    );
+    const review = await getMyReview('tok-1', 'p1');
+    const [url, init] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/reviews/mine');
+    expect(url).toContain('productId=p1');
+    expect(init.headers.Authorization).toBe('Bearer tok-1');
+    expect(review).toMatchObject({ id: 'r1' });
+  });
+
+  it('turns a 404 into null — not-yet-reviewed is a normal state, not an error a caller should have to unwrap', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ message: 'You have not reviewed this product' }), { status: 404 }),
+      ),
+    );
+    await expect(getMyReview('tok-1', 'p1')).resolves.toBeNull();
+  });
+
+  it('still throws on a genuine failure — a 404 is the only status this function swallows', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 })),
+    );
+    await expect(getMyReview('bad-token', 'p1')).rejects.toThrow('Unauthorized');
   });
 });

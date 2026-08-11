@@ -5,6 +5,7 @@ import { ApiError } from '@/lib/api/client';
 import { getProductBySlug, getProductReviews, getProducts } from '@/lib/api/products';
 import { RatingStars } from '@/components/product/rating-stars';
 import { ReviewForm } from '@/components/product/review-form';
+import { MyReviewStatus } from '@/components/product/my-review-status';
 import { CertificationBadge } from '@/components/product/certification-badge';
 import { AddToCart } from '@/components/product/add-to-cart';
 import { SizeGuide } from '@/components/product/size-guide';
@@ -132,7 +133,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </p>
               )}
               <div className="flex items-center gap-3">
-                <span className="font-display text-4xl font-bold text-brand-primary">
+                <span className="font-display text-4xl font-bold text-brand-ink">
                   {formatMinorUnits(minPrice)}
                 </span>
                 {discountPct > 0 && (
@@ -141,7 +142,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-brand-primary">Extra ₹300 off at checkout</p>
+              <p className="mt-1 text-xs text-brand-ink">Extra ₹300 off at checkout</p>
             </div>
 
             {/* Add to cart */}
@@ -194,22 +195,32 @@ export default async function ProductPage({ params }: ProductPageProps) {
           Reviews
         </h2>
         {reviews.items.length === 0 ? (
-          <p className="mt-3 text-ink-secondary">No reviews yet for this product.</p>
+          <div className="mt-3">
+            <MyReviewStatus
+              productId={product.id}
+              emptyFallback={<p className="text-ink-secondary">No reviews yet for this product.</p>}
+            />
+          </div>
         ) : (
-          <ul className="mt-5 max-w-2xl space-y-6">
-            {reviews.items.map((review) => (
-              <li key={review.id} className="border-b border-border pb-5">
-                <div className="flex items-center gap-3">
-                  <RatingStars value={review.rating} />
-                  {review.verifiedPurchase && (
-                    <span className="text-xs font-medium text-feedback-success">Verified purchase</span>
-                  )}
-                </div>
-                {review.title && <p className="mt-2 font-medium">{review.title}</p>}
-                <p className="mt-1 text-sm text-ink-secondary">{review.body}</p>
-              </li>
-            ))}
-          </ul>
+          <>
+            <div className="mt-5 max-w-2xl">
+              <MyReviewStatus productId={product.id} />
+            </div>
+            <ul className="mt-5 max-w-2xl space-y-6">
+              {reviews.items.map((review) => (
+                <li key={review.id} className="border-b border-border pb-5">
+                  <div className="flex items-center gap-3">
+                    <RatingStars value={review.rating} />
+                    {review.verifiedPurchase && (
+                      <span className="text-xs font-medium text-feedback-success">Verified purchase</span>
+                    )}
+                  </div>
+                  {review.title && <p className="mt-2 font-medium">{review.title}</p>}
+                  <p className="mt-1 text-sm text-ink-secondary">{review.body}</p>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
 
         <ReviewForm productId={product.id} />

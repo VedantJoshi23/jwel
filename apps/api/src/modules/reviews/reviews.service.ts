@@ -40,6 +40,25 @@ export class ReviewsService {
     return count > 0;
   }
 
+  /**
+   * The caller's own review for a product, in any moderation state.
+   *
+   * `DOM-REVIEWS` Invariant 3 (narrowed 2026-08-11,
+   * `FEAT-PENDING-REVIEW-VISIBILITY`): a review is invisible to the *public*
+   * until `APPROVED`, but its own author may always see it. This is that
+   * carve-out's only entry point — `listForProduct` above stays untouched
+   * and stays `APPROVED`-only for everyone, so the public list's shape never
+   * depends on who's asking.
+   *
+   * `null` for "you haven't reviewed this" is a normal result, not an error —
+   * the controller is what turns that into a 404.
+   */
+  findMine(userId: string, productId: string) {
+    return this.prisma.review.findUnique({
+      where: { productId_userId: { productId, userId } },
+    });
+  }
+
   async listForProduct(productId: string, query: PaginationQueryDto): Promise<PaginatedResult<any>> {
     const { page, pageSize } = query;
     const where: Prisma.ReviewWhereInput = { productId, moderationStatus: ModerationStatus.APPROVED };

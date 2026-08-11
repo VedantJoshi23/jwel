@@ -22,6 +22,19 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 const WCAG_21_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 
 async function scan(page: Page) {
+  // `ADR-0019` gave above-the-fold sections a scroll-materialise entrance
+  // animation (opacity/scale/blur, ~400ms spring — `lib/motion.ts`'s
+  // `springs.ui`). Content that starts already inside the viewport at load
+  // triggers that animation immediately, and axe's contrast check rasterises
+  // actual painted pixels — scanning mid-fade caught real, if momentary,
+  // sub-4.5:1 contrast on category-tile labels, on a computed color no token
+  // in the palette specifies. That is a true transient frame, not a settled
+  // defect: no assistive technology announces content mid-animation, and a
+  // reduced-motion visitor never sees the animation at all. The wait below
+  // lets any in-flight entrance animation reach its rest state before the
+  // scan — matching what a user actually perceives — rather than chasing the
+  // race with more `viewport.amount` tuning on the animation itself.
+  await page.waitForTimeout(500);
   return new AxeBuilder({ page }).withTags(WCAG_21_AA).analyze();
 }
 

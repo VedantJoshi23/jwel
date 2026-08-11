@@ -16,6 +16,7 @@ depends_on:
   - CONSTITUTION
 required_by:
   - FEAT-ADMIN-REVIEW-MODERATION
+  - FEAT-PENDING-REVIEW-VISIBILITY
 related_documents:
   - DISC-005
   - DISC-008
@@ -52,7 +53,7 @@ aggregate.
 | --- | --- | --- |
 | 1 | **Anyone may review any product without having bought it.** Purchase is not a gate. | KC-184 |
 | 2 | `verifiedPurchase` is a **computed badge** — true when the user has a `DELIVERED` order containing the product — not a permission. | KC-184 |
-| 3 | Reviews are created `PENDING` and are invisible until moderated to `APPROVED`. | KC-184 |
+| 3 | Reviews are created `PENDING` and are invisible **to the public** until moderated to `APPROVED`. Narrowed 2026-08-11 (`FEAT-PENDING-REVIEW-VISIBILITY`): the review's own author may always see it, in any moderation state, via `GET /reviews/mine`. Every other visitor's view is unchanged. | KC-184; narrowed by owner decision, 2026-08-11 |
 | 4 | Only `APPROVED` reviews are displayed **or counted in rating aggregates**. | KC-184 |
 | 5 | One review per user per product, enforced by a unique constraint on `(productId, userId)`. | schema |
 | 6 | `rating` is 1–5, enforced by the `rating_range` CHECK constraint. | KC-134 |
@@ -90,7 +91,10 @@ it suppresses review submissions from anyone who reads it.
 
 ## 4. API Surface
 
-**Customer** — `POST /reviews`, `GET /products/:productId/reviews`
+**Customer** — `POST /reviews`, `GET /products/:productId/reviews` (public,
+`APPROVED` only, unchanged by the entry below), `GET /reviews/mine?productId=`
+(authenticated; the caller's own review for that product in any moderation
+state — `FEAT-PENDING-REVIEW-VISIBILITY`, 2026-08-11)
 **Admin** — `GET /admin/reviews/pending`, `PATCH /admin/reviews/:id/moderate`
 
 ## 5. Events

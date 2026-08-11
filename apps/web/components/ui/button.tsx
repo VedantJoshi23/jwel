@@ -5,12 +5,17 @@ import { cn } from '@/lib/utils';
 
 // Variants map to DESIGN.md §3 `Button` component spec.
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-s text-cta font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50',
+  // `material-raised` gives every button the glass surface and the
+  // pointer-*down* press response (design-update.md §1) in one rule rather
+  // than per-variant. `rounded-full` — ADR-0019 — pill-shaped is the
+  // deliberate departure from the 6px box the standards doc originally
+  // specified for buttons.
+  'material-raised inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-cta font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         primary: 'bg-brand-primary text-white hover:bg-brand-primary/90',
-        secondary: 'border border-brand-primary text-brand-primary hover:bg-brand-primary/5',
+        secondary: 'border border-brand-ink text-brand-ink hover:bg-brand-ink/10',
         ghost: 'text-ink-primary hover:bg-surface-alt',
         destructive: 'bg-feedback-error text-white hover:bg-feedback-error/90',
       },

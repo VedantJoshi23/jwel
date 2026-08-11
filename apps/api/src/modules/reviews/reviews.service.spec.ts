@@ -92,6 +92,28 @@ describe('ReviewsService', () => {
     });
   });
 
+  describe('findMine — FEAT-PENDING-REVIEW-VISIBILITY', () => {
+    it('looks up by the unique (productId, userId) pair, not a filtered list', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', moderationStatus: ModerationStatus.PENDING });
+      const result = await service.findMine('u1', 'p1');
+      expect(prisma.review.findUnique).toHaveBeenCalledWith({
+        where: { productId_userId: { productId: 'p1', userId: 'u1' } },
+      });
+      expect(result).toMatchObject({ id: 'r1' });
+    });
+
+    it('returns null rather than throwing when the caller has not reviewed this product — the controller decides what that means, not the service', async () => {
+      prisma.review.findUnique.mockResolvedValue(null);
+      await expect(service.findMine('u1', 'p1')).resolves.toBeNull();
+    });
+
+    it('is not filtered by moderationStatus — a PENDING or REJECTED review must still come back to its own author', async () => {
+      prisma.review.findUnique.mockResolvedValue({ id: 'r1', moderationStatus: ModerationStatus.REJECTED });
+      const result = await service.findMine('u1', 'p1');
+      expect(result).toMatchObject({ moderationStatus: ModerationStatus.REJECTED });
+    });
+  });
+
   describe('adminListPending — FEAT-ADMIN-REVIEW-MODERATION', () => {
     it('lists only PENDING reviews, oldest first', async () => {
       prisma.review.findMany.mockResolvedValue([]);

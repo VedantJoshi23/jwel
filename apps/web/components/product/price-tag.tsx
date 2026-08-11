@@ -33,7 +33,7 @@ export function PriceTag({
           </span>
         </div>
       )}
-      <span className="inline-block bg-price-bg px-3 py-1 text-sm font-bold text-brand-primary">
+      <span className="inline-block bg-price-bg px-3 py-1 text-sm font-bold text-brand-ink">
         {formatMinorUnits(amountMinorUnits)}
       </span>
     </div>
