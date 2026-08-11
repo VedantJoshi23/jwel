@@ -15,6 +15,7 @@ depends_on:
   - ARCH-001
   - CONSTITUTION
 required_by:
+  - FEAT-ADMIN-REVIEW-MODERATION
   - FEAT-PENDING-REVIEW-VISIBILITY
 related_documents:
   - DISC-005
@@ -152,11 +153,10 @@ that brings this domain into compliance.
 - **Edge case 2** — whether `verifiedPurchase` should update retroactively.
 - **Invariant 8 is unbuilt** — the read path currently has no
   deleted-user branch.
-- **The admin moderation UI does not exist.** `GET /admin/reviews/pending`
-  and `PATCH /admin/reviews/:id/moderate` (§4) are real, working endpoints;
-  nothing in the admin frontend calls either. `admin/page.tsx` shows a
-  pending-count stat card and stops there. Found 2026-08-11 investigating why
-  a submitted review never became visible — every review is currently
-  permanently `PENDING` in practice, with no operational path to `APPROVED`.
-  Explicitly out of scope for `FEAT-PENDING-REVIEW-VISIBILITY`, by owner
-  decision — recorded here so the gap reads as tracked, not undiscovered.
+- ~~**The admin moderation UI does not exist** — `GET /admin/reviews/pending`
+  and `PATCH /admin/reviews/:id/moderate` were real, working endpoints that
+  nothing in the admin frontend called, so every review submitted since
+  launch stayed permanently `PENDING`~~ — **built 2026-08-11**
+  (`FEAT-ADMIN-REVIEW-MODERATION`): `/admin/reviews`, linked from the
+  dashboard's pending-reviews stat card. `adminListPending` now `include`s
+  `product`/`user` so the queue is readable by name and email, not raw FKs.

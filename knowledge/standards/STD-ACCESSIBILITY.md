@@ -38,13 +38,13 @@ The storefront and admin UI in `apps/web`.
 least-verified commitment in the project and the only one carrying legal
 exposure.
 
-`axe` now runs in CI over twenty-three surfaces — every public page, the
-checkout form, and all ten admin routes (`FEAT-ACCESSIBILITY-AXE`). A second,
-dark "Aurora" palette briefly doubled that to thirty-two surfaces
-(`ADR-0018`); Aurora was removed by explicit decision after live evaluation
-(`ADR-0020`), and its scans went with it — rule 8 below is retained as
-guidance for if a second palette is ever added again, not as a currently
-active gate.
+`axe` now runs in CI over twenty-four surfaces — every public page, the
+checkout form, and all eleven admin routes (`FEAT-ACCESSIBILITY-AXE`;
+`/admin/reviews` added by `FEAT-ADMIN-REVIEW-MODERATION`). A second, dark
+"Aurora" palette briefly widened that count (`ADR-0018`); Aurora was removed
+by explicit decision after live evaluation (`ADR-0020`), and its scans went
+with it — rule 8 below is retained as guidance for if a second palette is
+ever added again, not as a currently active gate.
 
 It found **six real defects**, all shipping, all through human review: an invalid `<dl>`
 on the FAQ, two unnamed filter `<select>`s, a coupon form labelled only by

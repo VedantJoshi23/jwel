@@ -74,6 +74,14 @@ export class ReviewsService {
     return { items, page, pageSize, total };
   }
 
+  /**
+   * `product`/`user` are `include`d, not left as bare FK columns, because
+   * nothing consumed this response until `FEAT-ADMIN-REVIEW-MODERATION` —
+   * the moderator reading this list needs to know *which product* and *who
+   * wrote it* to make a real decision, not just a review id and two UUIDs.
+   * Matches the precedent `AdminReturn.orderItem.order.user.email` already
+   * sets for the same kind of admin list.
+   */
   adminListPending(query: PaginationQueryDto) {
     const { page, pageSize } = query;
     return this.prisma.review.findMany({
@@ -81,6 +89,10 @@ export class ReviewsService {
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { createdAt: 'asc' },
+      include: {
+        product: { select: { id: true, name: true, slug: true } },
+        user: { select: { id: true, email: true, name: true } },
+      },
     });
   }
 

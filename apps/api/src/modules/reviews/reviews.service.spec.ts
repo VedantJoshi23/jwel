@@ -114,7 +114,7 @@ describe('ReviewsService', () => {
     });
   });
 
-  describe('adminListPending', () => {
+  describe('adminListPending — FEAT-ADMIN-REVIEW-MODERATION', () => {
     it('lists only PENDING reviews, oldest first', async () => {
       prisma.review.findMany.mockResolvedValue([]);
       await service.adminListPending({ page: 1, pageSize: 10 });
@@ -123,6 +123,25 @@ describe('ReviewsService', () => {
         skip: 0,
         take: 10,
         orderBy: { createdAt: 'asc' },
+        include: {
+          product: { select: { id: true, name: true, slug: true } },
+          user: { select: { id: true, email: true, name: true } },
+        },
+      });
+    });
+
+    it('includes the product name and reviewer email — a moderator cannot decide on a raw productId/userId pair', async () => {
+      prisma.review.findMany.mockResolvedValue([
+        {
+          id: 'r1',
+          product: { id: 'p1', name: 'Diamond Halo Ring', slug: 'diamond-halo-ring' },
+          user: { id: 'u1', email: 'customer@example.com', name: null },
+        },
+      ]);
+      const result = await service.adminListPending({ page: 1, pageSize: 10 });
+      expect(result[0]).toMatchObject({
+        product: { name: 'Diamond Halo Ring' },
+        user: { email: 'customer@example.com' },
       });
     });
   });
