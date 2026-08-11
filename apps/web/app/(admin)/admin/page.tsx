@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/auth-store';
 import { getDashboardSummary } from '@/lib/api/admin-analytics';
@@ -8,15 +9,31 @@ import { formatMinorUnits } from '@/lib/money';
 import type { DashboardSummary } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card>
-      <CardContent>
-        <p className="text-sm text-ink-muted">{label}</p>
-        <p className="mt-1 font-display text-2xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
+/**
+ * `href` is optional — most stat cards report a number with nowhere to go
+ * from it. "Pending reviews" is different: `FEAT-ADMIN-REVIEW-MODERATION`
+ * gave it somewhere to go, and a count with no way to act on it is close to
+ * the thing that made the count wrong for so long (a real page existed, but
+ * every review submitted since launch stayed permanently PENDING because
+ * nothing linked to it).
+ */
+function StatCard({ label, value, href }: { label: string; value: string; href?: string }) {
+  const body = (
+    <CardContent>
+      <p className="text-sm text-ink-muted">{label}</p>
+      <p className="mt-1 font-display text-2xl font-bold">{value}</p>
+    </CardContent>
   );
+
+  if (href) {
+    return (
+      <Link href={href}>
+        <Card className="transition-colors hover:border-brand-ink">{body}</Card>
+      </Link>
+    );
+  }
+
+  return <Card>{body}</Card>;
 }
 
 export default function AdminDashboardPage() {
@@ -80,7 +97,11 @@ export default function AdminDashboardPage() {
             <StatCard label="Avg. order value" value={formatMinorUnits(summary.averageOrderValueMinorUnits)} />
             <StatCard label="New customers" value={String(summary.newCustomers)} />
             <StatCard label="Low stock SKUs" value={String(summary.lowStockCount)} />
-            <StatCard label="Pending reviews" value={String(summary.pendingReviewsCount)} />
+            <StatCard
+              label="Pending reviews"
+              value={String(summary.pendingReviewsCount)}
+              href="/admin/reviews"
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">

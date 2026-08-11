@@ -446,6 +446,27 @@ export interface AdminReturn {
   };
 }
 
+export type ModerationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+/**
+ * A pending review as the moderation queue needs it — `product`/`user` are
+ * `include`d server-side (`FEAT-ADMIN-REVIEW-MODERATION`) rather than left as
+ * bare FK columns, the same shape choice `AdminReturn.orderItem.order.user`
+ * already makes for the same reason: a moderator deciding whether a review
+ * is legitimate needs to know which product and who wrote it, not two UUIDs.
+ */
+export interface AdminReview {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string;
+  verifiedPurchase: boolean;
+  moderationStatus: ModerationStatus;
+  createdAt: string;
+  product: { id: string; name: string; slug: string };
+  user: { id: string; email: string; name: string | null };
+}
+
 export interface AdminUser {
   id: string;
   email: string;

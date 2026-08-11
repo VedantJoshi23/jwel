@@ -1,20 +1,21 @@
 ---
 id: DOM-REVIEWS
 title: 'Jwel / ELYSIAN — Domain: Reviews'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-11
 milestone: M5
 category: Domains
 priority: High
 depends_on:
   - ARCH-001
   - CONSTITUTION
-required_by: []
+required_by:
+  - FEAT-ADMIN-REVIEW-MODERATION
 related_documents:
   - DISC-005
   - DISC-008
@@ -148,3 +149,10 @@ that brings this domain into compliance.
 - **Edge case 2** — whether `verifiedPurchase` should update retroactively.
 - **Invariant 8 is unbuilt** — the read path currently has no
   deleted-user branch.
+- ~~**The admin moderation UI does not exist** — `GET /admin/reviews/pending`
+  and `PATCH /admin/reviews/:id/moderate` were real, working endpoints that
+  nothing in the admin frontend called, so every review submitted since
+  launch stayed permanently `PENDING`~~ — **built 2026-08-11**
+  (`FEAT-ADMIN-REVIEW-MODERATION`): `/admin/reviews`, linked from the
+  dashboard's pending-reviews stat card. `adminListPending` now `include`s
+  `product`/`user` so the queue is readable by name and email, not raw FKs.

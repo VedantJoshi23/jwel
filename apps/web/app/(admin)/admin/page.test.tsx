@@ -113,4 +113,18 @@ describe('AdminDashboardPage', () => {
       expect(screen.queryByText(/returned/)).not.toBeInTheDocument();
     });
   });
+
+  describe('the pending reviews stat', () => {
+    // FEAT-ADMIN-REVIEW-MODERATION — a count with nowhere to go is close to
+    // the thing that made this count wrong for so long: a moderation page
+    // existed, but nothing on the dashboard linked to it.
+    it('links through to the moderation queue', async () => {
+      getSummary.mockResolvedValue(makeSummary({ pendingReviewsCount: 3 }));
+      render(<AdminDashboardPage />);
+
+      const value = await screen.findByText('3');
+      const link = value.closest('a');
+      expect(link).toHaveAttribute('href', '/admin/reviews');
+    });
+  });
 });
