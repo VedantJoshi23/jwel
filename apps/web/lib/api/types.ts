@@ -474,6 +474,83 @@ export interface AdminReview {
   user: { id: string; email: string; name: string | null };
 }
 
+// FEAT-PRODUCT-QA
+export interface QnaAuthor {
+  id: string;
+  /** `null` for a soft-deleted author — display anonymously (DOM-PRODUCT-QA Invariant 7). */
+  name: string | null;
+}
+
+export interface Answer {
+  id: string;
+  questionId: string;
+  body: string;
+  createdAt: string;
+  user: QnaAuthor;
+  upvoteCount: number;
+  /** Present only when the caller is authenticated. */
+  upvotedByMe?: boolean;
+  /**
+   * Derived live from the answerer's *current* role (DOM-PRODUCT-QA
+   * Invariant 6) — never snapshotted, so this can change on a later read
+   * with no data change.
+   */
+  isByStore: boolean;
+  /** Admin list only. */
+  isHidden?: boolean;
+}
+
+export interface Question {
+  id: string;
+  productId: string;
+  body: string;
+  createdAt: string;
+  user: QnaAuthor;
+  upvoteCount: number;
+  upvotedByMe?: boolean;
+  answers: Answer[];
+}
+
+/**
+ * Admin shapes carry the real name/email regardless of soft-delete —
+ * moderation needs to know who wrote it, the same distinction
+ * FEAT-ADMIN-REVIEW-MODERATION §7 edge case 3 already draws for Reviews
+ * (anonymization is a public display rule, not a moderation one).
+ */
+export interface AdminQnaAuthor {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
+export interface AdminAnswer {
+  id: string;
+  questionId: string;
+  body: string;
+  createdAt: string;
+  user: AdminQnaAuthor;
+  upvoteCount: number;
+  isByStore: boolean;
+  isHidden: boolean;
+}
+
+/**
+ * Admin list shape — product/user context an admin needs to answer
+ * responsibly without leaving the page (FEAT-PRODUCT-QA §3, Acceptance
+ * Criterion 6), mirroring `AdminReview`'s `product`/`user` include one-for-one.
+ */
+export interface AdminQuestion {
+  id: string;
+  productId: string;
+  body: string;
+  createdAt: string;
+  user: AdminQnaAuthor;
+  upvoteCount: number;
+  isHidden: boolean;
+  product: { id: string; name: string; slug: string; image: string | null };
+  answers: AdminAnswer[];
+}
+
 export interface AdminUser {
   id: string;
   email: string;

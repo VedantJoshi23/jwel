@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/admin/orders', label: 'Orders' },
   { href: '/admin/returns', label: 'Returns' },
   { href: '/admin/reviews', label: 'Reviews' },
+  { href: '/admin/qna', label: 'Q&A' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/coupons', label: 'Coupons' },
   { href: '/admin/cms', label: 'CMS' },
