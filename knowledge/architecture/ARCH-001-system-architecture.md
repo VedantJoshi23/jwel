@@ -1,13 +1,13 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.3.0
+version: 1.4.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-12
 milestone: M3
 category: Architecture
 priority: Critical
@@ -24,6 +24,7 @@ related_decisions:
   - ADR-0006
   - ADR-0008
   - ADR-0010
+  - ADR-0021
 tags:
   - architecture
   - bounded-contexts
@@ -88,6 +89,7 @@ in, event out.** No context writes another's tables or emits another's events.
 | **Inventory** | Inventory records, reservation/release/commit arithmetic | Product identity; what an order contains |
 | **Returns** | ReturnRequest, ReturnStatusHistory, return eligibility and lifecycle | Order status; refund execution (commands Payments) |
 | **Reviews** | Review, moderation state, verified-purchase determination | **Product rating aggregates** — commands Catalog (`ADR-0008`) |
+| **Product Q&A** | Question, Answer, upvotes on each, visibility state (reactive moderation) | Product identity (reads Catalog); user identity (reads Identity); review content (Reviews) — `ADR-0021` |
 | **Recommendation** | ProductView, ProductCoOccurrence, ranking logic | Product truth; order truth — reads both |
 | **Content** | Banner, homepage content scheduling | Product data; storefront copy in `brand.ts` |
 | **Notification** | Message dispatch and channel adapters | Any business state — pure consumer, owns no tables |
@@ -429,6 +431,30 @@ import, and manual SQL correction as documented practice (`RUNBOOK` §11a).
 
 **Confidence unchanged at 91%.** A recorded deviation was removed by building
 what the document already described; no observation changed.
+
+### A4 — 2026-08-12, Product Q&A added as a fifteenth context
+
+**Trigger.** A new client requirement — per-product customer Q&A, answerable
+by admin or other customers, upvotable, reactively moderated — matched no
+existing boundary. `ADR-0021` records why it does not fold into Reviews.
+
+**What changes.** §1.1 only, a new row. No existing context's Owns/Does-NOT-own
+line changes — Reviews in particular is untouched.
+
+**Why this is a genuinely new boundary and not scope creep on Reviews.**
+`DOM-REVIEWS` owns exactly one `Review` per `(productId, userId)`, moderated
+`PENDING`-first before anything is public. Q&A is many questions per product,
+many answers per question, from many users, visible immediately with reactive
+moderation. Different aggregate shape, different moderation model — the two
+things `OV-006` §7 says must not be silently merged under one domain name.
+
+**Dependencies are read-only, same pattern as Reviews.** Product Q&A reads
+Catalog (product display) and Identity (asker/answerer display) exactly the
+way Reviews already reads both via Prisma relations — an allowed read, not a
+command, so this amendment opens no `ADR-0008` question.
+
+**Confidence unchanged at 91%.** A new context was declared; no existing
+observation about the other fourteen changed.
 
 ## Technology decisions
 

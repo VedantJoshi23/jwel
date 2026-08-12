@@ -191,14 +191,18 @@ model User {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  addresses     Address[]
-  cart          Cart?
-  orders        Order[]
-  wishlist      Wishlist?
-  reviews       Review[]
-  productViews  ProductView[]
-  oauthAccounts OAuthAccount[]
-  auditLogs     AuditLog[]
+  addresses       Address[]
+  cart            Cart?
+  orders          Order[]
+  wishlist        Wishlist?
+  reviews         Review[]
+  questions       Question[]
+  answers         Answer[]
+  questionUpvotes QuestionUpvote[]
+  answerUpvotes   AnswerUpvote[]
+  productViews    ProductView[]
+  oauthAccounts   OAuthAccount[]
+  auditLogs       AuditLog[]
 
   // Reporting: fast "active customers" / cohort queries exclude soft-deleted.
   @@index([role])
@@ -340,6 +344,7 @@ model Product {
   variants         ProductVariant[]
   media            ProductMedia[]
   reviews          Review[]
+  questions        Question[]
   collections      CollectionProduct[]
   views            ProductView[]
   coOccurrencesAsA ProductCoOccurrence[] @relation("CoOccurrenceA")
@@ -751,6 +756,75 @@ model Review {
   // PDP read path: fetch approved reviews for a product, newest first.
   @@index([productId, moderationStatus, createdAt(sort: Desc)])
   @@map("reviews")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// PRODUCT Q&A (DOM-PRODUCT-QA, ADR-0021) — Milestone 10
+// ──────────────────────────────────────────────────────────────────────────
+
+model Question {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  body      String
+  isHidden  Boolean  @default(false) @map("is_hidden")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers Answer[]
+  upvotes QuestionUpvote[]
+
+  // Public per-product read path: newest first.
+  @@index([productId, createdAt(sort: Desc)])
+  @@map("questions")
+}
+
+model Answer {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  body       String
+  isHidden   Boolean  @default(false) @map("is_hidden")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  question Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upvotes  AnswerUpvote[]
+
+  // Thread read path: chronological order under a question.
+  @@index([questionId, createdAt(sort: Asc)])
+  @@map("answers")
+}
+
+model QuestionUpvote {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // DOM-PRODUCT-QA Invariant 5: at most one upvote per user per question.
+  @@unique([questionId, userId])
+  @@map("question_upvotes")
+}
+
+model AnswerUpvote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  answerId  String   @map("answer_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // DOM-PRODUCT-QA Invariant 5: at most one upvote per user per answer.
+  @@unique([answerId, userId])
+  @@map("answer_upvotes")
 }
 
 // ──────────────────────────────────────────────────────────────────────────

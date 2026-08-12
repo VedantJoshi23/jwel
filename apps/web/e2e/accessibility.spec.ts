@@ -152,6 +152,7 @@ test.describe.serial('Accessibility — the admin UI', () => {
     ['the orders list', '/admin/orders'],
     ['the returns queue', '/admin/returns'],
     ['the review moderation queue', '/admin/reviews'],
+    ['the Q&A moderation queue', '/admin/qna'],
     ['the categories page', '/admin/categories'],
     ['the collections page', '/admin/collections'],
     ['the coupons page', '/admin/coupons'],

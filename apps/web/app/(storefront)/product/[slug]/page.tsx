@@ -6,6 +6,7 @@ import { getProductBySlug, getProductReviews, getProducts } from '@/lib/api/prod
 import { RatingStars } from '@/components/product/rating-stars';
 import { ReviewForm } from '@/components/product/review-form';
 import { MyReviewStatus } from '@/components/product/my-review-status';
+import { QnaSection } from '@/components/product/qna-section';
 import { CertificationBadge } from '@/components/product/certification-badge';
 import { AddToCart } from '@/components/product/add-to-cart';
 import { SizeGuide } from '@/components/product/size-guide';
@@ -224,6 +225,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
         )}
 
         <ReviewForm productId={product.id} />
+      </section>
+
+      {/* Q&A — FEAT-PRODUCT-QA. Client-fetched island, not part of this
+          page's server-side Promise.all; see qna-section.tsx for why. */}
+      <section aria-labelledby="qna-heading" className="px-6 py-12 lg:px-8">
+        <h2 id="qna-heading" className="font-display text-2xl font-bold">
+          Questions &amp; Answers
+        </h2>
+        <QnaSection productId={product.id} />
       </section>
 
       {/* Renders nothing; records that this product was viewed. */}
