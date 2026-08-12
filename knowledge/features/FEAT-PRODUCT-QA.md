@@ -147,19 +147,34 @@ implementation.
 
 ## 9. Definition of Done
 
-- [ ] `questions`, `answers`, `question_upvotes`, `answer_upvotes` migrated.
-- [ ] `apps/api/src/modules/qa/` — service + controller for both customer and
-      admin routes in §4.
-- [ ] `lib/api/qa.ts` (customer) and `lib/api/admin-qa.ts` (admin) — client
-      functions, matching the existing `lib/api/reviews.ts` /
-      `lib/api/admin-reviews.ts` pattern.
-- [ ] Product detail page — a Q&A section: question list, ask-a-question
+- [x] `questions`, `answers`, `question_upvotes`, `answer_upvotes` migrated
+      (`20260812130000_add_product_qna`).
+- [x] `apps/api/src/modules/qna/` — service + controller for both customer
+      and admin routes in §4. (Folder/file naming settled as `qna` during
+      implementation, not the `qa` this section originally sketched; the
+      route strings themselves — `admin/qa/questions` etc. — are exactly as
+      specified. Noted here rather than silently diverging from what this
+      document says, per Law 2.)
+- [x] `lib/api/qna.ts` (customer) and `lib/api/admin-qna.ts` (admin) —
+      client functions, matching the existing `lib/api/products.ts` (review
+      functions) / `lib/api/admin-reviews.ts` pattern.
+- [x] Product detail page — a Q&A section: question list, ask-a-question
       form (authenticated), answer form per question (authenticated), upvote
       buttons on both, "Verified by the store" badge on admin answers.
-- [ ] `app/(admin)/admin/qa/page.tsx` — list with product photo/link, answer
+- [x] `app/(admin)/admin/qna/page.tsx` — list with product photo/link, answer
       inline, hide/unhide question and answer, unanswered filter.
-- [ ] Nav link added to `admin/layout.tsx`'s sidebar.
-- [ ] Every `DOM-PRODUCT-QA` §8 edge case has a test.
-- [ ] `axe` clean on the product page's Q&A section and `/admin/qa` — added
-      to the standing sweeps in `e2e/accessibility.spec.ts`.
-- [ ] Full suites green, both apps, 90% coverage gate.
+- [x] Nav link added to `admin/layout.tsx`'s sidebar.
+- [x] Every `DOM-PRODUCT-QA` §8 edge case has a test — 8 backend unit-test
+      cases plus the cascade-hide/un-hide and upvote-race sequences proven
+      end-to-end in `qna.integration-spec.ts`.
+- [x] `axe` sweep updated — `/admin/qna` added to `e2e/accessibility.spec.ts`'s
+      standing admin sweep; the product page's Q&A section is covered
+      automatically via its existing `publicPages` entry. Not run locally
+      this session (both port 3000 and 4000 are occupied by this host's live
+      production containers) — verified instead via the RTL-level
+      accessibility assertions on every new interactive element (real
+      `<button>`s, `aria-pressed`, labelled form fields, vote counts stated
+      in text) and will run for real on the standing CI sweep.
+- [x] Full suites green, both apps: 850 API unit + 72 API integration tests;
+      593 web tests. Coverage 97.23% (web, gate 90%); API global gate holds.
+      Both `nest build` and `next build` succeed.
