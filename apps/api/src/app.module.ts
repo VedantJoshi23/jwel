@@ -19,6 +19,7 @@ import { SizesModule } from './modules/sizes/sizes.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { QnaModule } from './modules/qna/qna.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CartModule } from './modules/cart/cart.module';
@@ -60,6 +61,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     InventoryModule,
     CouponsModule,
     ReviewsModule,
+    QnaModule,
     PaymentsModule,
     OrdersModule,
     CartModule,
