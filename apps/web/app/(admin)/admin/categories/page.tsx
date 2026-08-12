@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminListCategories } from '@/lib/api/admin-products';
 import {
@@ -13,9 +14,6 @@ import {
 } from '@/lib/api/admin-categories';
 import type { Category } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
-
-const selectClassName =
-  'w-full rounded-s border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent';
 
 // A product must belong to a leaf category (see product-form.tsx), so the
 // parent picker offers only categories that could serve as a grouping — any
@@ -166,9 +164,8 @@ export default function AdminCategoriesPage() {
               <label className="mb-1 block text-xs font-medium" htmlFor="cat-parent">
                 Parent (optional)
               </label>
-              <select
+              <Select
                 id="cat-parent"
-                className={selectClassName}
                 value={newParentId}
                 onChange={(e) => setNewParentId(e.target.value)}
               >
@@ -178,7 +175,7 @@ export default function AdminCategoriesPage() {
                     {categoryLabel(c, categories)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
           <Button onClick={handleCreate} loading={busy} disabled={!newName.trim()}>
@@ -199,18 +196,14 @@ export default function AdminCategoriesPage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <Input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Name" />
                     <Input value={editSlug} onChange={(e) => setEditSlug(e.target.value)} placeholder="Slug" />
-                    <select
-                      className={selectClassName}
-                      value={editParentId}
-                      onChange={(e) => setEditParentId(e.target.value)}
-                    >
+                    <Select value={editParentId} onChange={(e) => setEditParentId(e.target.value)}>
                       <option value="">— Top level —</option>
                       {parentOptions(categories, category.id).map((c) => (
                         <option key={c.id} value={c.id}>
                           {categoryLabel(c, categories)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <div className="flex gap-2 sm:col-span-3">
                       <Button size="s" onClick={() => handleSaveEdit(category.id)} loading={busy}>
                         Save

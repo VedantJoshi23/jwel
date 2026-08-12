@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminCreateCoupon, adminDeactivateCoupon, adminListCoupons } from '@/lib/api/admin-coupons';
 import type { Coupon, DiscountType } from '@/lib/api/types';
@@ -90,16 +91,15 @@ export default function AdminCouponsPage() {
               value={form.code}
               onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
             />
-            <select
+            <Select
               aria-label="Discount type"
               value={form.discountType}
               onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value as DiscountType }))}
-              className="h-11 rounded-s border border-border bg-surface px-3 text-sm"
             >
               <option value="PERCENTAGE">Percentage</option>
               <option value="FLAT">Flat (minor units)</option>
               <option value="FIRST_ORDER">First order</option>
-            </select>
+            </Select>
             <Input
               aria-label="Discount value"
               type="number"

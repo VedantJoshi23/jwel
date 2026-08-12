@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminListReturns, adminUpdateReturnStatus } from '@/lib/api/admin-returns';
@@ -106,11 +107,11 @@ export default function AdminReturnsPage() {
         <label htmlFor="return-status-filter" className="sr-only">
           Filter returns by status
         </label>
-        <select
+        <Select
           id="return-status-filter"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as ReturnStatus | '')}
-          className="h-10 rounded-s border border-border bg-surface px-3 text-sm"
+          className="h-10 w-auto"
         >
           <option value="">All statuses</option>
           {(['REQUESTED', 'APPROVED', 'REFUND_PROCESSING', 'REFUNDED', 'REJECTED'] as const).map((s) => (
@@ -118,7 +119,7 @@ export default function AdminReturnsPage() {
               {s}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}

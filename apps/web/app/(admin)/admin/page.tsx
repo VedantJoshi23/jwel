@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
 import { getDashboardSummary } from '@/lib/api/admin-analytics';
 import { formatMinorUnits } from '@/lib/money';
@@ -61,17 +62,17 @@ export default function AdminDashboardPage() {
         <label htmlFor="reporting-window" className="sr-only">
           Reporting window
         </label>
-        <select
+        <Select
           id="reporting-window"
           value={windowDays}
           onChange={(e) => setWindowDays(Number(e.target.value))}
-          className="h-9 rounded-s border border-border bg-surface px-2 text-sm"
+          className="h-9 w-auto"
         >
           <option value={7}>Last 7 days</option>
           <option value={30}>Last 30 days</option>
           <option value={90}>Last 90 days</option>
           <option value={365}>Last year</option>
-        </select>
+        </Select>
       </div>
 
       {error && <p className="text-sm text-feedback-error">{error}</p>}

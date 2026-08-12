@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { Select } from '@/components/ui/select';
 import type { Category, CertificationType, MetalType, Product } from '@/lib/api/types';
 import { resolveCategoryScheme } from '@/lib/size-scheme';
 import { safeGetSizes } from '@/lib/api/sizes';
@@ -19,9 +19,6 @@ function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
-
-const selectClassName =
-  'flex h-11 w-full rounded-s border border-border bg-surface px-3 text-sm text-ink-primary disabled:cursor-not-allowed disabled:opacity-50';
 
 export interface ProductFormValues {
   name: string;
@@ -150,10 +147,9 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
         <label className="mb-1 block text-sm font-medium" htmlFor="pf-category">
           Category
         </label>
-        <select
+        <Select
           id="pf-category"
           required
-          className={cn(selectClassName)}
           value={values.categoryId}
           onChange={(e) => update('categoryId', e.target.value)}
         >
@@ -165,7 +161,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
               {categoryLabel(category, categories)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <div>
@@ -186,9 +182,8 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
         <label className="mb-1 block text-sm font-medium" htmlFor="pf-certification">
           Certification (optional)
         </label>
-        <select
+        <Select
           id="pf-certification"
-          className={cn(selectClassName)}
           value={values.certificationType}
           onChange={(e) => update('certificationType', e.target.value as CertificationType | '')}
         >
@@ -198,7 +193,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
               {type}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       <fieldset className="rounded-s border border-border p-4">
@@ -219,9 +214,8 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
               <label className="mb-1 block text-sm font-medium" htmlFor="pf-metal">
                 Metal
               </label>
-              <select
+              <Select
                 id="pf-metal"
-                className={cn(selectClassName)}
                 value={values.metal}
                 onChange={(e) => update('metal', e.target.value as MetalType)}
               >
@@ -230,7 +224,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
                     {metal}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           {mode === 'create' && (
@@ -250,10 +244,9 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
               <label className="mb-1 block text-sm font-medium" htmlFor="pf-size">
                 Size
               </label>
-              <select
+              <Select
                 id="pf-size"
                 required
-                className={cn(selectClassName)}
                 value={values.size}
                 onChange={(e) => update('size', e.target.value)}
               >
@@ -265,7 +258,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           {mode === 'create' && (

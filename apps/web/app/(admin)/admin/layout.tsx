@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* No `bg-surface-alt` alongside `material-panel`: the utility layer
             would silently outrank the component-layer glass background (same
             fix as the header — see components/layout/header.tsx). */}
-        <aside className="material-panel w-56 shrink-0 border-r border-border px-4 py-6">
+        <aside className="material-panel sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-border px-4 py-6">
           <Link href="/admin" className="mb-6 block font-display text-xl font-bold">
             Jwel Admin
           </Link>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
 import {
   adminCreateCollection,
@@ -15,9 +16,6 @@ import { adminListProducts } from '@/lib/api/admin-products';
 import { ImageUploadField } from '@/components/admin/image-upload-field';
 import type { AdminCollection, CollectionType, Product } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
-
-const selectClassName =
-  'w-full rounded-s border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent';
 
 const COLLECTION_TYPES: { value: CollectionType; label: string }[] = [
   { value: 'SEASONAL', label: 'Seasonal drop' },
@@ -202,9 +200,8 @@ export default function AdminCollectionsPage() {
               <label className="mb-1 block text-xs font-medium" htmlFor="col-type">
                 Type
               </label>
-              <select
+              <Select
                 id="col-type"
-                className={selectClassName}
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CollectionType }))}
               >
@@ -213,7 +210,7 @@ export default function AdminCollectionsPage() {
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium" htmlFor="col-description">
