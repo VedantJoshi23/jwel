@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { SizeOption } from '@/lib/api/types';
 
 /**
@@ -56,7 +56,14 @@ export function SizeFilterDropdown({
   defaultSize?: string;
 }) {
   const detailsRef = useRef<HTMLDetailsElement>(null);
-  const selected = sizeOptions.find((opt) => opt.value === defaultSize);
+  // Tracks only the trigger's own label — the radios themselves stay
+  // uncommitted native inputs (`defaultChecked`), so this does not turn the
+  // form controlled. Without this, the trigger read from `defaultSize` (a
+  // prop that only changes on the next page navigation), so picking a size
+  // closed the panel but left the trigger still showing the old value —
+  // correct after "Apply filters" reloads the page, misleading before it.
+  const [selectedValue, setSelectedValue] = useState(defaultSize);
+  const selected = sizeOptions.find((opt) => opt.value === selectedValue);
 
   return (
     <details ref={detailsRef} className="group relative">
@@ -67,6 +74,13 @@ export function SizeFilterDropdown({
         </span>
       </summary>
       <div
+        // Wider than the trigger on purpose: at the sidebar's own width
+        // (`w-full`, ~180-220px) the grid only fit 3 chips per row. This is
+        // an overlay (`absolute`, above everything at z-20) with nowhere it
+        // needs to respect the sidebar's column — widening it to fit 4
+        // columns comfortably, with room before it would reach the page
+        // edge, costs nothing the sidebar's own width was protecting.
+        //
         // max-h + overflow-y-auto is load-bearing, not decorative: this panel
         // is `absolute`, so it is removed from normal flow and does not grow
         // the page to fit it. Without a cap, a page whose in-flow content
@@ -74,8 +88,9 @@ export function SizeFilterDropdown({
         // the last few sizes genuinely unreachable — there was no more page
         // left to scroll into. Capping the panel's own height and letting it
         // scroll internally is what a native <select>'s listbox does too.
-        className="material-card absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-m border border-border p-3"
-        onChange={() => {
+        className="material-card absolute z-20 mt-2 max-h-72 w-72 overflow-y-auto rounded-m border border-border p-3"
+        onChange={(event) => {
+          setSelectedValue((event.target as HTMLInputElement).value);
           // Single-select: a pick fully determines the filter, so there is
           // nothing left to do inside the panel. `.open = false` is the
           // native way to close a <details> imperatively.

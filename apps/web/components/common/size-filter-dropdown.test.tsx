@@ -8,6 +8,11 @@ const ringSizes: SizeOption[] = Array.from({ length: 21 }, (_, i) => ({
   scheme: 'RING_INDIA',
   value: String(i + 6),
   label: String(i + 6),
+  circumferenceMm: null,
+  diameterMm: null,
+  usEquivalent: null,
+  ukEquivalent: null,
+  isCustom: false,
 }));
 
 describe('SizeFilterDropdown', () => {
@@ -31,6 +36,34 @@ describe('SizeFilterDropdown', () => {
 
     await user.click(screen.getByLabelText('18'));
     expect(details).not.toHaveAttribute('open');
+  });
+
+  it('updates the trigger label immediately on pick, not only after the page reloads', async () => {
+    const user = userEvent.setup();
+    render(<SizeFilterDropdown sizeOptions={ringSizes} />);
+
+    await user.click(screen.getByText('Any size'));
+    await user.click(screen.getByLabelText('18'));
+
+    expect(screen.getByText('18', { selector: 'summary span' })).toBeInTheDocument();
+    expect(screen.queryByText('Any size', { selector: 'summary span' })).not.toBeInTheDocument();
+  });
+
+  it('picking "Any" reverts the trigger back to the "Any size" placeholder', async () => {
+    const user = userEvent.setup();
+    render(<SizeFilterDropdown sizeOptions={ringSizes} defaultSize="18" />);
+
+    await user.click(screen.getByText('18', { selector: 'summary span' }));
+    await user.click(screen.getByLabelText('Any size'));
+
+    expect(screen.getByText('Any size', { selector: 'summary span' })).toBeInTheDocument();
+  });
+
+  it('the panel is wider than the sidebar-width trigger, to fit more columns', () => {
+    render(<SizeFilterDropdown sizeOptions={ringSizes} />);
+    const panel = screen.getByRole('radiogroup').parentElement;
+    expect(panel?.className).toContain('w-72');
+    expect(panel?.className).not.toContain('w-full');
   });
 
   it('the panel caps its own height and scrolls internally, rather than growing the page unboundedly', () => {
