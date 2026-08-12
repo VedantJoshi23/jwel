@@ -27,6 +27,11 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Set by lib/api/client.ts's handleExpiredSession when a 401 on an
+  // authenticated request forces a redirect here — distinguishes "your
+  // session ran out" from "you chose to log in," which otherwise look
+  // identical on this page.
+  const sessionExpired = searchParams.get('sessionExpired') === '1';
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -46,6 +51,11 @@ function LoginForm() {
   return (
     <div className="mx-auto max-w-sm px-6 py-16">
       <h1 className="mb-6 font-display text-3xl font-bold">Log in</h1>
+      {sessionExpired && (
+        <p role="status" className="mb-4 rounded-m border border-border bg-surface-alt px-4 py-3 text-sm text-ink-secondary">
+          Your session ended. Log in again to continue.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="text-sm font-medium">

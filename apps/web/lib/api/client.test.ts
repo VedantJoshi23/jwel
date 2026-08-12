@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiFetch, apiUpload, ApiError } from './client';
+import { useAuthStore } from '../auth-store';
 
 describe('apiFetch', () => {
   beforeEach(() => {
@@ -76,6 +77,75 @@ describe('apiFetch', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
     }
+  });
+});
+
+describe('expired-session handling', () => {
+  let originalLocation: Location;
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+    useAuthStore.getState().setSession('token-1', {
+      id: 'u1',
+      email: 'a@b.com',
+      name: null,
+      role: 'CUSTOMER',
+    });
+    originalLocation = window.location;
+    // jsdom's real `window.location` throws "Not implemented: navigation"
+    // when `.href` is assigned — replaced with a plain mutable object so the
+    // redirect can actually be asserted on, matching how a browser's own
+    // `window.location.href = x` reads back after assignment.
+    Object.defineProperty(window, 'location', {
+      value: { pathname: '/admin', search: '', href: '' },
+      writable: true,
+    });
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    useAuthStore.getState().logout();
+    Object.defineProperty(window, 'location', { value: originalLocation, writable: true });
+  });
+
+  it('a 401 on an authenticated request clears the session and redirects to /login', async () => {
+    (fetch as any).mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 }));
+    await expect(apiFetch('/admin/products', { token: 'token-1' })).rejects.toThrow();
+
+    expect(useAuthStore.getState().token).toBeNull();
+    expect(window.location.href).toContain('/login');
+    expect(window.location.href).toContain('sessionExpired=1');
+  });
+
+  it('preserves where the visitor was, as ?next=, so they land back there after logging in', async () => {
+    window.location.pathname = '/admin/orders';
+    (fetch as any).mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 }));
+    await expect(apiFetch('/admin/orders', { token: 'token-1' })).rejects.toThrow();
+
+    expect(window.location.href).toContain(`next=${encodeURIComponent('/admin/orders')}`);
+  });
+
+  it('a 401 with no token attached is an ordinary anonymous-request refusal, not a session expiry', async () => {
+    (fetch as any).mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 }));
+    await expect(apiFetch('/some/public/route')).rejects.toThrow();
+
+    expect(useAuthStore.getState().token).toBe('token-1');
+    expect(window.location.href).toBe('');
+  });
+
+  it('does not redirect again when already on the login page, avoiding a loop', async () => {
+    window.location.pathname = '/login';
+    (fetch as any).mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 }));
+    await expect(apiFetch('/some/route', { token: 'token-1' })).rejects.toThrow();
+
+    expect(window.location.href).toBe('');
+  });
+
+  it('a non-401 error with a token does not clear the session', async () => {
+    (fetch as any).mockResolvedValue(new Response(JSON.stringify({ message: 'Forbidden' }), { status: 403 }));
+    await expect(apiFetch('/admin/products', { token: 'token-1' })).rejects.toThrow();
+
+    expect(useAuthStore.getState().token).toBe('token-1');
+    expect(window.location.href).toBe('');
   });
 });
 

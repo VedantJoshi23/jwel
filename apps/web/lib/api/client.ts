@@ -1,4 +1,5 @@
 import type { ApiErrorEnvelope } from './types';
+import { useAuthStore } from '../auth-store';
 
 /**
  * An explicit `NEXT_PUBLIC_API_URL` always wins — that's how a real
@@ -33,8 +34,33 @@ interface ApiFetchOptions extends RequestInit {
   revalidate?: number | false;
 }
 
-async function handleResponse<T>(response: Response): Promise<T> {
+/**
+ * A 401 on a request that carried a bearer token means the *session* is no
+ * longer valid — expired (the API issues a flat 12h JWT, no refresh token
+ * exists in this app) or otherwise invalidated server-side — not that this
+ * one endpoint refused the caller. Every authenticated request goes through
+ * `apiFetch`/`apiUpload`, so handling it once here means every page
+ * recovers the same way, rather than each page either not noticing (the
+ * admin shell rendering as if signed in, with each panel independently
+ * failing) or handling it inconsistently.
+ *
+ * A 401 with no token attached is a different, ordinary thing — an
+ * anonymous request the API correctly refused — and must not trigger this.
+ */
+function handleExpiredSession(): void {
+  if (typeof window === 'undefined') return;
+  if (window.location.pathname.startsWith('/login')) return;
+  useAuthStore.getState().logout();
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?next=${next}&sessionExpired=1`;
+}
+
+async function handleResponse<T>(response: Response, hadToken: boolean): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401 && hadToken) {
+      handleExpiredSession();
+    }
+
     let envelope: ApiErrorEnvelope | undefined;
     try {
       envelope = await response.json();
@@ -67,7 +93,7 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
     ...(revalidate !== undefined ? { next: { revalidate } } : {}),
   });
 
-  return handleResponse<T>(response);
+  return handleResponse<T>(response, Boolean(token));
 }
 
 /**
@@ -83,5 +109,5 @@ export async function apiUpload<T>(path: string, formData: FormData, token?: str
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,
   });
-  return handleResponse<T>(response);
+  return handleResponse<T>(response, Boolean(token));
 }

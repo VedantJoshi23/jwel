@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { AdminGuard } from '@/components/admin/admin-guard';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -22,6 +25,7 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <AdminGuard>
@@ -32,7 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* No `bg-surface-alt` alongside `material-panel`: the utility layer
             would silently outrank the component-layer glass background (same
             fix as the header — see components/layout/header.tsx). */}
-        <aside className="material-panel sticky top-0 h-screen w-56 shrink-0 overflow-y-auto border-r border-border px-4 py-6">
+        <aside className="material-panel sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto border-r border-border px-4 py-6">
           <Link href="/admin" className="mb-6 block font-display text-xl font-bold">
             Jwel Admin
           </Link>
@@ -65,6 +69,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               );
             })}
           </nav>
+          {/* `mt-auto` pins this to the sidebar's bottom regardless of how
+              short the nav list is — there was previously no way to leave
+              the admin section at all short of clearing localStorage by
+              hand, found investigating a report of a stuck "unauthorized"
+              admin session with no visible way back to /login. */}
+          <div className="mt-auto pt-4">
+            <Button variant="secondary" size="s" className="w-full" onClick={logout}>
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              Log out
+            </Button>
+          </div>
         </aside>
         {/* id here, not on a wrapper: this is now the page's only <main>. It
             used to be nested inside SiteChrome's, which is invalid HTML and
