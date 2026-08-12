@@ -47,7 +47,7 @@ export function SiteFooter() {
               {brand.footer.newsletterSubtext}
             </p>
           */}
-          <div className="w-fit border-[1.5px] border-footer-divider px-4 py-3 font-display text-sm font-bold tracking-logo">
+          <div className="w-fit rounded-full border-[1.5px] border-footer-divider px-4 py-3 font-display text-sm font-bold tracking-logo">
             {brand.name}
           </div>
           {/* Social icon placeholders */}

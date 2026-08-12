@@ -98,7 +98,10 @@ export function ImageUploadField({
         accept="image/jpeg,image/png,image/webp"
         disabled={disabled || uploading || !token}
         onChange={(e) => handleFile(e.target.files?.[0])}
-        className="block w-full text-sm file:mr-3 file:rounded-s file:border-0 file:bg-brand-primary file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+        // `file:rounded-s` (10px) read as visually "off" next to every other
+        // button in the app, which is `rounded-full` per ADR-0019's baseline
+        // pill shape — the one native-styled control left behind that update.
+        className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-brand-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
       />
 
       <div className="mt-1 flex items-center gap-3">

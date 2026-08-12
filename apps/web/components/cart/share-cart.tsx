@@ -72,7 +72,7 @@ export function ShareCart({ lines }: { lines: CartLine[] }) {
   }
 
   return (
-    <div className="w-full border border-border p-4">
+    <div className="material-card w-full rounded-m border border-border p-4">
       <p className="text-sm text-ink-secondary">
         Anyone with this link sees these pieces at today’s prices. It does not show them who you
         are, and they cannot change your bag.

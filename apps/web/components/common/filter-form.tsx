@@ -1,5 +1,6 @@
 import { brand } from '@/lib/brand';
 import { Button } from '@/components/ui/button';
+import { SizeFilterDropdown } from './size-filter-dropdown';
 import type { SizeOption } from '@/lib/api/types';
 
 const SORT_OPTIONS = [
@@ -8,43 +9,6 @@ const SORT_OPTIONS = [
   { value: 'price_desc', label: 'Price: high to low' },
   { value: 'popularity', label: 'Popularity' },
 ];
-
-/**
- * Ring/chain/bracelet size is a small ordered numeric range, not a handful
- * of named things to compare — `CheckmarkOption`'s stacked-checkbox layout
- * (right for Metal's ~6 options) turned 21 Indian ring sizes into a list
- * taller than the rest of the page. A wrapped grid of pill chips is the
- * standard treatment for this data shape (Tiffany, Blue Nile, etc.) and
- * matches the pill aesthetic already used for buttons/badges elsewhere.
- * Still a native `<input type="radio">` under the hood — only the visual
- * treatment changes, not the single-select semantics.
- */
-function SizeChip({
-  name,
-  value,
-  label,
-  checked,
-  srSuffix,
-}: {
-  name: string;
-  value: string;
-  label: string;
-  checked: boolean;
-  /** Appended to the accessible name only — keeps "Any" compact on screen while announcing "Any size". */
-  srSuffix?: string;
-}) {
-  return (
-    <label className="cursor-pointer">
-      <input type="radio" name={name} value={value} defaultChecked={checked} className="peer sr-only" />
-      <span
-        className="material-raised flex h-9 min-w-[2.25rem] items-center justify-center rounded-full border border-border-warm px-2.5 text-xs font-medium text-ink-secondary transition-colors peer-checked:border-brand-ink peer-checked:bg-brand-primary peer-checked:text-white"
-      >
-        {label}
-        {srSuffix && <span className="sr-only"> {srSuffix}</span>}
-      </span>
-    </label>
-  );
-}
 
 function CheckmarkOption({
   name,
@@ -102,15 +66,14 @@ export function FilterForm({
   defaultSize?: string;
 }) {
   const metalSection = brand.filterSections.find((s) => s.key === 'metal');
-  const selectedSizeOption = sizeOptions.find((opt) => opt.value === defaultSize);
 
   return (
     <form method="get" action={basePath} className="divide-y divide-border" aria-label="Filter products">
       {/* Price */}
       <div className="pb-7">
         <p className="mb-4 text-sm font-semibold">Price</p>
-        <div className="flex items-center gap-3">
-          <label className="material-raised flex flex-1 items-center gap-1.5 rounded-full border border-border-warm bg-surface px-4 py-2">
+        <div className="flex items-center gap-2">
+          <label className="material-raised flex flex-1 items-center gap-1 rounded-full border border-border-warm bg-surface px-3 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -133,7 +96,7 @@ export function FilterForm({
           <span className="text-ink-muted" aria-hidden="true">
             –
           </span>
-          <label className="material-raised flex flex-1 items-center gap-1.5 rounded-full border border-border-warm bg-surface px-4 py-2">
+          <label className="material-raised flex flex-1 items-center gap-1 rounded-full border border-border-warm bg-surface px-3 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -169,39 +132,13 @@ export function FilterForm({
         </div>
       )}
 
-      {/* Size — only for categories that have a sizing scheme. A dropdown
-          rather than the always-open chip grid: `<details>` is the same
-          no-JS-required disclosure pattern the FAQ page and this form's own
-          mobile filter panel already use, so the trigger works without
-          relying on client-side state — only its own native open/close
-          behaviour, which needs none. */}
+      {/* Size — only for categories that have a sizing scheme. */}
       {sizeOptions.length > 0 && (
         <div className="py-7">
           <p className="mb-4 text-sm font-semibold" id="size-filter-label">
             Size
           </p>
-          <details className="group relative">
-            <summary className="material-raised flex h-11 w-full cursor-pointer list-none items-center justify-between rounded-full border border-border-warm bg-surface px-4 text-sm text-ink-primary marker:content-none">
-              <span>{selectedSizeOption ? selectedSizeOption.label : 'Any size'}</span>
-              <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">
-                ▾
-              </span>
-            </summary>
-            <div className="material-card absolute z-20 mt-2 w-full rounded-m border border-border p-3">
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="size-filter-label">
-                <SizeChip name="size" value="" label="Any" srSuffix="size" checked={!defaultSize} />
-                {sizeOptions.map((opt) => (
-                  <SizeChip
-                    key={opt.value}
-                    name="size"
-                    value={opt.value}
-                    label={opt.label}
-                    checked={defaultSize === opt.value}
-                  />
-                ))}
-              </div>
-            </div>
-          </details>
+          <SizeFilterDropdown sizeOptions={sizeOptions} defaultSize={defaultSize} />
         </div>
       )}
 
