@@ -133,95 +133,146 @@ export default function AdminCouponsPage() {
         <CardContent>
           <h2 className="mb-4 font-display text-lg font-bold">Create campaign</h2>
           {/*
-            Every field carries an accessible name. This row relied on
-            placeholders, and the two date inputs had not even that — a
-            placeholder is not a label (it disappears on focus and is not
-            announced as one), and a bare date input announces as nothing at
-            all. Rated critical by axe; found by e2e/accessibility.spec.ts
-            once the admin UI came under scan.
+            Every field carries a real, visible <label> — not just an
+            aria-label. Relying on placeholder/aria-label alone was two
+            problems, not one: axe rated the two bare date inputs critical
+            (a placeholder is not a label — it disappears on focus and isn't
+            announced as one), and with no visible label at all, hint text
+            like "(optional)" or "(default 1)" had nowhere to live but
+            inside the placeholder itself, competing with the actual input
+            for a few dozen pixels of a pill-shaped number field until it
+            clipped. Labels above each field, hints below it, one uniform
+            grid instead of two mismatched ones — this is what the rest of
+            the admin's forms already do (see admin/categories).
           */}
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-              <Input
-                aria-label="Coupon code"
-                placeholder="CODE"
-                required
-                value={form.code}
-                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-              />
-              <Select
-                aria-label="Discount type"
-                value={form.discountType}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, discountType: e.target.value as DiscountType, value: '' }))
-                }
-              >
-                <option value="PERCENTAGE">Percentage</option>
-                <option value="FLAT">Flat amount</option>
-                <option value="FIRST_ORDER">First order</option>
-              </Select>
-              <Input
-                aria-label={isFlat ? 'Discount amount in rupees' : 'Discount percentage'}
-                type="number"
-                min={0}
-                step={isFlat ? '0.01' : '1'}
-                placeholder={isFlat ? 'Amount (₹)' : 'Percent (0-100)'}
-                required
-                value={form.value}
-                onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
-              />
-              <Input
-                aria-label="Valid from"
-                type="date"
-                required
-                value={form.validFrom}
-                onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
-              />
-              <Input
-                aria-label="Valid to"
-                type="date"
-                required
-                value={form.validTo}
-                onChange={(e) => setForm((f) => ({ ...f, validTo: e.target.value }))}
-              />
+          <form onSubmit={handleCreate} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-code">
+                  Coupon code
+                </label>
+                <Input
+                  id="coupon-code"
+                  placeholder="SHINE10"
+                  required
+                  value={form.code}
+                  onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-type">
+                  Discount type
+                </label>
+                <Select
+                  id="coupon-type"
+                  value={form.discountType}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, discountType: e.target.value as DiscountType, value: '' }))
+                  }
+                >
+                  <option value="PERCENTAGE">Percentage</option>
+                  <option value="FLAT">Flat amount</option>
+                  <option value="FIRST_ORDER">First order</option>
+                </Select>
+              </div>
+              <div>
+                {/* The visible label *is* the accessible name here (no
+                    separate aria-label) — a label that says one thing while
+                    a screen reader announces another is its own bug (WCAG
+                    2.5.3, Label in Name), which briefly existed in an
+                    earlier pass of this fix before landing on this. */}
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-value">
+                  {isFlat ? 'Discount amount in rupees' : 'Discount percentage'}
+                </label>
+                <Input
+                  id="coupon-value"
+                  type="number"
+                  min={0}
+                  step={isFlat ? '0.01' : '1'}
+                  required
+                  value={form.value}
+                  onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-valid-from">
+                  Valid from
+                </label>
+                <Input
+                  id="coupon-valid-from"
+                  type="date"
+                  required
+                  value={form.validFrom}
+                  onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-valid-to">
+                  Valid to
+                </label>
+                <Input
+                  id="coupon-valid-to"
+                  type="date"
+                  required
+                  value={form.validTo}
+                  onChange={(e) => setForm((f) => ({ ...f, validTo: e.target.value }))}
+                />
+              </div>
             </div>
 
             {/* Optional limits — CreateCouponDto has always accepted these;
                 they just had no field to type them into, so every coupon
                 made through this form silently got maxRedemptionsPerUser's
                 API default (1) and no min-order or total-redemption cap. */}
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <Input
-                aria-label="Minimum order amount in rupees (optional)"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="Min order (₹, optional)"
-                value={form.minOrderAmount}
-                onChange={(e) => setForm((f) => ({ ...f, minOrderAmount: e.target.value }))}
-              />
-              <Input
-                aria-label="Maximum total redemptions (optional)"
-                type="number"
-                min={1}
-                step="1"
-                placeholder="Max total uses (optional)"
-                value={form.maxRedemptions}
-                onChange={(e) => setForm((f) => ({ ...f, maxRedemptions: e.target.value }))}
-              />
-              <Input
-                aria-label="Maximum redemptions per customer (optional, defaults to 1)"
-                type="number"
-                min={1}
-                step="1"
-                placeholder="Max uses per customer (default 1)"
-                value={form.maxRedemptionsPerUser}
-                onChange={(e) => setForm((f) => ({ ...f, maxRedemptionsPerUser: e.target.value }))}
-              />
-              <Button type="submit" loading={creating}>
-                Create
-              </Button>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-min-order">
+                  Min order (₹) <span className="text-ink-muted">— optional</span>
+                </label>
+                <Input
+                  id="coupon-min-order"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.minOrderAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, minOrderAmount: e.target.value }))}
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-max-uses">
+                  Max total uses <span className="text-ink-muted">— optional</span>
+                </label>
+                <Input
+                  id="coupon-max-uses"
+                  type="number"
+                  min={1}
+                  step="1"
+                  value={form.maxRedemptions}
+                  onChange={(e) => setForm((f) => ({ ...f, maxRedemptions: e.target.value }))}
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium" htmlFor="coupon-max-uses-per-customer">
+                  Max uses / customer <span className="text-ink-muted">— default 1</span>
+                </label>
+                <Input
+                  id="coupon-max-uses-per-customer"
+                  type="number"
+                  min={1}
+                  step="1"
+                  value={form.maxRedemptionsPerUser}
+                  onChange={(e) => setForm((f) => ({ ...f, maxRedemptionsPerUser: e.target.value }))}
+                  className="[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+              </div>
             </div>
+
+            <Button type="submit" loading={creating}>
+              Create coupon
+            </Button>
           </form>
         </CardContent>
       </Card>

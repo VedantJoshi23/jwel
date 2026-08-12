@@ -28,37 +28,26 @@ export interface SizeOptionSeed {
 /**
  * Indian ring sizes, the numeric scale used across the Indian market.
  *
- * Range is 6–26, not the 1–37 published charts carry. Below 6 and above 26 is
- * outside normal adult retail, and seeding them would hand the client a
- * selector of mostly unstockable options. This is a seed decision, not a
- * physical constraint — extending the range is a row, not a migration
- * (FEAT-SIZE-TAXONOMY §6).
+ * Range is 10–15, not the fuller 6–26 this was originally seeded with —
+ * owner decision, confirmed with the client: this catalogue's actual ring
+ * stock clusters at 10–12 (11 most common, per the size guide notes below),
+ * and the wider range was mostly unstockable options cluttering the
+ * selector. Narrowing this list is a data decision, not a physical
+ * constraint — re-widening it later is rows, not a migration
+ * (FEAT-SIZE-TAXONOMY §6). The removed sizes' measurements are not lost,
+ * only no longer offered — see git history for the full 6–26 table if they
+ * are needed again.
  *
  * For reference when writing the size guide: women's sizes cluster at 10–12
- * (11 most common), men's at 17–20.
+ * (11 most common).
  */
 const RING_INDIA: SizeOptionSeed[] = [
-  { value: '6', diameterMm: '14.68', circumferenceMm: '46.10', usEquivalent: '3', ukEquivalent: 'F' },
-  { value: '7', diameterMm: '15.09', circumferenceMm: '47.40', usEquivalent: '3.5', ukEquivalent: 'G½' },
-  { value: '8', diameterMm: '15.29', circumferenceMm: '48.00', usEquivalent: '4', ukEquivalent: 'H½' },
-  { value: '9', diameterMm: '15.49', circumferenceMm: '48.70', usEquivalent: '4.5', ukEquivalent: 'I½' },
   { value: '10', diameterMm: '15.90', circumferenceMm: '50.00', usEquivalent: '5', ukEquivalent: 'J½' },
   { value: '11', diameterMm: '16.31', circumferenceMm: '51.20', usEquivalent: '5.5', ukEquivalent: 'L' },
   { value: '12', diameterMm: '16.51', circumferenceMm: '51.90', usEquivalent: '6', ukEquivalent: 'L½' },
   { value: '13', diameterMm: '16.92', circumferenceMm: '53.10', usEquivalent: '6.5', ukEquivalent: 'M½' },
   { value: '14', diameterMm: '17.32', circumferenceMm: '54.40', usEquivalent: '7', ukEquivalent: 'N½' },
   { value: '15', diameterMm: '17.53', circumferenceMm: '55.10', usEquivalent: '7.5', ukEquivalent: 'O½' },
-  { value: '16', diameterMm: '17.93', circumferenceMm: '56.30', usEquivalent: '8', ukEquivalent: 'P½' },
-  { value: '17', diameterMm: '18.14', circumferenceMm: '57.00', usEquivalent: '8.5', ukEquivalent: 'Q½' },
-  { value: '18', diameterMm: '18.54', circumferenceMm: '58.30', usEquivalent: '9', ukEquivalent: 'R½' },
-  { value: '19', diameterMm: '18.75', circumferenceMm: '58.90', usEquivalent: '9.5', ukEquivalent: 'S½' },
-  { value: '20', diameterMm: '19.15', circumferenceMm: '60.20', usEquivalent: '10', ukEquivalent: 'T½' },
-  { value: '21', diameterMm: '19.35', circumferenceMm: '60.80', usEquivalent: '10.5', ukEquivalent: 'U½' },
-  { value: '22', diameterMm: '19.76', circumferenceMm: '62.10', usEquivalent: '11', ukEquivalent: 'V½' },
-  { value: '23', diameterMm: '19.96', circumferenceMm: '62.70', usEquivalent: '11.5', ukEquivalent: 'W½' },
-  { value: '24', diameterMm: '20.37', circumferenceMm: '64.00', usEquivalent: '12', ukEquivalent: 'Y' },
-  { value: '25', diameterMm: '20.57', circumferenceMm: '64.60', usEquivalent: '12.5', ukEquivalent: 'Z' },
-  { value: '26', diameterMm: '20.98', circumferenceMm: '65.90', usEquivalent: '13', ukEquivalent: 'Z+1' },
 ].map((row, i) => ({
   scheme: SizeScheme.RING_INDIA,
   label: row.value,

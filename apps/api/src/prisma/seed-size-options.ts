@@ -43,6 +43,32 @@ export async function seedSizeOptions(prisma: PrismaClient): Promise<void> {
       create: { scheme, value, ...rest },
     });
   }
+  await pruneRemovedCuratedOptions(prisma);
+}
+
+/**
+ * Removes a curated row that used to be in `SIZE_OPTION_SEED` and no longer
+ * is — e.g. the ring range narrowing from 6–26 down to 10–15. Without this,
+ * upsert-only seeding is additive forever: editing this file to shrink a
+ * range would silently do nothing to an already-seeded database, and the
+ * removed sizes would keep appearing in the storefront filter and the admin
+ * product form.
+ *
+ * Scoped to `isCustom: false` only. A custom row was recovered from real
+ * legacy product data (a ring genuinely made at 16.5, `normalise-variant-
+ * sizes.ts`), not authored by this seed, and this pass has no authority to
+ * delete it — see `SizeOption.isCustom`'s own model comment.
+ */
+async function pruneRemovedCuratedOptions(prisma: PrismaClient): Promise<void> {
+  const schemes = [...new Set(SIZE_OPTION_SEED.map((option) => option.scheme))];
+  for (const scheme of schemes) {
+    const keepValues = SIZE_OPTION_SEED.filter((option) => option.scheme === scheme).map(
+      (option) => option.value,
+    );
+    await prisma.sizeOption.deleteMany({
+      where: { scheme, isCustom: false, value: { notIn: keepValues } },
+    });
+  }
 }
 
 export async function assignCategorySchemes(prisma: PrismaClient): Promise<void> {

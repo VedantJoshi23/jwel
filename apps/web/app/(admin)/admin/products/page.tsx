@@ -175,7 +175,7 @@ function AdminProductsPageInner() {
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -192,23 +192,43 @@ function AdminProductsPageInner() {
                     <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Link href={`/admin/products/${product.id}`} className="text-sm text-ink-secondary underline">
-                        Photos ({product.media.length})
-                      </Link>
-                      <Link href={`/admin/products/${product.id}/edit`} className="text-sm text-ink-secondary underline">
-                        Edit
-                      </Link>
-                      {product.status === 'DRAFT' && (
-                        <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'PUBLISHED')}>
-                          Publish
-                        </Button>
-                      )}
-                      {product.status === 'PUBLISHED' && (
-                        <Button size="s" variant="secondary" onClick={() => handleStatusChange(product, 'ARCHIVED')}>
-                          Archive
-                        </Button>
-                      )}
+                    <div className="flex items-center justify-end gap-4">
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/admin/products/${product.id}`}
+                          className="text-sm text-ink-secondary underline-offset-2 hover:underline"
+                        >
+                          Photos ({product.media.length})
+                        </Link>
+                        <Link
+                          href={`/admin/products/${product.id}/edit`}
+                          className="text-sm text-ink-secondary underline-offset-2 hover:underline"
+                        >
+                          Edit
+                        </Link>
+                      </div>
+                      <div className="w-[92px] shrink-0 border-l border-border pl-4">
+                        {product.status === 'DRAFT' && (
+                          <Button
+                            size="s"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => handleStatusChange(product, 'PUBLISHED')}
+                          >
+                            Publish
+                          </Button>
+                        )}
+                        {product.status === 'PUBLISHED' && (
+                          <Button
+                            size="s"
+                            variant="secondary"
+                            className="w-full"
+                            onClick={() => handleStatusChange(product, 'ARCHIVED')}
+                          >
+                            Archive
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

@@ -88,7 +88,7 @@ describe('AdminCouponsPage', () => {
     await fillRequired(screen.getByLabelText);
     fireEvent.change(screen.getByLabelText('Discount type'), { target: { value: 'FLAT' } });
     fireEvent.change(screen.getByLabelText('Discount amount in rupees'), { target: { value: '250' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create coupon' }));
 
     await waitFor(() => expect(createCoupon).toHaveBeenCalled());
     expect(createCoupon.mock.calls[0][1]).toMatchObject({ value: 25000 });
@@ -99,7 +99,7 @@ describe('AdminCouponsPage', () => {
     render(<AdminCouponsPage />);
     await fillRequired(screen.getByLabelText);
     fireEvent.change(screen.getByLabelText('Discount percentage'), { target: { value: '15' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create coupon' }));
 
     await waitFor(() => expect(createCoupon).toHaveBeenCalled());
     expect(createCoupon.mock.calls[0][1]).toMatchObject({ value: 15 });
@@ -109,7 +109,7 @@ describe('AdminCouponsPage', () => {
     render(<AdminCouponsPage />);
     await fillRequired(screen.getByLabelText);
     fireEvent.change(screen.getByLabelText('Discount percentage'), { target: { value: '150' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create coupon' }));
 
     expect(await screen.findByText(/between 0 and 100/)).toBeInTheDocument();
     expect(createCoupon).not.toHaveBeenCalled();
@@ -120,7 +120,7 @@ describe('AdminCouponsPage', () => {
     render(<AdminCouponsPage />);
     await fillRequired(screen.getByLabelText);
     fireEvent.change(screen.getByLabelText('Discount percentage'), { target: { value: '10' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create coupon' }));
 
     await waitFor(() => expect(createCoupon).toHaveBeenCalled());
     expect(createCoupon.mock.calls[0][1]).toMatchObject({
@@ -135,10 +135,10 @@ describe('AdminCouponsPage', () => {
     render(<AdminCouponsPage />);
     await fillRequired(screen.getByLabelText);
     fireEvent.change(screen.getByLabelText('Discount percentage'), { target: { value: '10' } });
-    fireEvent.change(screen.getByLabelText('Minimum order amount in rupees (optional)'), {
+    fireEvent.change(screen.getByLabelText('Min order (₹) — optional'), {
       target: { value: '750' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create coupon' }));
 
     await waitFor(() => expect(createCoupon).toHaveBeenCalled());
     expect(createCoupon.mock.calls[0][1]).toMatchObject({ minOrderAmountMinorUnits: 75000 });
