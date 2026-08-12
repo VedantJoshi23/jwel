@@ -427,6 +427,7 @@ export class ProductsService {
     if (dto.parentId !== undefined) {
       data.parent = dto.parentId === null ? { disconnect: true } : { connect: { id: dto.parentId } };
     }
+    if (dto.sizeScheme !== undefined) data.sizeScheme = dto.sizeScheme;
 
     try {
       return await this.prisma.category.update({ where: { id }, data });

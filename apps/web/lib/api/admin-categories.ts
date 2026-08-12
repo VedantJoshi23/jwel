@@ -1,5 +1,5 @@
 import { apiFetch } from './client';
-import type { Category } from './types';
+import type { Category, SizeScheme } from './types';
 
 export interface CreateCategoryInput {
   name: string;
@@ -8,7 +8,10 @@ export interface CreateCategoryInput {
   sortOrder?: number;
 }
 
-export type UpdateCategoryInput = Partial<CreateCategoryInput>;
+export type UpdateCategoryInput = Partial<CreateCategoryInput> & {
+  /** `null` reverts to "inherit from parent"; omit to leave untouched. */
+  sizeScheme?: SizeScheme | null;
+};
 
 export function adminCreateCategory(token: string, input: CreateCategoryInput) {
   return apiFetch<Category>('/admin/categories', {

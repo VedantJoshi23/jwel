@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from 'class-validator';
+import { SizeScheme } from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from 'class-validator';
 
 export class UpdateCategoryDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1) name?: string;
@@ -16,4 +17,14 @@ export class UpdateCategoryDto {
   parentId?: string | null;
 
   @ApiPropertyOptional() @IsOptional() @IsInt() sortOrder?: number;
+
+  // `null` explicitly reverts to "inherit from parent" (schema.prisma's own
+  // documented meaning of a NULL sizeScheme); `undefined` leaves it
+  // untouched. `NONE` is the distinct "this category has no size dimension"
+  // value (e.g. Earrings) — see FEAT-SIZE-TAXONOMY.
+  @ApiPropertyOptional({ enum: SizeScheme, nullable: true })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsEnum(SizeScheme)
+  sizeScheme?: SizeScheme | null;
 }

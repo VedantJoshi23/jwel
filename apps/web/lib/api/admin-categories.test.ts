@@ -42,6 +42,18 @@ describe('admin-categories API', () => {
     expect(JSON.parse(options.body)).toEqual({ sortOrder: 3 });
   });
 
+  it('adminUpdateCategory forwards a sizeScheme change', async () => {
+    await adminUpdateCategory('token-1', 'c1', { sizeScheme: 'RING_INDIA' });
+    const [, options] = (fetch as any).mock.calls[0];
+    expect(JSON.parse(options.body)).toEqual({ sizeScheme: 'RING_INDIA' });
+  });
+
+  it('adminUpdateCategory forwards a null sizeScheme to revert to "inherit from parent"', async () => {
+    await adminUpdateCategory('token-1', 'c1', { sizeScheme: null });
+    const [, options] = (fetch as any).mock.calls[0];
+    expect(JSON.parse(options.body)).toEqual({ sizeScheme: null });
+  });
+
   it('adminDeleteCategory DELETEs the category', async () => {
     await adminDeleteCategory('token-1', 'c1');
     const [url, options] = (fetch as any).mock.calls[0];

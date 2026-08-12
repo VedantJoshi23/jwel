@@ -479,6 +479,27 @@ describe('ProductsService', () => {
       await expect(service.updateCategory('c1', { slug: '!!!' })).rejects.toThrow(BadRequestException);
     });
 
+    it('sets sizeScheme — this is what makes the storefront size filter appear', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.updateCategory('c1', { sizeScheme: 'RING_INDIA' as any });
+      expect(prisma.category.update.mock.calls[0][0].data).toEqual({ sizeScheme: 'RING_INDIA' });
+    });
+
+    it('reverts sizeScheme to "inherit from parent" when explicitly set to null', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.updateCategory('c1', { sizeScheme: null });
+      expect(prisma.category.update.mock.calls[0][0].data).toEqual({ sizeScheme: null });
+    });
+
+    it('leaves sizeScheme untouched when the field is absent from the request', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1' });
+      prisma.category.update.mockResolvedValue({ id: 'c1' });
+      await service.updateCategory('c1', { name: 'New' });
+      expect(prisma.category.update.mock.calls[0][0].data).not.toHaveProperty('sizeScheme');
+    });
+
     // Renaming into the collision is the same defect as creating into it, and
     // is the easier one to hit — the category already exists and works.
     it('refuses renaming a category onto a slug a collection holds', async () => {

@@ -12,8 +12,22 @@ import {
   adminDeleteCategory,
   adminUpdateCategory,
 } from '@/lib/api/admin-categories';
-import type { Category } from '@/lib/api/types';
+import type { Category, SizeScheme } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+
+// FEAT-SIZE-TAXONOMY. The storefront's size filter only ever appears for a
+// category whose scheme is set — before this control existed, that could
+// only be done with a direct database edit (found investigating why the
+// live Rings category showed no size filter despite the feature having
+// shipped: its sizeScheme had simply never been assigned, and there was no
+// way to assign it).
+const SIZE_SCHEME_OPTIONS: { value: SizeScheme; label: string }[] = [
+  { value: 'NONE', label: 'No sizing (e.g. earrings)' },
+  { value: 'RING_INDIA', label: 'Ring size (India)' },
+  { value: 'BANGLE_INDIA', label: 'Bangle size (India)' },
+  { value: 'CHAIN_LENGTH_MM', label: 'Chain length (mm)' },
+  { value: 'BRACELET_LENGTH_MM', label: 'Bracelet length (mm)' },
+];
 
 // A product must belong to a leaf category (see product-form.tsx), so the
 // parent picker offers only categories that could serve as a grouping — any
@@ -45,6 +59,7 @@ export default function AdminCategoriesPage() {
   const [editName, setEditName] = useState('');
   const [editSlug, setEditSlug] = useState('');
   const [editParentId, setEditParentId] = useState('');
+  const [editSizeScheme, setEditSizeScheme] = useState<SizeScheme | ''>('');
 
   const load = useCallback(() => {
     if (!token) return;
@@ -81,6 +96,7 @@ export default function AdminCategoriesPage() {
     setEditName(category.name);
     setEditSlug(category.slug);
     setEditParentId(category.parentId ?? '');
+    setEditSizeScheme(category.sizeScheme ?? '');
     setError('');
   }
 
@@ -93,6 +109,7 @@ export default function AdminCategoriesPage() {
         name: editName.trim(),
         slug: editSlug.trim() || undefined,
         parentId: editParentId || null,
+        sizeScheme: editSizeScheme || null,
       });
       setEditingId(null);
       load();
@@ -204,6 +221,27 @@ export default function AdminCategoriesPage() {
                         </option>
                       ))}
                     </Select>
+                    <div className="sm:col-span-3">
+                      <label className="mb-1 block text-xs font-medium" htmlFor={`cat-size-scheme-${category.id}`}>
+                        Size scheme
+                      </label>
+                      <Select
+                        id={`cat-size-scheme-${category.id}`}
+                        value={editSizeScheme}
+                        onChange={(e) => setEditSizeScheme(e.target.value as SizeScheme | '')}
+                        className="w-auto"
+                      >
+                        <option value="">— Inherit from parent —</option>
+                        {SIZE_SCHEME_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        Controls whether — and which — size filter appears on this category's storefront page.
+                      </p>
+                    </div>
                     <div className="flex gap-2 sm:col-span-3">
                       <Button size="s" onClick={() => handleSaveEdit(category.id)} loading={busy}>
                         Save
@@ -217,7 +255,13 @@ export default function AdminCategoriesPage() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-medium">{categoryLabel(category, categories)}</p>
-                      <p className="text-xs text-ink-secondary">/{category.slug}</p>
+                      <p className="text-xs text-ink-secondary">
+                        /{category.slug} ·{' '}
+                        {category.sizeScheme
+                          ? SIZE_SCHEME_OPTIONS.find((o) => o.value === category.sizeScheme)?.label ??
+                            category.sizeScheme
+                          : 'No size scheme set'}
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button size="s" variant="secondary" onClick={() => startEdit(category)}>

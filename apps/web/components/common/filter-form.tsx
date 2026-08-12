@@ -83,7 +83,13 @@ export function FilterForm({
               min={0}
               placeholder="Min"
               defaultValue={defaultPriceMin}
-              className="w-full bg-transparent text-sm text-ink-primary outline-none"
+              // The sidebar column is only 200-220px wide, and Chrome/Safari's
+              // native up/down spin buttons were eating enough of that
+              // already-tight pill that only "M" of "Min" stayed visible.
+              // `appearance-none` on the input itself is the standard (Firefox)
+              // way to drop them; the two ::-webkit-*-spin-button rules are
+              // needed on top for Chrome/Safari, which ignore the bare property.
+              className="w-full min-w-0 bg-transparent text-sm text-ink-primary outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           </label>
           <span className="text-ink-muted" aria-hidden="true">
@@ -100,7 +106,7 @@ export function FilterForm({
               min={0}
               placeholder="Max"
               defaultValue={defaultPriceMax}
-              className="w-full bg-transparent text-sm text-ink-primary outline-none"
+              className="w-full min-w-0 bg-transparent text-sm text-ink-primary outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
           </label>
         </div>
