@@ -9,6 +9,43 @@ const SORT_OPTIONS = [
   { value: 'popularity', label: 'Popularity' },
 ];
 
+/**
+ * Ring/chain/bracelet size is a small ordered numeric range, not a handful
+ * of named things to compare — `CheckmarkOption`'s stacked-checkbox layout
+ * (right for Metal's ~6 options) turned 21 Indian ring sizes into a list
+ * taller than the rest of the page. A wrapped grid of pill chips is the
+ * standard treatment for this data shape (Tiffany, Blue Nile, etc.) and
+ * matches the pill aesthetic already used for buttons/badges elsewhere.
+ * Still a native `<input type="radio">` under the hood — only the visual
+ * treatment changes, not the single-select semantics.
+ */
+function SizeChip({
+  name,
+  value,
+  label,
+  checked,
+  srSuffix,
+}: {
+  name: string;
+  value: string;
+  label: string;
+  checked: boolean;
+  /** Appended to the accessible name only — keeps "Any" compact on screen while announcing "Any size". */
+  srSuffix?: string;
+}) {
+  return (
+    <label className="cursor-pointer">
+      <input type="radio" name={name} value={value} defaultChecked={checked} className="peer sr-only" />
+      <span
+        className="material-raised flex h-9 min-w-[2.25rem] items-center justify-center rounded-full border border-border-warm px-2.5 text-xs font-medium text-ink-secondary transition-colors peer-checked:border-brand-ink peer-checked:bg-brand-primary peer-checked:text-white"
+      >
+        {label}
+        {srSuffix && <span className="sr-only"> {srSuffix}</span>}
+      </span>
+    </label>
+  );
+}
+
 function CheckmarkOption({
   name,
   value,
@@ -137,13 +174,10 @@ export function FilterForm({
           <p className="mb-4 text-sm font-semibold" id="size-filter-label">
             Size
           </p>
-          <div
-            className="flex flex-col gap-3.5 text-sm text-ink-secondary"
-            role="group"
-            aria-labelledby="size-filter-label"
-          >
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="size-filter-label">
+            <SizeChip name="size" value="" label="Any" srSuffix="size" checked={!defaultSize} />
             {sizeOptions.map((opt) => (
-              <CheckmarkOption
+              <SizeChip
                 key={opt.value}
                 name="size"
                 value={opt.value}
@@ -151,7 +185,6 @@ export function FilterForm({
                 checked={defaultSize === opt.value}
               />
             ))}
-            <CheckmarkOption name="size" value="" label="Any size" checked={!defaultSize} />
           </div>
         </div>
       )}

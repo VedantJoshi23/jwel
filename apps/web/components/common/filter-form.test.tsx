@@ -101,8 +101,9 @@ describe('FilterForm — size (FEAT-SIZE-TAXONOMY)', () => {
 
   it('labels the group for assistive technology', () => {
     // STD-ACCESSIBILITY r7 — a radio group needs a programmatic label, not
-    // just a visually adjacent heading.
+    // just a visually adjacent heading. `radiogroup`, not `group` — these
+    // are native radio inputs, and that's the role that actually matches.
     render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
-    expect(screen.getByRole('group', { name: 'Size' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Size' })).toBeInTheDocument();
   });
 });
