@@ -214,6 +214,19 @@
     border-color: var(--glass-border);
   }
 
+  /* A native <select>'s dropdown arrow is drawn by the OS/browser flush
+     against the border-box, ignoring padding-right — so on the pill shape
+     it sat jammed into the curve with no breathing room. `appearance: none`
+     hands us the arrow ourselves as a background image, which *does* respect
+     padding, so `pr-10` in ui/select.tsx actually creates the gap it names. */
+  select.material-raised {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A6040' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1.1rem center;
+    background-size: 0.85rem;
+  }
+
   /* A small lift before the press, on pressable raised surfaces only —
      scoped to `button`/`a` for the same reason as `:active` below: a badge or
      input rising off the page on hover reads as a bug, a button doing it
