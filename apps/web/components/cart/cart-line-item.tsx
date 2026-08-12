@@ -17,8 +17,8 @@ export function CartLineItemRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-5 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-5 sm:px-5">
-      <div className="relative aspect-square overflow-hidden bg-surface-alt">
+    <div className="grid grid-cols-[84px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-5 last:border-b-0 sm:grid-cols-[120px_minmax(0,1fr)_auto] sm:gap-5 sm:px-5">
+      <div className="relative aspect-square overflow-hidden rounded-s bg-surface-alt">
         <Image
           // The real photograph when the product has one. It used to be the
           // stock image unconditionally, so the bag showed a different ring

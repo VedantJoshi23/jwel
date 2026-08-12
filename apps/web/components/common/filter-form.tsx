@@ -102,6 +102,7 @@ export function FilterForm({
   defaultSize?: string;
 }) {
   const metalSection = brand.filterSections.find((s) => s.key === 'metal');
+  const selectedSizeOption = sizeOptions.find((opt) => opt.value === defaultSize);
 
   return (
     <form method="get" action={basePath} className="divide-y divide-border" aria-label="Filter products">
@@ -168,24 +169,39 @@ export function FilterForm({
         </div>
       )}
 
-      {/* Size — only for categories that have a sizing scheme */}
+      {/* Size — only for categories that have a sizing scheme. A dropdown
+          rather than the always-open chip grid: `<details>` is the same
+          no-JS-required disclosure pattern the FAQ page and this form's own
+          mobile filter panel already use, so the trigger works without
+          relying on client-side state — only its own native open/close
+          behaviour, which needs none. */}
       {sizeOptions.length > 0 && (
         <div className="py-7">
           <p className="mb-4 text-sm font-semibold" id="size-filter-label">
             Size
           </p>
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="size-filter-label">
-            <SizeChip name="size" value="" label="Any" srSuffix="size" checked={!defaultSize} />
-            {sizeOptions.map((opt) => (
-              <SizeChip
-                key={opt.value}
-                name="size"
-                value={opt.value}
-                label={opt.label}
-                checked={defaultSize === opt.value}
-              />
-            ))}
-          </div>
+          <details className="group relative">
+            <summary className="material-raised flex h-11 w-full cursor-pointer list-none items-center justify-between rounded-full border border-border-warm bg-surface px-4 text-sm text-ink-primary marker:content-none">
+              <span>{selectedSizeOption ? selectedSizeOption.label : 'Any size'}</span>
+              <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">
+                ▾
+              </span>
+            </summary>
+            <div className="material-card absolute z-20 mt-2 w-full rounded-m border border-border p-3">
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="size-filter-label">
+                <SizeChip name="size" value="" label="Any" srSuffix="size" checked={!defaultSize} />
+                {sizeOptions.map((opt) => (
+                  <SizeChip
+                    key={opt.value}
+                    name="size"
+                    value={opt.value}
+                    label={opt.label}
+                    checked={defaultSize === opt.value}
+                  />
+                ))}
+              </div>
+            </div>
+          </details>
         </div>
       )}
 

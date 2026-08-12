@@ -99,6 +99,17 @@ describe('FilterForm — size (FEAT-SIZE-TAXONOMY)', () => {
     expect(screen.getByLabelText('Any size')).toBeChecked();
   });
 
+  it('the collapsed dropdown trigger reads "Any size" when nothing is selected', () => {
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} />);
+    expect(screen.getByRole('group')).toHaveTextContent('Any size');
+  });
+
+  it('the collapsed dropdown trigger shows the selected size\'s label', () => {
+    render(<FilterForm basePath="/collections/rings" sizeOptions={ringSizes} defaultSize="18" />);
+    const trigger = screen.getByText('18', { selector: 'summary span' });
+    expect(trigger).toBeInTheDocument();
+  });
+
   it('labels the group for assistive technology', () => {
     // STD-ACCESSIBILITY r7 — a radio group needs a programmatic label, not
     // just a visually adjacent heading. `radiogroup`, not `group` — these

@@ -42,8 +42,10 @@ export default function CartPage() {
       <h1 className="mb-6 font-display text-4xl font-bold tracking-tight">{brand.cart.headline}</h1>
 
 
-      {/* Cart item(s) — bordered card matching wireframe 05 */}
-      <div className="mb-6 border border-border-sale">
+      {/* Cart item(s) — `overflow-hidden` clips CartLineItemRow's own
+          corner-radius-free image to the card's rounded shape, the same
+          fix ProductCard already applies for the same reason. */}
+      <div className="material-card mb-6 overflow-hidden rounded-m border border-border">
         {/* Keyed and addressed by line id — the same variant can appear
             twice with different gift options (DOM-SHOPPING Invariant 1). */}
         {lines.map((line) => (
@@ -68,7 +70,7 @@ export default function CartPage() {
       */}
 
       {/* Subtotal summary */}
-      <div className="mb-6 border border-border-sale p-5">
+      <div className="material-card mb-6 rounded-m border border-border p-5">
         <div className="flex justify-between text-sm font-medium">
           <span>Subtotal</span>
           <span>{formatMinorUnits(subtotalMinorUnits)}</span>

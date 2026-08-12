@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import type { Metadata } from 'next';
 import { getProducts, type ProductSort } from '@/lib/api/products';
+import type { SizeScheme } from '@/lib/api/types';
 import { ProductCard } from '@/components/product/product-card';
 import { FilterForm } from '@/components/common/filter-form';
 import { Pagination } from '@/components/common/pagination';
@@ -113,11 +114,23 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     result = { items: [], page: 1, pageSize: 12, total: 0 };
   }
 
-  // The category's sizing scheme is read off the products themselves — every
-  // product in a category listing shares it, and `category: true` on the API's
-  // product include already carries it. An empty listing yields no scheme and
-  // therefore no size filter, which is correct: there is nothing to filter.
-  const sizeScheme = result.items[0]?.category?.sizeScheme ?? null;
+  // Resolved via a second, filter-free lookup (category only — no metal/
+  // price/size) rather than off `result.items[0]`. Reading it from the
+  // active result broke as soon as the *current* filter combination itself
+  // produced zero matches: the whole Size section vanished along with the
+  // listing, taking "Any size" with it and leaving no way back to a wider
+  // result. This answers "does this category have a sizing scheme at all,"
+  // which is the question that actually determines whether the filter
+  // belongs on the page — not "did this specific filter combination match."
+  let sizeScheme: SizeScheme | null = null;
+  if (category) {
+    try {
+      const categoryProbe = await getProducts({ category, pageSize: 1 }, 30);
+      sizeScheme = categoryProbe.items[0]?.category?.sizeScheme ?? null;
+    } catch {
+      sizeScheme = null;
+    }
+  }
   const sizeOptions = await safeGetSizes(sizeScheme);
 
   const collectionTitle = titleCase(resolvedParams.slug);
