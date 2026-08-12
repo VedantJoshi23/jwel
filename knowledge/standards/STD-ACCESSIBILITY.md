@@ -1,13 +1,13 @@
 ---
 id: STD-ACCESSIBILITY
 title: Jwel / ELYSIAN — Standard: Accessibility
-version: 1.3.0
+version: 1.3.1
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-10
+updated: 2026-08-12
 milestone: M4
 category: Standards
 priority: High
@@ -38,9 +38,10 @@ The storefront and admin UI in `apps/web`.
 least-verified commitment in the project and the only one carrying legal
 exposure.
 
-`axe` now runs in CI over twenty-four surfaces — every public page, the
-checkout form, and all eleven admin routes (`FEAT-ACCESSIBILITY-AXE`;
-`/admin/reviews` added by `FEAT-ADMIN-REVIEW-MODERATION`). A second, dark
+`axe` now runs in CI over twenty-five surfaces — every public page, the
+checkout form, and all twelve admin routes (`FEAT-ACCESSIBILITY-AXE`;
+`/admin/reviews` added by `FEAT-ADMIN-REVIEW-MODERATION`, `/admin/qna` added
+by `FEAT-PRODUCT-QA`). A second, dark
 "Aurora" palette briefly widened that count (`ADR-0018`); Aurora was removed
 by explicit decision after live evaluation (`ADR-0020`), and its scans went
 with it — rule 8 below is retained as guidance for if a second palette is
