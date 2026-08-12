@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminCreateCoupon, adminDeactivateCoupon, adminListCoupons } from '@/lib/api/admin-coupons';
+import { formatMinorUnits } from '@/lib/money';
 import type { Coupon, DiscountType } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
 
@@ -15,9 +16,38 @@ const EMPTY_FORM = {
   code: '',
   discountType: 'PERCENTAGE' as DiscountType,
   value: '',
+  minOrderAmount: '',
+  maxRedemptions: '',
+  maxRedemptionsPerUser: '',
   validFrom: '',
   validTo: '',
 };
+
+// Every rupee field on this page is typed by a human and stored as minor
+// units (paise) — the one conversion point, so "did I remember the ×100"
+// never has to be re-derived at each call site. Mirrors the same rupee-typed
+// -> paise-stored pattern already used for return refund amounts
+// (admin/returns/page.tsx) — undefined, not 0, when the field was left blank,
+// since 0 and "not set" mean different things to CreateCouponDto (a real
+// minOrderAmountMinorUnits of 0 vs. no minimum at all).
+function rupeesToMinorUnits(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const rupees = parseFloat(value);
+  return Number.isFinite(rupees) && rupees >= 0 ? Math.round(rupees * 100) : NaN;
+}
+
+function positiveInt(value: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 ? n : NaN;
+}
+
+// `Number.isNaN` is typed to take a `number`, not `number | undefined` — every
+// field above is optional, so "was this field even filled in" has to be
+// checked before "is what they typed valid".
+function isInvalid(n: number | undefined): boolean {
+  return n !== undefined && Number.isNaN(n);
+}
 
 export default function AdminCouponsPage() {
   const token = useAuthStore((state) => state.token);
@@ -38,13 +68,38 @@ export default function AdminCouponsPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!token) return;
-    setCreating(true);
     setError('');
+
+    const isFlat = form.discountType === 'FLAT';
+    const value = isFlat ? rupeesToMinorUnits(form.value) : Number(form.value);
+    const minOrderAmountMinorUnits = rupeesToMinorUnits(form.minOrderAmount);
+    const maxRedemptions = positiveInt(form.maxRedemptions);
+    const maxRedemptionsPerUser = positiveInt(form.maxRedemptionsPerUser);
+
+    if (
+      value === undefined ||
+      Number.isNaN(value) ||
+      isInvalid(minOrderAmountMinorUnits) ||
+      isInvalid(maxRedemptions) ||
+      isInvalid(maxRedemptionsPerUser)
+    ) {
+      setError('Check the discount value and the optional limits — they must be positive numbers.');
+      return;
+    }
+    if (!isFlat && (value < 0 || value > 100)) {
+      setError('A percentage discount must be between 0 and 100.');
+      return;
+    }
+
+    setCreating(true);
     try {
       await adminCreateCoupon(token, {
         code: form.code,
         discountType: form.discountType,
-        value: Number(form.value),
+        value,
+        minOrderAmountMinorUnits,
+        maxRedemptions,
+        maxRedemptionsPerUser,
         validFrom: new Date(form.validFrom).toISOString(),
         validTo: new Date(form.validTo).toISOString(),
       });
@@ -67,6 +122,8 @@ export default function AdminCouponsPage() {
     }
   }
 
+  const isFlat = form.discountType === 'FLAT';
+
   return (
     <div>
       <h1 className="mb-6 font-display text-3xl font-bold">Coupons</h1>
@@ -83,48 +140,88 @@ export default function AdminCouponsPage() {
             all. Rated critical by axe; found by e2e/accessibility.spec.ts
             once the admin UI came under scan.
           */}
-          <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <Input
-              aria-label="Coupon code"
-              placeholder="CODE"
-              required
-              value={form.code}
-              onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
-            />
-            <Select
-              aria-label="Discount type"
-              value={form.discountType}
-              onChange={(e) => setForm((f) => ({ ...f, discountType: e.target.value as DiscountType }))}
-            >
-              <option value="PERCENTAGE">Percentage</option>
-              <option value="FLAT">Flat (minor units)</option>
-              <option value="FIRST_ORDER">First order</option>
-            </Select>
-            <Input
-              aria-label="Discount value"
-              type="number"
-              placeholder="Value"
-              required
-              value={form.value}
-              onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
-            />
-            <Input
-              aria-label="Valid from"
-              type="date"
-              required
-              value={form.validFrom}
-              onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
-            />
-            <Input
-              aria-label="Valid to"
-              type="date"
-              required
-              value={form.validTo}
-              onChange={(e) => setForm((f) => ({ ...f, validTo: e.target.value }))}
-            />
-            <Button type="submit" loading={creating} className="col-span-2 lg:col-span-1">
-              Create
-            </Button>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+              <Input
+                aria-label="Coupon code"
+                placeholder="CODE"
+                required
+                value={form.code}
+                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+              />
+              <Select
+                aria-label="Discount type"
+                value={form.discountType}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, discountType: e.target.value as DiscountType, value: '' }))
+                }
+              >
+                <option value="PERCENTAGE">Percentage</option>
+                <option value="FLAT">Flat amount</option>
+                <option value="FIRST_ORDER">First order</option>
+              </Select>
+              <Input
+                aria-label={isFlat ? 'Discount amount in rupees' : 'Discount percentage'}
+                type="number"
+                min={0}
+                step={isFlat ? '0.01' : '1'}
+                placeholder={isFlat ? 'Amount (₹)' : 'Percent (0-100)'}
+                required
+                value={form.value}
+                onChange={(e) => setForm((f) => ({ ...f, value: e.target.value }))}
+              />
+              <Input
+                aria-label="Valid from"
+                type="date"
+                required
+                value={form.validFrom}
+                onChange={(e) => setForm((f) => ({ ...f, validFrom: e.target.value }))}
+              />
+              <Input
+                aria-label="Valid to"
+                type="date"
+                required
+                value={form.validTo}
+                onChange={(e) => setForm((f) => ({ ...f, validTo: e.target.value }))}
+              />
+            </div>
+
+            {/* Optional limits — CreateCouponDto has always accepted these;
+                they just had no field to type them into, so every coupon
+                made through this form silently got maxRedemptionsPerUser's
+                API default (1) and no min-order or total-redemption cap. */}
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <Input
+                aria-label="Minimum order amount in rupees (optional)"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="Min order (₹, optional)"
+                value={form.minOrderAmount}
+                onChange={(e) => setForm((f) => ({ ...f, minOrderAmount: e.target.value }))}
+              />
+              <Input
+                aria-label="Maximum total redemptions (optional)"
+                type="number"
+                min={1}
+                step="1"
+                placeholder="Max total uses (optional)"
+                value={form.maxRedemptions}
+                onChange={(e) => setForm((f) => ({ ...f, maxRedemptions: e.target.value }))}
+              />
+              <Input
+                aria-label="Maximum redemptions per customer (optional, defaults to 1)"
+                type="number"
+                min={1}
+                step="1"
+                placeholder="Max uses per customer (default 1)"
+                value={form.maxRedemptionsPerUser}
+                onChange={(e) => setForm((f) => ({ ...f, maxRedemptionsPerUser: e.target.value }))}
+              />
+              <Button type="submit" loading={creating}>
+                Create
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -137,6 +234,7 @@ export default function AdminCouponsPage() {
                 <th className="px-4 py-3">Code</th>
                 <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Value</th>
+                <th className="px-4 py-3">Limits</th>
                 <th className="px-4 py-3">Valid window</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Actions</th>
@@ -148,7 +246,18 @@ export default function AdminCouponsPage() {
                   <td className="px-4 py-3 font-mono font-medium">{coupon.code}</td>
                   <td className="px-4 py-3">{coupon.discountType}</td>
                   <td className="px-4 py-3">
-                    {coupon.discountType === 'FLAT' ? coupon.value : `${coupon.value}%`}
+                    {coupon.discountType === 'FLAT' ? formatMinorUnits(coupon.value) : `${coupon.value}%`}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-ink-secondary">
+                    <div>
+                      {coupon.minOrderAmountMinorUnits
+                        ? `Min order ${formatMinorUnits(coupon.minOrderAmountMinorUnits)}`
+                        : 'No minimum order'}
+                    </div>
+                    <div>
+                      {coupon.maxRedemptions ? `${coupon.maxRedemptions} uses total` : 'Unlimited total uses'} ·{' '}
+                      {coupon.maxRedemptionsPerUser}/customer
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-ink-secondary">
                     {new Date(coupon.validFrom).toLocaleDateString()} –{' '}
@@ -170,7 +279,7 @@ export default function AdminCouponsPage() {
               ))}
               {coupons.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
+                  <td colSpan={7} className="px-4 py-6 text-center text-ink-muted">
                     No coupons yet.
                   </td>
                 </tr>
