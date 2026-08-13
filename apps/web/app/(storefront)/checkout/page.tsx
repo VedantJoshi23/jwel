@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
@@ -12,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { createOrder } from '@/lib/api/orders';
 import { verifyPayment } from '@/lib/api/payments';
 import { validateCoupon } from '@/lib/api/coupons';
+import { listAddresses } from '@/lib/api/users';
 import {
   RazorpayCheckoutError,
   loadRazorpayCheckout,
@@ -21,6 +23,7 @@ import { ApiError } from '@/lib/api/client';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 import { getProductStockImage } from '@/lib/jewellery-images';
+import type { Address } from '@/lib/api/types';
 
 // Controls the static "payments are mocked" hint shown under the submit button
 // on a local dev build, and nothing else. Whether payments are ACTUALLY
@@ -41,6 +44,38 @@ export default function CheckoutPage() {
   const [couponMessage, setCouponMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Saved addresses let a returning customer skip retyping one at checkout —
+  // the whole point of having saved them in the first place. 'new' is a
+  // sentinel, not an id, so the blank form (below) stays the only path for a
+  // first-time or address-less shopper without a separate code path.
+  const { data: savedAddresses } = useQuery({
+    queryKey: ['addresses'],
+    queryFn: () => listAddresses(token!),
+    enabled: !!token,
+  });
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('new');
+
+  useEffect(() => {
+    if (!savedAddresses || savedAddresses.length === 0) return;
+    setSelectedAddressId((current) => {
+      if (current !== 'new') return current;
+      return savedAddresses.find((a) => a.isDefault)?.id ?? savedAddresses[0].id;
+    });
+  }, [savedAddresses]);
+
+  const selectedSavedAddress: Address | undefined = savedAddresses?.find((a) => a.id === selectedAddressId);
+  const shippingAddress = selectedSavedAddress
+    ? {
+        label: selectedSavedAddress.label ?? undefined,
+        line1: selectedSavedAddress.line1,
+        line2: selectedSavedAddress.line2 ?? undefined,
+        city: selectedSavedAddress.city,
+        state: selectedSavedAddress.state,
+        pincode: selectedSavedAddress.pincode,
+        country: selectedSavedAddress.country,
+      }
+    : address;
 
   if (!isAuthenticated) {
     return (
@@ -92,7 +127,7 @@ export default function CheckoutPage() {
     try {
       response = await createOrder(token, {
         items: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
-        shippingAddress: address,
+        shippingAddress,
         couponCode: couponCode.trim() || undefined,
       });
     } catch (err) {
@@ -247,9 +282,6 @@ export default function CheckoutPage() {
             {[
               { id: 'email', label: 'Email Address', type: 'email' },
               { id: 'fullname', label: 'Full Name', type: 'text' },
-              { id: 'line1', label: 'Address', type: 'text' },
-              { id: 'city', label: 'City', type: 'text' },
-              { id: 'pincode', label: 'Zip Code', type: 'text' },
             ].map(({ id, label, type }) => (
               <div key={id}>
                 <label className="pt-4 block text-sm text-ink-primary" htmlFor={id}>
@@ -261,16 +293,88 @@ export default function CheckoutPage() {
                     type={type}
                     required
                     className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
-                    onChange={(e) => {
-                      if (id === 'line1') setAddress((a) => ({ ...a, line1: e.target.value }));
-                      if (id === 'city') setAddress((a) => ({ ...a, city: e.target.value }));
-                      if (id === 'pincode') setAddress((a) => ({ ...a, pincode: e.target.value }));
-                    }}
                   />
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Saved addresses — picking one skips retyping it. 'new' stays
+              selectable even with saved addresses on file, since the address
+              for THIS order isn't necessarily one already on the account. */}
+          {savedAddresses && savedAddresses.length > 0 && (
+            <fieldset className="mt-6">
+              <legend className="mb-2 text-sm font-medium text-ink-primary">Shipping address</legend>
+              <div className="flex flex-col gap-2">
+                {savedAddresses.map((saved) => (
+                  <label
+                    key={saved.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-s border p-3 text-sm transition-colors ${
+                      selectedAddressId === saved.id
+                        ? 'border-brand-ink bg-surface-alt'
+                        : 'border-border-warm hover:border-brand-ink/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="saved-address"
+                      className="mt-1"
+                      checked={selectedAddressId === saved.id}
+                      onChange={() => setSelectedAddressId(saved.id)}
+                    />
+                    <span>
+                      {saved.label && <span className="block font-medium">{saved.label}</span>}
+                      {saved.line1}
+                      {saved.line2 ? `, ${saved.line2}` : ''}, {saved.city}, {saved.state} {saved.pincode}
+                      {saved.isDefault && <span className="ml-2 text-xs text-ink-muted">(default)</span>}
+                    </span>
+                  </label>
+                ))}
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-s border p-3 text-sm transition-colors ${
+                    selectedAddressId === 'new'
+                      ? 'border-brand-ink bg-surface-alt'
+                      : 'border-border-warm hover:border-brand-ink/50'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="saved-address"
+                    checked={selectedAddressId === 'new'}
+                    onChange={() => setSelectedAddressId('new')}
+                  />
+                  Use a new address
+                </label>
+              </div>
+            </fieldset>
+          )}
+
+          {selectedAddressId === 'new' && (
+            <div className="mt-4 flex flex-col gap-1">
+              {[
+                { id: 'line1', label: 'Address', key: 'line1' as const },
+                { id: 'city', label: 'City', key: 'city' as const },
+                { id: 'state', label: 'State', key: 'state' as const },
+                { id: 'pincode', label: 'Zip Code', key: 'pincode' as const },
+              ].map(({ id, label, key }) => (
+                <div key={id}>
+                  <label className="pt-4 block text-sm text-ink-primary" htmlFor={id}>
+                    {label}
+                  </label>
+                  <div className="border-b border-border-warm pb-2">
+                    <input
+                      id={id}
+                      type="text"
+                      required
+                      value={address[key]}
+                      className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
+                      onChange={(e) => setAddress((a) => ({ ...a, [key]: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Order total */}
           <div className="mt-7 space-y-2 text-sm">
