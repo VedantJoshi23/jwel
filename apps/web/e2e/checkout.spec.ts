@@ -102,13 +102,14 @@ async function emptyTheBag(page: Page): Promise<void> {
   await page.evaluate(() => localStorage.removeItem('jwel-cart'));
 }
 
-async function placeOrder(page: Page, email: string): Promise<string> {
+async function placeOrder(page: Page): Promise<string> {
   await page.goto('/checkout', { waitUntil: 'domcontentloaded' });
   await waitForHydration(page);
-  await page.getByLabel('Email Address').fill(email);
-  await page.getByLabel('Full Name').fill('E2E Shopper');
+  // Name and email are shown read-only from the account (no re-entry) — an
+  // account with no saved addresses on file falls back to this blank form.
   await page.getByLabel('Address', { exact: true }).fill('12 Test Lane');
   await page.getByLabel('City').fill('Ahmedabad');
+  await page.getByLabel('State').fill('Gujarat');
   await page.getByLabel('Zip Code').fill('380001');
   await page.getByRole('button', { name: 'Place Order' }).click();
 
@@ -141,7 +142,7 @@ test.describe.serial('Checkout → payment → confirmation', () => {
   test('a shopper can place an order and it is confirmed server-side', async () => {
     await emptyTheBag(page);
     await addProductToBag(page);
-    const orderId = await placeOrder(page, shopper);
+    const orderId = await placeOrder(page);
 
     await expect(page.getByRole('heading', { name: 'Order placed' })).toBeVisible();
 
@@ -160,7 +161,7 @@ test.describe.serial('Checkout → payment → confirmation', () => {
   test('the bag is emptied once the order is placed', async () => {
     await emptyTheBag(page);
     await addProductToBag(page);
-    await placeOrder(page, shopper);
+    await placeOrder(page);
 
     // A bag that survives checkout is how a shopper accidentally buys the same
     // piece twice — and on single-unit jewellery the second order cannot be
