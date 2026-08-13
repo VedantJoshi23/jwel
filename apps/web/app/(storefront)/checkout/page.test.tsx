@@ -77,6 +77,21 @@ describe('CheckoutPage — saved addresses', () => {
   });
   afterEach(() => useAuthStore.getState().logout());
 
+  it('shows the account\'s own name and email instead of asking for them again', async () => {
+    useAuthStore.getState().setSession('token-1', {
+      id: 'u1',
+      email: 'customer@example.com',
+      name: 'Jane Doe',
+      role: 'CUSTOMER',
+    });
+    renderPage();
+
+    expect(await screen.findByText('Jane Doe')).toBeInTheDocument();
+    expect(screen.getByText('customer@example.com')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Email Address')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Full Name')).not.toBeInTheDocument();
+  });
+
   it('shows no address picker and falls back to the manual form when there are no saved addresses', async () => {
     renderPage();
     await waitFor(() => expect(listAddressesMock).toHaveBeenCalled());
@@ -124,8 +139,6 @@ describe('CheckoutPage — saved addresses', () => {
 
     const user = renderPage();
     await screen.findByRole('radio', { name: /221B Baker Street/ });
-    await user.type(screen.getByLabelText('Email Address'), 'customer@example.com');
-    await user.type(screen.getByLabelText('Full Name'), 'Jane Doe');
     await user.click(screen.getByRole('button', { name: /Place|Pay|Continue/i }));
 
     await waitFor(() => expect(createOrderMock).toHaveBeenCalled());

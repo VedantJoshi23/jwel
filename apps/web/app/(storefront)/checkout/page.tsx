@@ -278,25 +278,20 @@ export default function CheckoutPage() {
             {brand.checkout.paymentSubtext}
           </p>
 
-          <div className="mt-6 flex flex-col gap-1">
-            {[
-              { id: 'email', label: 'Email Address', type: 'email' },
-              { id: 'fullname', label: 'Full Name', type: 'text' },
-            ].map(({ id, label, type }) => (
-              <div key={id}>
-                <label className="pt-4 block text-sm text-ink-primary" htmlFor={id}>
-                  {label}
-                </label>
-                <div className="border-b border-border-warm pb-2">
-                  <input
-                    id={id}
-                    type={type}
-                    required
-                    className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
-                  />
-                </div>
-              </div>
-            ))}
+          {/* Registration already collected name and email — asking again
+              here was pure re-entry with no effect, since neither input was
+              ever wired to the order payload or even to Razorpay's prefill
+              (which already reads `user.email` directly). Showing the
+              account's own details, with a link to change them, replaces
+              retyping with confirming. */}
+          <div className="mt-6 flex items-center justify-between rounded-s border border-border-warm px-4 py-3 text-sm">
+            <div>
+              {user?.name && <p className="font-medium">{user.name}</p>}
+              <p className="text-ink-secondary">{user?.email}</p>
+            </div>
+            <Link href="/profile" className="text-ink-primary underline-offset-2 hover:underline">
+              Edit
+            </Link>
           </div>
 
           {/* Saved addresses — picking one skips retyping it. 'new' stays
