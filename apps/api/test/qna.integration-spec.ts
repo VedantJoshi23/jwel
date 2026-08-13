@@ -105,6 +105,33 @@ describe('Product Q&A (integration)', () => {
     expect(byAdmin.isByStore).toBe(true);
   });
 
+  it('a successful upvote returns 204 with an empty body, not a 200/201 the client would try to JSON-parse', async () => {
+    // Regression for a real production bug: the route had no explicit
+    // @HttpCode, so Nest sent a 200/201 with an empty body for a service
+    // method that returns void. apps/web's apiFetch called response.json()
+    // on any non-204 success, which threw on the empty body and surfaced as
+    // "Could not update your upvote" even though this exact request had
+    // already succeeded server-side.
+    const question = await request(app.getHttpServer())
+      .post(`/api/v1/products/${productId}/questions`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .send({ body: '204-body fixture' })
+      .expect(201);
+
+    const res = await request(app.getHttpServer())
+      .post(`/api/v1/questions/${question.body.id}/upvote`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(204);
+    expect(res.body).toEqual({});
+    expect(res.text).toBe('');
+
+    const removeRes = await request(app.getHttpServer())
+      .delete(`/api/v1/questions/${question.body.id}/upvote`)
+      .set('Authorization', `Bearer ${customerToken}`)
+      .expect(204);
+    expect(removeRes.text).toBe('');
+  });
+
   it('removing an upvote that was never cast 404s', async () => {
     const question = await request(app.getHttpServer())
       .post(`/api/v1/products/${productId}/questions`)

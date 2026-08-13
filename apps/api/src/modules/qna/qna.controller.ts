@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { QnaService } from './qna.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
@@ -53,6 +53,7 @@ export class QnaController {
 
   @ApiBearerAuth()
   @Post('questions/:questionId/upvote')
+  @HttpCode(204)
   @ApiOperation({ summary: 'Upvote a question' })
   upvoteQuestion(@Param('questionId') questionId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.qna.upvoteQuestion(questionId, user.userId);
@@ -60,6 +61,7 @@ export class QnaController {
 
   @ApiBearerAuth()
   @Delete('questions/:questionId/upvote')
+  @HttpCode(204)
   @ApiOperation({ summary: "Remove the caller's upvote from a question" })
   removeQuestionUpvote(@Param('questionId') questionId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.qna.removeQuestionUpvote(questionId, user.userId);
@@ -67,6 +69,7 @@ export class QnaController {
 
   @ApiBearerAuth()
   @Post('answers/:answerId/upvote')
+  @HttpCode(204)
   @ApiOperation({ summary: 'Upvote an answer' })
   upvoteAnswer(@Param('answerId') answerId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.qna.upvoteAnswer(answerId, user.userId);
@@ -74,6 +77,7 @@ export class QnaController {
 
   @ApiBearerAuth()
   @Delete('answers/:answerId/upvote')
+  @HttpCode(204)
   @ApiOperation({ summary: "Remove the caller's upvote from an answer" })
   removeAnswerUpvote(@Param('answerId') answerId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.qna.removeAnswerUpvote(answerId, user.userId);

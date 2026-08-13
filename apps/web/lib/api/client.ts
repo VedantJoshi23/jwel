@@ -74,10 +74,20 @@ async function handleResponse<T>(response: Response, hadToken: boolean): Promise
     throw new ApiError(message, response.status, envelope?.correlationId);
   }
 
-  if (response.status === 204) {
+  // Not just a `204` check: several endpoints return `void` from their
+  // service and NestJS still ships that as a 200/201 with an empty body —
+  // `response.json()` on an empty string throws a SyntaxError, which
+  // propagated out of here as if the request had failed. A caller
+  // (`QnaUpvoteButton`, `adminDeleteBanner`, and every other `apiFetch<void>`
+  // site) would show its generic error toast on a request that had actually
+  // succeeded server-side. Reading the body as text first and only parsing
+  // it when there's something there covers both cases without needing every
+  // void-returning route to remember to opt into `@HttpCode(204)`.
+  const text = await response.text();
+  if (!text) {
     return undefined as T;
   }
-  return response.json() as Promise<T>;
+  return JSON.parse(text) as T;
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {

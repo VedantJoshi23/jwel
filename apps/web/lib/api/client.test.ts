@@ -41,6 +41,19 @@ describe('apiFetch', () => {
     expect(await apiFetch('/test')).toBeUndefined();
   });
 
+  it('returns undefined for a 200/201 with an empty body, rather than throwing on the JSON parse', async () => {
+    // Regression for a real production bug: a `void`-returning controller
+    // method (e.g. the Q&A upvote routes, before they were given an
+    // explicit @HttpCode(204)) still gets a 200/201 from Nest by default,
+    // with nothing in the body. Calling response.json() on that threw a
+    // SyntaxError that looked exactly like a failed request to every
+    // caller, even though the mutation had already succeeded server-side.
+    (fetch as any).mockResolvedValue(new Response('', { status: 200 }));
+    expect(await apiFetch('/test')).toBeUndefined();
+    (fetch as any).mockResolvedValue(new Response('', { status: 201 }));
+    expect(await apiFetch('/test')).toBeUndefined();
+  });
+
   it('throws ApiError with the backend message and status on a 4xx/5xx response', async () => {
     (fetch as any).mockResolvedValue(
       new Response(
