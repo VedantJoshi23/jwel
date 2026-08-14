@@ -5,6 +5,19 @@ import { getProductStockImage } from '@/lib/jewellery-images';
 import type { RecommendedProduct } from '@/lib/api/types';
 
 /**
+ * Human-readable form of the API's `RecommendationReason`
+ * (`FEAT-RECOMMENDATION-RAILS` §11) — the "why am I seeing this" a shopper
+ * can read, and the same vocabulary a future admin-facing debug view or
+ * support answer should reuse rather than re-deriving its own wording.
+ */
+const REASON_LABEL: Record<NonNullable<RecommendedProduct['reason']>, string> = {
+  co_purchased: 'Often bought with your picks',
+  category_affinity: 'Because you shop this category',
+  trending: 'Trending now',
+  bestseller: 'Bestseller',
+};
+
+/**
  * A row of recommended products.
  *
  * **Renders nothing when there is nothing to show.** A rail headed
@@ -48,6 +61,9 @@ export function ProductRail({
               <p className="text-sm text-ink-secondary">
                 {formatMinorUnits(product.priceMinMinorUnits)}
               </p>
+              {product.reason && (
+                <p className="mt-0.5 text-xs text-ink-muted">{REASON_LABEL[product.reason]}</p>
+              )}
             </Link>
           </li>
         ))}

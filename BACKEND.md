@@ -475,8 +475,11 @@ through to the client-supplied `anonymousId`.
 
 ### 9.5 What's NOT done
 - **Not a trained model** (§9.1) — no embeddings, no matrix factorization, no
-  click-through-rate optimization. Re-evaluate once there's enough order
-  volume and a reason to believe a learned model would outperform this.
+  click-through-rate optimization. The re-evaluation trigger is no longer
+  qualitative: `DOM-RECOMMENDATION` §9 (owner decision, 2026-08-14) sets it at
+  300 confirmed orders to start a shadow-mode evaluation and 1,500 to permit
+  actually shipping a trained model behind `GET /me/recommendations`, if that
+  evaluation shows it winning.
 - **Trending's in-memory cache doesn't survive a restart and isn't shared
   across instances** — the same documented gap as Search's lack of a Redis
   layer (BACKEND.md's gap table); fine for a single API instance.

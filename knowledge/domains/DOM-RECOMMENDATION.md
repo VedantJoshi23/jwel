@@ -1,13 +1,13 @@
 ---
 id: DOM-RECOMMENDATION
 title: 'Jwel / ELYSIAN — Domain: Recommendation'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-14
 milestone: M5
 category: Domains
 priority: Medium
@@ -164,3 +164,34 @@ feature. Law 2 — sourced. Law 4 — Invariant 2's limitation is documented, pe
 - ~~Edge case 2~~ — settled: minimum support of 5 (Invariant 8).
 - ~~Edge case 6~~ — settled: same-session transfer (Invariant 9).
 - **Invariant 8's threshold needs tuning** once real order volume exists.
+
+## 9. When to move beyond rule-based
+
+`BACKEND.md` §9.1 scoped this domain as statistical/rule-based deliberately —
+"no training pipeline, no labeled data, and — at this catalog/order volume —
+not enough purchase history for a learned model to outperform straightforward
+co-occurrence counting" — with the re-evaluation trigger left qualitative:
+*"once there's enough order volume and a reason to believe a learned model
+would outperform this."* **Owner decision, 2026-08-14**, replacing that
+qualitative trigger with two measurable stages, both counted against
+confirmed (non-`CANCELLED`) `Order` rows — the same denominator Trending
+already sums over:
+
+| Stage | Threshold | Action |
+| --- | --- | --- |
+| **Start evaluating** | 300 confirmed orders | Prototype a learned reranker or implicit-feedback collaborative filter **in shadow mode only** — log what it would have recommended against `getPersonalized`'s actual output, do not serve it. Roughly where several product pairs start clearing Invariant 8's count-5 floor across the catalog rather than one or two by chance, which is the earliest point a learned model would see more than noise. |
+| **Migrate** | 1,500 confirmed orders | Ship a trained model behind `GET /me/recommendations`, if the shadow-mode comparison actually shows it outperforming the rule-based blend on held-out data — this threshold is a **permission to build and evaluate**, not an automatic cutover. Roughly enough order-item rows for collaborative filtering to have a realistic shot at beating co-occurrence counting; below it the honest expectation is overfitting or a wash. |
+
+Both numbers are themselves starting heuristics, on the same footing as
+Invariant 8's count-5 — chosen from general collaborative-filtering practice
+scaled down for this catalog's size, not derived from this store's own data
+(there isn't enough of it yet to derive them from). Revisit them the same way
+Invariant 8 gets revisited, once real numbers exist to check them against.
+
+**The trigger should be visible, not just written down.** The admin
+dashboard should surface a live count of confirmed orders against these two
+thresholds — the same "a heuristic meant to be tuned should not need someone
+to remember it" reasoning that made `recommendations.min_co_occurrence` a
+runtime setting instead of a hardcoded constant (Invariant 8). **Not yet
+built** — tracked here so the next person working in this domain has a named
+place to wire it, rather than rediscovering the need.

@@ -6,6 +6,7 @@ import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { safeGetActiveBanners } from '@/lib/api/cms';
 import { ProductCard } from '@/components/product/product-card';
 import { PromoBanners } from '@/components/home/promo-banners';
+import { BestsellersCarousel } from '@/components/home/bestsellers-carousel';
 import { brand } from '@/lib/brand';
 import { categoryImages, heroImage } from '@/lib/jewellery-images';
 import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const [newIn, bestsellers, banners] = await Promise.all([
     safeGetProducts({ sort: 'newest', pageSize: 3 }),
-    safeGetProducts({ sort: 'popularity', pageSize: 2 }),
+    safeGetProducts({ sort: 'popularity', pageSize: 8 }),
     safeGetActiveBanners(),
   ]);
 
@@ -165,14 +166,7 @@ export default async function HomePage() {
               {brand.bestsellers.subtext}
             </p>
           </div>
-          <div className="flex items-center gap-5">
-            <div className="grid flex-1 grid-cols-2 gap-6">
-              {bestsellers.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-            <span className="shrink-0 text-3xl font-light text-ink-muted" aria-hidden="true">›</span>
-          </div>
+          <BestsellersCarousel products={bestsellers} />
         </RevealSection>
       )}
 

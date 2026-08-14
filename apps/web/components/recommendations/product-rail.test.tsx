@@ -60,6 +60,17 @@ describe('ProductRail', () => {
     expect(container.querySelector('img')?.getAttribute('src')).toBeTruthy();
   });
 
+  it('shows why an item was recommended, when the API sent a reason', () => {
+    render(<ProductRail title="Recommended for you" products={[product({ reason: 'co_purchased' })]} />);
+    expect(screen.getByText('Often bought with your picks')).toBeInTheDocument();
+  });
+
+  it('shows nothing extra when the API sent no reason — Trending/FBT don’t carry one', () => {
+    render(<ProductRail title="Frequently bought together" products={[product()]} />);
+    expect(screen.queryByText('Trending now')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bestseller')).not.toBeInTheDocument();
+  });
+
   it('marks the thumbnails decorative rather than repeating the product name', () => {
     // STD-ACCESSIBILITY rule 4 — decorative images are explicitly marked as
     // such. The link already carries the name; an alt repeating it would make

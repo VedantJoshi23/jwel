@@ -1,13 +1,13 @@
 ---
 id: FEAT-RECOMMENDATION-RAILS
 title: 'Jwel / ELYSIAN — Feature: Recommendation Rails'
-version: 0.1.0
+version: 0.2.0
 status: Review
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-08-14
 milestone: M6
 category: Features
 priority: Medium
@@ -180,3 +180,30 @@ difference between first-session personalisation working and not.
 **Nothing tunes the threshold from evidence yet.** 5 is a guess, as the
 invariant says. It can now be changed without a deploy, which is what makes
 tuning possible — but there is no report that says what it *should* be.
+
+## 11. Reason surfaced in the UI
+
+**Built 2026-08-14.** `ScoredRecommendationItem.reason` (`co_purchased` |
+`category_affinity` | `trending` | `bestseller` —
+`apps/api/src/modules/recommendations/recommendations.types.ts`) was returned
+by `GET /me/recommendations` from the start but never rendered: a shopper
+looking at "Recommended for you" had no way to tell why any given item was
+there, and neither did anyone debugging why a specific product kept showing
+up. `ProductRail` (`apps/web/components/recommendations/product-rail.tsx`)
+now renders it as a small caption under the price, via a fixed label map:
+
+| `reason` | Shown as |
+| --- | --- |
+| `co_purchased` | "Often bought with your picks" |
+| `category_affinity` | "Because you shop this category" |
+| `trending` | "Trending now" |
+| `bestseller` | "Bestseller" |
+
+Renders nothing extra when `reason` is absent — `getTrending` and
+`getFrequentlyBoughtTogether` don't attach one (their heading already says
+what the rail is), so this only ever appears on "Recommended for you", where
+the heading alone can't distinguish a real co-purchase signal from a
+trending-fallback item wearing the same "Recommended for you" heading. This
+label map is the intended single source of the shopper-facing wording for
+each reason; a future admin debug view or support answer should read from it
+rather than re-deriving its own phrasing.
