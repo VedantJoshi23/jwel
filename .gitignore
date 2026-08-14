@@ -31,7 +31,10 @@ apps/api/uploads-test/
 
 # Database dumps and uploads tarballs written by the backup commands in
 # deploy/README.md. Hundreds of MB, and the dumps contain live customer data.
+# Both paths: deploy/backups/ per the README, and backups/ at the repo root,
+# which is where pre-deploy dumps have actually been written in practice.
 deploy/backups/
+backups/
 .DS_Store
 .vercel/
 prisma/.env
