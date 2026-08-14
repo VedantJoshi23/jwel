@@ -3,10 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
+import { SuspendUserDto } from './dto/suspend-user.dto';
+import { ListUsersDto } from './dto/list-users.dto';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
-import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -46,15 +47,26 @@ export class UsersController {
 
   @Get('admin/users')
   @Roles(Role.ADMIN, Role.STAFF)
-  @ApiOperation({ summary: '[Admin/Staff] List customer accounts' })
-  adminListUsers(@Query() query: PaginationQueryDto) {
+  @ApiOperation({ summary: '[Admin/Staff] List customer accounts, active and suspended' })
+  adminListUsers(@Query() query: ListUsersDto) {
     return this.usersService.adminListUsers(query);
   }
 
   @Patch('admin/users/:userId/suspend')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: '[Admin] Suspend a user account (soft delete)' })
-  adminSuspendUser(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
-    return this.usersService.adminSuspendUser(userId, actor);
+  @ApiOperation({ summary: '[Admin] Suspend a user account, with an optional reason' })
+  adminSuspendUser(
+    @CurrentUser() actor: AuthenticatedUser,
+    @Param('userId') userId: string,
+    @Body() dto: SuspendUserDto,
+  ) {
+    return this.usersService.adminSuspendUser(userId, actor, dto.reason);
+  }
+
+  @Patch('admin/users/:userId/unsuspend')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: '[Admin] Reverse a suspension' })
+  adminUnsuspendUser(@CurrentUser() actor: AuthenticatedUser, @Param('userId') userId: string) {
+    return this.usersService.adminUnsuspendUser(userId, actor);
   }
 }

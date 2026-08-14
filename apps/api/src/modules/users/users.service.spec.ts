@@ -1,11 +1,12 @@
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { UserStatusFilter } from './dto/list-users.dto';
 
 type MockPrisma = {
-  user: { findFirst: jest.Mock; update: jest.Mock; findMany: jest.Mock; count: jest.Mock };
+  user: { findFirst: jest.Mock; findUnique: jest.Mock; update: jest.Mock; findMany: jest.Mock; count: jest.Mock };
   address: { findMany: jest.Mock; updateMany: jest.Mock; create: jest.Mock; findUnique: jest.Mock; delete: jest.Mock };
   $transaction: jest.Mock;
 };
@@ -19,7 +20,7 @@ describe('UsersService', () => {
 
   beforeEach(() => {
     prisma = {
-      user: { findFirst: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn() },
+      user: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn(), count: jest.fn() },
       address: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
@@ -96,23 +97,75 @@ describe('UsersService', () => {
   });
 
   describe('adminListUsers', () => {
-    it('excludes soft-deleted users and returns a paginated envelope', async () => {
+    it('defaults to showing every user, active and suspended — the actual bug this fixes', async () => {
+      // Previously the where clause was hardcoded to `{ deletedAt: null }`
+      // with no way to override it, so a suspended user vanished from this
+      // list the moment they were suspended — with no filter, no search, no
+      // path back to finding them again to unsuspend.
       prisma.user.findMany.mockResolvedValue([]);
       prisma.user.count.mockResolvedValue(0);
       await service.adminListUsers({ page: 1, pageSize: 20 });
+      expect(prisma.user.findMany.mock.calls[0][0].where).toEqual({});
+      expect(prisma.user.count.mock.calls[0][0].where).toEqual({});
+    });
+
+    it('status=active filters to non-suspended users only', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.count.mockResolvedValue(0);
+      await service.adminListUsers({ page: 1, pageSize: 20, status: UserStatusFilter.ACTIVE });
       expect(prisma.user.findMany.mock.calls[0][0].where).toEqual({ deletedAt: null });
-      expect(prisma.user.count.mock.calls[0][0].where).toEqual({ deletedAt: null });
+    });
+
+    it('status=suspended filters to suspended users only', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.count.mockResolvedValue(0);
+      await service.adminListUsers({ page: 1, pageSize: 20, status: UserStatusFilter.SUSPENDED });
+      expect(prisma.user.findMany.mock.calls[0][0].where).toEqual({ deletedAt: { not: null } });
+    });
+
+    it('selects deletedAt and suspensionReason so the admin UI can render status', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.count.mockResolvedValue(0);
+      await service.adminListUsers({ page: 1, pageSize: 20 });
+      expect(prisma.user.findMany.mock.calls[0][0].select).toMatchObject({
+        deletedAt: true,
+        suspensionReason: true,
+      });
     });
   });
 
   describe('adminSuspendUser', () => {
-    it('sets deletedAt rather than hard-deleting', async () => {
+    it('sets deletedAt rather than hard-deleting, with no reason when none is given', async () => {
       prisma.user.update.mockResolvedValue({});
       await service.adminSuspendUser('u1', actor);
-      expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { deletedAt: expect.any(Date) } });
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { deletedAt: expect.any(Date), suspensionReason: null },
+      });
     });
 
-    it('records an audit log entry for the suspension', async () => {
+    it('stores the admin-supplied reason', async () => {
+      prisma.user.update.mockResolvedValue({});
+      await service.adminSuspendUser('u1', actor, 'Fraudulent chargeback');
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { deletedAt: expect.any(Date), suspensionReason: 'Fraudulent chargeback' },
+      });
+    });
+
+    it('records an audit log entry carrying the reason', async () => {
+      prisma.user.update.mockResolvedValue({});
+      await service.adminSuspendUser('u1', actor, 'Fraudulent chargeback');
+      expect(auditLog.record).toHaveBeenCalledWith({
+        actor,
+        action: 'user.suspended',
+        entityType: 'User',
+        entityId: 'u1',
+        metadata: { reason: 'Fraudulent chargeback' },
+      });
+    });
+
+    it('records an audit log entry with no metadata when no reason is given', async () => {
       prisma.user.update.mockResolvedValue({});
       await service.adminSuspendUser('u1', actor);
       expect(auditLog.record).toHaveBeenCalledWith({
@@ -120,7 +173,44 @@ describe('UsersService', () => {
         action: 'user.suspended',
         entityType: 'User',
         entityId: 'u1',
+        metadata: undefined,
       });
+    });
+  });
+
+  describe('adminUnsuspendUser', () => {
+    it('clears deletedAt and the reason for a suspended user', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', deletedAt: new Date() });
+      prisma.user.update.mockResolvedValue({});
+      await service.adminUnsuspendUser('u1', actor);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'u1' },
+        data: { deletedAt: null, suspensionReason: null },
+      });
+    });
+
+    it('records an audit log entry for the unsuspension', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', deletedAt: new Date() });
+      prisma.user.update.mockResolvedValue({});
+      await service.adminUnsuspendUser('u1', actor);
+      expect(auditLog.record).toHaveBeenCalledWith({
+        actor,
+        action: 'user.unsuspended',
+        entityType: 'User',
+        entityId: 'u1',
+      });
+    });
+
+    it('throws NotFoundException for a nonexistent user', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.adminUnsuspendUser('missing', actor)).rejects.toThrow(NotFoundException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException when the user is not currently suspended', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'u1', deletedAt: null });
+      await expect(service.adminUnsuspendUser('u1', actor)).rejects.toThrow(BadRequestException);
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
   });
 });

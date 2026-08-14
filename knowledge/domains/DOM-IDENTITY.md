@@ -1,13 +1,13 @@
 ---
 id: DOM-IDENTITY
 title: 'Jwel / ELYSIAN — Domain: Identity & Access'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-14
 milestone: M5
 category: Domains
 priority: Critical
@@ -68,7 +68,9 @@ functionality. `PRODUCT.md` FR-1's guest-checkout clause is superseded by it.
 **Public** — `POST /auth/register`, `POST /auth/login`, OAuth start and
 callback for Google, Facebook and Apple.
 **Authenticated** — `GET /me`, `PATCH /me`, address CRUD under `/me/addresses`.
-**Admin** — `GET /admin/users`, `PATCH /admin/users/:userId/suspend`.
+**Admin** — `GET /admin/users` (paginated, `status=active|suspended|all`,
+default `all`), `PATCH /admin/users/:userId/suspend` (optional `reason`),
+`PATCH /admin/users/:userId/unsuspend`.
 
 ## 5. Events
 
@@ -96,6 +98,42 @@ system's most depended-upon context and must remain its least dependent.
    cannot find their orders.
 2. **Suspended user with an in-flight order.** Suspension blocks access; it
    must not corrupt or cancel the order.
+
+   **A real defect in this edge case, fixed 2026-08-14.** Reported directly
+   ("I suspended my other account, and when I tried to login it just said
+   invalid email or password... I didn't have any way to ask for suspension
+   removal. And even from admin side there was no way to un-suspend
+   someone"). Three compounding gaps, all traced to the same root: suspension
+   and soft-delete shared one mechanism (`deletedAt`) with no reversal ever
+   built, on the assumption that soft-delete doesn't need one.
+   - `login` checked `deletedAt` *before* verifying the password, so a
+     suspended account got the exact same "Invalid email or password" as a
+     typo or an unknown email — indistinguishable even to the genuine account
+     owner, who could prove it was theirs. **Fixed**: the check now happens
+     only after `bcrypt.compare` succeeds, so the distinct message ("Your
+     account has been suspended[: reason]. Contact support for help.", `403`)
+     is reachable only by someone who already knows the password — this
+     changes what the account owner sees, not what a guesser can learn. The
+     same ordering `loginWithOAuth` already used (check suspension right
+     after its own proof of identity) and `JwtStrategy` already used for an
+     existing session ("Account no longer active").
+   - `adminListUsers` hardcoded `deletedAt: null`, so a suspended user
+     disappeared from the admin list the moment they were suspended — no
+     filter, no search, nothing brought them back. **Fixed**: `status` query
+     param (`active`/`suspended`/`all`), defaulting to `all`.
+   - **No unsuspend endpoint existed at all** — suspension had no reverse
+     operation anywhere in the API. **Fixed**: `PATCH
+     /admin/users/:userId/unsuspend`, clearing `deletedAt` and
+     `suspensionReason`. Safe because `deletedAt` on this table is currently
+     written only by suspension (see `User.suspensionReason`'s schema
+     comment) — nothing else treats a cleared `deletedAt` as anything but "no
+     longer suspended."
+
+   Also added: an optional `reason` on suspend, shown to the suspended user in
+   the login message and to admins in the user list — previously suspension
+   carried no reason anywhere, so an admin revisiting a suspended account (or
+   a colleague reviewing one) had nothing but the fact of suspension itself to
+   go on.
 3. **Soft-deleted user's reviews and orders.** Remain, per Invariant 3. Their
    **name is not displayed on public reviews** — `DOM-REVIEWS` Invariant 8
    renders them anonymously, keeping the content and the verified badge. Orders

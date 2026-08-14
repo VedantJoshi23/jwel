@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OAuthProvider } from '@prisma/client';
@@ -134,9 +140,52 @@ describe('AuthService', () => {
       expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 
-    it('throws UnauthorizedException for a soft-deleted (suspended) account', async () => {
+    it('throws ForbiddenException for a suspended account — but only once the password has verified', async () => {
+      // Regression: this used to be checked *before* the password, sharing
+      // the exact same UnauthorizedException/"Invalid email or password" as
+      // an unknown email or a typo — the genuine account owner, entering
+      // their own correct password, had no way to learn why login refused
+      // them, and no path back (no unsuspend existed either). Checking
+      // deletedAt only after bcrypt.compare succeeds is what makes this
+      // message reachable only by someone who already knows the password —
+      // it changes what the *account owner* sees, not what a guesser can
+      // learn.
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        passwordHash: 'hash',
+        deletedAt: new Date(),
+        suspensionReason: null,
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      await expect(service.login({ email: 'a@b.com', password: 'correct' })).rejects.toThrow(
+        ForbiddenException,
+      );
+      // Not an auth failure — the credentials were right.
+      expect(metrics.authFailuresTotal.inc).not.toHaveBeenCalled();
+    });
+
+    it('includes the admin-supplied reason in the suspended-account message', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        passwordHash: 'hash',
+        deletedAt: new Date(),
+        suspensionReason: 'Fraudulent chargeback',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      await expect(service.login({ email: 'a@b.com', password: 'correct' })).rejects.toThrow(
+        /Fraudulent chargeback/,
+      );
+    });
+
+    it('a wrong password on a suspended account still gets the generic message, not a suspension hint', async () => {
+      // The anti-enumeration property this preserves: guessing a password
+      // against someone else's (possibly suspended) account learns nothing
+      // beyond "wrong", same as against an active account.
       prisma.user.findUnique.mockResolvedValue({ id: 'u1', passwordHash: 'hash', deletedAt: new Date() });
-      await expect(service.login({ email: 'a@b.com', password: 'x' })).rejects.toThrow(UnauthorizedException);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      await expect(service.login({ email: 'a@b.com', password: 'wrong' })).rejects.toThrow(
+        UnauthorizedException,
+      );
       expect(metrics.authFailuresTotal.inc).toHaveBeenCalledTimes(1);
     });
 

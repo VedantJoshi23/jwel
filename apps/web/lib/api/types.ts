@@ -559,6 +559,7 @@ export interface AdminUser {
   role: Role;
   createdAt: string;
   deletedAt: string | null;
+  suspensionReason: string | null;
 }
 
 export interface InventoryItem {

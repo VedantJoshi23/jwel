@@ -190,6 +190,13 @@ model User {
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
+  // Set alongside `deletedAt` by an admin suspension (`UsersService.
+  // adminSuspendUser`); cleared alongside it on `adminUnsuspendUser`. This
+  // table has no separate "suspended" mechanism from "soft-deleted" — the
+  // only writer of `deletedAt` today is suspension, so clearing it back to
+  // null is a well-defined, safe un-suspend. `DOM-IDENTITY` Invariant 3
+  // ("users soft-delete") predates this field.
+  suspensionReason String? @map("suspension_reason")
 
   addresses       Address[]
   cart            Cart?

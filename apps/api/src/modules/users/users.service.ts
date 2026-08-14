@@ -1,9 +1,11 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateAddressDto } from './dto/create-address.dto';
-import { PaginationQueryDto, PaginatedResult } from '../../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../../common/dto/pagination-query.dto';
 import { UserResponseDto } from './dto/user-response.dto';
+import { AdminUserResponseDto } from './dto/admin-user-response.dto';
+import { ListUsersDto, UserStatusFilter } from './dto/list-users.dto';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 
@@ -17,6 +19,12 @@ const SAFE_USER_SELECT = {
   phone: true,
   role: true,
   createdAt: true,
+} as const;
+
+const ADMIN_USER_SELECT = {
+  ...SAFE_USER_SELECT,
+  deletedAt: true,
+  suspensionReason: true,
 } as const;
 
 @Injectable()
@@ -63,27 +71,62 @@ export class UsersService {
     await this.prisma.address.delete({ where: { id: addressId } });
   }
 
-  async adminListUsers(query: PaginationQueryDto): Promise<PaginatedResult<UserResponseDto>> {
-    const { page, pageSize } = query;
-    const where = { deletedAt: null };
+  async adminListUsers(query: ListUsersDto): Promise<PaginatedResult<AdminUserResponseDto>> {
+    const { page, pageSize, status = UserStatusFilter.ALL } = query;
+    const where =
+      status === UserStatusFilter.ACTIVE
+        ? { deletedAt: null }
+        : status === UserStatusFilter.SUSPENDED
+          ? { deletedAt: { not: null } }
+          : {};
     const [items, total] = await this.prisma.$transaction([
       this.prisma.user.findMany({
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
-        select: SAFE_USER_SELECT,
+        select: ADMIN_USER_SELECT,
       }),
       this.prisma.user.count({ where }),
     ]);
     return { items, page, pageSize, total };
   }
 
-  async adminSuspendUser(userId: string, actor: AuthenticatedUser): Promise<void> {
-    await this.prisma.user.update({ where: { id: userId }, data: { deletedAt: new Date() } });
+  async adminSuspendUser(userId: string, actor: AuthenticatedUser, reason?: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: new Date(), suspensionReason: reason ?? null },
+    });
     await this.auditLogService.record({
       actor,
       action: 'user.suspended',
+      entityType: 'User',
+      entityId: userId,
+      metadata: reason ? { reason } : undefined,
+    });
+  }
+
+  /**
+   * The reverse of `adminSuspendUser` — safe because `deletedAt` on this
+   * table is currently written only by suspension (see the schema comment on
+   * `User.suspensionReason`). Nothing else in Identity treats a cleared
+   * `deletedAt` as anything other than "no longer suspended."
+   */
+  async adminUnsuspendUser(userId: string, actor: AuthenticatedUser): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (!user.deletedAt) {
+      throw new BadRequestException('This user is not suspended');
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { deletedAt: null, suspensionReason: null },
+    });
+    await this.auditLogService.record({
+      actor,
+      action: 'user.unsuspended',
       entityType: 'User',
       entityId: userId,
     });

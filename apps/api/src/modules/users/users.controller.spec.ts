@@ -12,6 +12,7 @@ describe('UsersController', () => {
     removeAddress: jest.Mock;
     adminListUsers: jest.Mock;
     adminSuspendUser: jest.Mock;
+    adminUnsuspendUser: jest.Mock;
   };
   let controller: UsersController;
 
@@ -24,6 +25,7 @@ describe('UsersController', () => {
       removeAddress: jest.fn().mockReturnValue(undefined),
       adminListUsers: jest.fn().mockReturnValue('users'),
       adminSuspendUser: jest.fn().mockReturnValue(undefined),
+      adminUnsuspendUser: jest.fn().mockReturnValue(undefined),
     };
     controller = new UsersController(service as unknown as UsersService);
   });
@@ -59,8 +61,18 @@ describe('UsersController', () => {
     expect(controller.adminListUsers(query as any)).toBe('users');
   });
 
-  it('adminSuspendUser delegates with the target userId and the acting admin', () => {
-    controller.adminSuspendUser(user, 'u2');
-    expect(service.adminSuspendUser).toHaveBeenCalledWith('u2', user);
+  it('adminSuspendUser delegates with the target userId, the acting admin, and the reason', () => {
+    controller.adminSuspendUser(user, 'u2', { reason: 'Fraudulent chargeback' });
+    expect(service.adminSuspendUser).toHaveBeenCalledWith('u2', user, 'Fraudulent chargeback');
+  });
+
+  it('adminSuspendUser delegates with an undefined reason when none is given', () => {
+    controller.adminSuspendUser(user, 'u2', {});
+    expect(service.adminSuspendUser).toHaveBeenCalledWith('u2', user, undefined);
+  });
+
+  it('adminUnsuspendUser delegates with the target userId and the acting admin', () => {
+    controller.adminUnsuspendUser(user, 'u2');
+    expect(service.adminUnsuspendUser).toHaveBeenCalledWith('u2', user);
   });
 });

@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -67,7 +74,7 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<AuthResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || !user.passwordHash || user.deletedAt) {
+    if (!user || !user.passwordHash) {
       // Same counter, same generic message, for both branches below — an
       // unknown email and a wrong password must be indistinguishable to
       // whatever is watching this metric, same as they already are to the
@@ -80,6 +87,25 @@ export class AuthService {
     if (!passwordMatches) {
       this.metrics.authFailuresTotal.inc();
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    // Deliberately checked only *after* the password has already verified —
+    // someone without the correct password gets the same generic message
+    // whether the account is unknown, wrong-password, or suspended, so this
+    // reveals nothing to anyone who couldn't already prove it's their own
+    // account. Before this, a suspended user got the same generic "Invalid
+    // email or password" as a typo, with no way to tell the two apart — they
+    // had no account left to appeal from and no error clear enough to know
+    // *why*. This is the same distinction `JwtStrategy` already draws for an
+    // existing session ("Account no longer active"); OAuth's equivalent
+    // check happens right after its own proof of identity, for the same
+    // reason.
+    if (user.deletedAt) {
+      throw new ForbiddenException(
+        user.suspensionReason
+          ? `Your account has been suspended: ${user.suspensionReason}. Contact support for help.`
+          : 'Your account has been suspended. Contact support for help.',
+      );
     }
 
     return this.buildAuthResponse(user.id, user.email, user.name, user.role as Role);
