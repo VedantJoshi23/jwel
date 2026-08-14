@@ -568,6 +568,17 @@ export interface InventoryItem {
   lowStockThreshold: number;
 }
 
+/**
+ * `InventoryItem` plus the product/variant context the low-stock-only
+ * endpoint doesn't carry — this is what lets the admin actually find a
+ * variant that isn't currently low-stock, to adjust it further.
+ */
+export interface AdminInventoryItem extends InventoryItem {
+  sku: string;
+  productName: string;
+  productSlug: string;
+}
+
 export type DiscountType = 'PERCENTAGE' | 'FLAT' | 'FIRST_ORDER';
 
 export interface Coupon {

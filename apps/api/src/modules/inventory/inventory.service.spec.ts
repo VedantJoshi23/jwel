@@ -118,4 +118,52 @@ describe('InventoryService', () => {
       expect(await service.listLowStock()).toBe(rows);
     });
   });
+
+  describe('listInventory', () => {
+    // Regression: the admin Inventory page previously only ever showed
+    // low-stock rows, so an item that had already been restocked above its
+    // threshold had no path back into view — this is the general-purpose
+    // list that fixes it.
+    it('returns a paginated, joined result regardless of stock level', async () => {
+      const rows = [
+        {
+          variantId: 'v1',
+          quantityOnHand: 10,
+          quantityReserved: 0,
+          lowStockThreshold: 5,
+          sku: 'SKU-1',
+          productName: 'Gold Ring',
+          productSlug: 'gold-ring',
+        },
+      ];
+      prisma.$queryRaw.mockResolvedValueOnce(rows).mockResolvedValueOnce([{ count: 1n }]);
+
+      const result = await service.listInventory({ page: 1, pageSize: 24 });
+      expect(result).toEqual({ items: rows, page: 1, pageSize: 24, total: 1 });
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    });
+
+    it('builds the same WHERE fragment once and reuses it for both the page query and the count query', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: 0n }]);
+      await service.listInventory({ page: 1, pageSize: 24, q: 'ring', lowStockOnly: true });
+
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+      // The interpolated `where` fragment is one of the tagged-template's
+      // values (a `Prisma.Sql` object), not part of the static template
+      // strings — its own `.sql` text is where the predicates actually live.
+      const [itemsCall, countCall] = prisma.$queryRaw.mock.calls;
+      const whereFragmentSql = (arg: unknown): string | undefined => (arg as { sql?: string })?.sql;
+      const itemsWhere = itemsCall.map(whereFragmentSql).find((s: string | undefined) => s?.includes('ILIKE'));
+      const countWhere = countCall.map(whereFragmentSql).find((s: string | undefined) => s?.includes('ILIKE'));
+      expect(itemsWhere).toBeDefined();
+      expect(itemsWhere).toContain('low_stock_threshold');
+      expect(itemsWhere).toBe(countWhere);
+    });
+
+    it('returns an empty page with total 0 rather than throwing when nothing matches', async () => {
+      prisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: 0n }]);
+      const result = await service.listInventory({ page: 1, pageSize: 24, q: 'no-such-thing' });
+      expect(result).toEqual({ items: [], page: 1, pageSize: 24, total: 0 });
+    });
+  });
 });

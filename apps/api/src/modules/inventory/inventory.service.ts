@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogService } from '../audit-log/audit-log.service';
 import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+import { PaginatedResult } from '../../common/dto/pagination-query.dto';
+import { ListInventoryDto } from './dto/list-inventory.dto';
 
 type Client = PrismaService | Prisma.TransactionClient;
 
@@ -24,6 +26,26 @@ export interface LowStockItem {
   quantityOnHand: number;
   quantityReserved: number;
   lowStockThreshold: number;
+}
+
+/**
+ * Shape returned by `listInventory`. Same reasoning as `LowStockItem` — a
+ * raw, joined query with no generated Prisma model behind its shape.
+ *
+ * Carries `productName`/`sku` that `listLowStock` deliberately doesn't: this
+ * is the admin's only way to *find* a variant to adjust once it is no longer
+ * low-stock (the admin Inventory page previously only ever listed low-stock
+ * rows, so a healthy-stock item had no path to being restocked further — see
+ * `DOM-INVENTORY` for the incident this fixes).
+ */
+export interface AdminInventoryItem {
+  variantId: string;
+  quantityOnHand: number;
+  quantityReserved: number;
+  lowStockThreshold: number;
+  sku: string;
+  productName: string;
+  productSlug: string;
 }
 
 @Injectable()
@@ -136,5 +158,56 @@ export class InventoryService {
       WHERE (quantity_on_hand - quantity_reserved) <= low_stock_threshold
       ORDER BY (quantity_on_hand - quantity_reserved) ASC
     `;
+  }
+
+  /**
+   * The general-purpose counterpart to `listLowStock` — paginated, joined to
+   * product/variant so the admin can find an item by name or SKU rather than
+   * only ever seeing it while it happens to be low-stock. `q` and
+   * `lowStockOnly` are built as separate `Prisma.sql` fragments and reused
+   * across the page query and the count query, since Prisma's `where` object
+   * still can't express the `on_hand - reserved <= threshold` comparison
+   * (same reason `listLowStock` is raw SQL).
+   */
+  async listInventory(query: ListInventoryDto): Promise<PaginatedResult<AdminInventoryItem>> {
+    const { page, pageSize, q, lowStockOnly } = query;
+
+    const conditions: Prisma.Sql[] = [];
+    if (q) {
+      const pattern = `%${q}%`;
+      conditions.push(Prisma.sql`(p.name ILIKE ${pattern} OR v.sku ILIKE ${pattern})`);
+    }
+    if (lowStockOnly) {
+      conditions.push(Prisma.sql`(i.quantity_on_hand - i.quantity_reserved) <= i.low_stock_threshold`);
+    }
+    const where = conditions.length ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}` : Prisma.empty;
+
+    const [items, countRows] = await Promise.all([
+      this.prisma.$queryRaw<AdminInventoryItem[]>`
+        SELECT
+          i.variant_id          AS "variantId",
+          i.quantity_on_hand    AS "quantityOnHand",
+          i.quantity_reserved   AS "quantityReserved",
+          i.low_stock_threshold AS "lowStockThreshold",
+          v.sku                 AS "sku",
+          p.name                AS "productName",
+          p.slug                AS "productSlug"
+        FROM inventory_items i
+        JOIN product_variants v ON v.id = i.variant_id
+        JOIN products p ON p.id = v.product_id
+        ${where}
+        ORDER BY p.name ASC, v.sku ASC
+        LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}
+      `,
+      this.prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT COUNT(*)::bigint AS count
+        FROM inventory_items i
+        JOIN product_variants v ON v.id = i.variant_id
+        JOIN products p ON p.id = v.product_id
+        ${where}
+      `,
+    ]);
+
+    return { items, page, pageSize, total: Number(countRows[0].count) };
   }
 }

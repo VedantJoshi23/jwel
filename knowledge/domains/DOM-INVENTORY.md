@@ -1,13 +1,13 @@
 ---
 id: DOM-INVENTORY
 title: 'Jwel / ELYSIAN — Domain: Inventory'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-14
 milestone: M5
 category: Domains
 priority: Critical
@@ -115,6 +115,22 @@ emitting events; reading Shopping, Reviews or Recommendation.
    against a threshold of 5 (KC-031), so the low-stock dashboard reports
    everything. Not a defect — placeholder catalog awaiting client data
    (KC-049).
+7. **An item restocked past its threshold.** **Real defect, fixed
+   2026-08-14.** The admin Inventory page only ever called
+   `GET /admin/inventory/low-stock` — the moment a variant's available
+   quantity cleared its threshold, it dropped out of that list with no other
+   way back in. The admin could see it go low, restock it once, and then had
+   no path to add more: the "Adjust" control only ever existed on rows the
+   list happened to include. Reported directly ("I'm not able to add items to
+   inventory from admin UI"), reproduced against production — of 1,050
+   variants, exactly the 2 that had ever been restocked above threshold were
+   the ones with no way back into the page.
+
+   **Fixed** by `GET /admin/inventory` (paginated, joined to product/variant
+   for name and SKU, searchable, `lowStockOnly` optional) — the low-stock
+   list stays as the default worklist; this is the general reachability path
+   underneath it, the same relationship `listLowStock` and `listInventory`
+   have in `InventoryService`.
 
 ## Constitution compliance
 

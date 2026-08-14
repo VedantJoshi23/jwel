@@ -122,4 +122,72 @@ describe('Inventory (integration)', () => {
     const row = (res.body as Array<Record<string, unknown>>).find((r) => r.variantId === variantId);
     expect(row?.quantityOnHand).toBe(3);
   });
+
+  describe('GET /admin/inventory — the general list', () => {
+    // Regression: the admin Inventory page only ever showed low-stock rows,
+    // so once an item was restocked past its threshold there was no way
+    // left to find it and add more — this endpoint is the fix.
+    it('a CUSTOMER cannot read it (RBAC)', async () => {
+      await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory')
+        .set('Authorization', `Bearer ${customerToken}`)
+        .expect(403);
+    });
+
+    it('finds a variant that is well above its low-stock threshold — the actual bug', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/admin/inventory/${variantId}/adjust`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ delta: 50 })
+        .expect(200);
+
+      // Confirms it has actually left the low-stock list...
+      const lowStock = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory/low-stock')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect((lowStock.body as Array<{ variantId: string }>).some((r) => r.variantId === variantId)).toBe(false);
+
+      // ...and confirms it is still reachable here, with the product context
+      // that lets the admin actually find it in the first place.
+      const all = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory?pageSize=100')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      const row = all.body.items.find((r: { variantId: string }) => r.variantId === variantId);
+      expect(row).toMatchObject({ productName: 'Inventory Test Piece', quantityOnHand: 53 });
+    });
+
+    it('searches by product name', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory?q=Inventory Test Piece')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(res.body.items.some((r: { variantId: string }) => r.variantId === variantId)).toBe(true);
+    });
+
+    it('a search for something that does not exist returns an empty page, not an error', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory?q=no-such-product-xyz')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(res.body).toMatchObject({ items: [], total: 0 });
+    });
+
+    it('lowStockOnly=true excludes a restocked item that lowStockOnly=false includes', async () => {
+      const restrictedRes = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory?lowStockOnly=true&pageSize=100')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(
+        restrictedRes.body.items.some((r: { variantId: string }) => r.variantId === variantId),
+      ).toBe(false);
+
+      const fullRes = await request(app.getHttpServer())
+        .get('/api/v1/admin/inventory?pageSize=100')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(fullRes.body.items.some((r: { variantId: string }) => r.variantId === variantId)).toBe(true);
+    });
+  });
 });
