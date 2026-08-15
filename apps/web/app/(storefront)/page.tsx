@@ -157,7 +157,7 @@ export default async function HomePage() {
 
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
-        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.4fr] lg:items-center lg:px-8">
+        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:px-8">
           <div>
             <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">
               {brand.bestsellers.headline}
@@ -166,7 +166,19 @@ export default async function HomePage() {
               {brand.bestsellers.subtext}
             </p>
           </div>
-          <BestsellersCarousel products={bestsellers} />
+          {/*
+            The carousel column had no upper bound: on a wide viewport, the
+            1fr/1.2fr grid gives it most of the row's width, and since each
+            tile is aspect-square, the photos grew both wider AND taller in
+            lockstep — at ~1400px+ viewports the two tiles dwarfed the text
+            column and unbalanced the section (reported against the live
+            site 2026-08-15). Capping the column's own width, not the tiles'
+            percentage split BestsellersCarousel's slide math depends on,
+            stops that growth without touching the carousel component itself.
+          */}
+          <div className="w-full lg:ml-auto lg:max-w-[640px]">
+            <BestsellersCarousel products={bestsellers} />
+          </div>
         </RevealSection>
       )}
 
