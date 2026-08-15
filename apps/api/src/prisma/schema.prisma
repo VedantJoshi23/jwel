@@ -403,6 +403,12 @@ model ProductMedia {
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  // "product_media_thumbnail_is_image" CHECK constraint (sort_order <> 0 OR
+  // type = 'IMAGE'), added by migration 20260815100000 — invisible to Prisma
+  // the same way the CHECK constraints noted elsewhere in this schema are
+  // (STD-DATABASE rule 6). Enforced meaningfully only alongside
+  // products.service.ts#removeMedia's resequencing; see that migration's
+  // comment. FEAT-PRODUCT-VIDEO-MEDIA §5.
   @@index([productId, sortOrder])
   @@map("product_media")
 }

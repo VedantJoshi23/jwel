@@ -29,6 +29,7 @@
     "react-dom": "^19.0.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.3",
+    "yet-another-react-lightbox": "^3.32.2",
     "zustand": "^4.5.5"
   },
   "devDependencies": {
