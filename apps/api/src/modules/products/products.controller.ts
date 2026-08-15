@@ -29,6 +29,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { ALLOWED_IMAGE_MIME_REGEX, MAX_IMAGE_BYTES } from '../../common/media/image-upload.constraints';
+import { ALLOWED_VIDEO_MIME_REGEX, MAX_VIDEO_BYTES } from '../../common/media/video-upload.constraints';
 
 // This file used to carry these as literals, with a comment arguing the
 // duplication was deliberate: pipe configuration at the HTTP boundary is a
@@ -41,8 +42,17 @@ import { ALLOWED_IMAGE_MIME_REGEX, MAX_IMAGE_BYTES } from '../../common/media/im
 // raising the cap in one and not the other would produce a route that
 // accepts a file the service then rejects. A third route (admin/uploads)
 // would have made it three copies, which is what forced the issue.
-const MAX_MEDIA_BYTES = MAX_IMAGE_BYTES;
-const ALLOWED_MEDIA_MIME_REGEX = ALLOWED_IMAGE_MIME_REGEX;
+//
+// The pipe here only needs to be the *outer bound* — accept anything either
+// media type could legitimately be, and let the type-specific mime/size
+// check happen once, in the service, where the exact per-type cap lives
+// (FEAT-PRODUCT-VIDEO-MEDIA §9). A file that passes this coarse check but
+// exceeds its own type's real cap (e.g. a 20 MB image) is still rejected —
+// just one layer in, not two.
+const MAX_MEDIA_BYTES = Math.max(MAX_IMAGE_BYTES, MAX_VIDEO_BYTES);
+const ALLOWED_MEDIA_MIME_REGEX = new RegExp(
+  `${ALLOWED_IMAGE_MIME_REGEX.source}|${ALLOWED_VIDEO_MIME_REGEX.source}`,
+);
 
 @ApiTags('products')
 @Controller('api/v1')
@@ -178,7 +188,10 @@ export class ProductsController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_MEDIA_BYTES } }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
-  @ApiOperation({ summary: '[Admin/Staff] Upload a product photo (jpeg/png/webp, max 8 MB)' })
+  @ApiOperation({
+    summary:
+      '[Admin/Staff] Upload a product photo or short video (jpeg/png/webp up to 8 MB, or mp4/webm up to 40 MB). The first media item on a product must be an image — it is the thumbnail.',
+  })
   addMedia(
     @Param('id') id: string,
     @UploadedFile(

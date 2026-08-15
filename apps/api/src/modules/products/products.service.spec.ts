@@ -1,5 +1,5 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { MediaType, Prisma, ProductStatus } from '@prisma/client';
 import { SizesService } from '../sizes/sizes.service';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -321,44 +321,132 @@ describe('ProductsService', () => {
         folder: 'products',
       });
       expect(prisma.productMedia.create).toHaveBeenCalledWith({
-        data: { productId: 'p1', storageRef: 'local:products/new.jpg', sortOrder: 2 },
+        data: { productId: 'p1', storageRef: 'local:products/new.jpg', type: MediaType.IMAGE, sortOrder: 2 },
       });
       expect(eventBus.emit).toHaveBeenCalledWith('product.upserted', { productId: 'p1' });
+    });
+
+    it('accepts an allowed video mime type and persists it with type VIDEO', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productMedia.count.mockResolvedValue(1); // an image already exists
+
+      await service.addMedia('p1', { buffer: Buffer.from('x'), mimetype: 'video/mp4', originalname: 'a.mp4' });
+
+      expect(prisma.productMedia.create).toHaveBeenCalledWith({
+        data: { productId: 'p1', storageRef: 'local:products/new.jpg', type: MediaType.VIDEO, sortOrder: 1 },
+      });
+    });
+
+    it('rejects a video over the 40 MB video size limit before ever calling the storage port', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productMedia.count.mockResolvedValue(1);
+      const big = Buffer.alloc(41 * 1024 * 1024);
+      await expect(
+        service.addMedia('p1', { buffer: big, mimetype: 'video/mp4', originalname: 'a.mp4' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+
+    it('rejects a video as the very first media item on a product — the thumbnail must be an image', async () => {
+      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+      prisma.productMedia.count.mockResolvedValue(0);
+
+      await expect(
+        service.addMedia('p1', { buffer: Buffer.from('x'), mimetype: 'video/mp4', originalname: 'a.mp4' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(storage.upload).not.toHaveBeenCalled();
     });
   });
 
   describe('removeMedia', () => {
     it('throws NotFoundException when the media does not belong to this product', async () => {
-      prisma.productMedia.findUnique.mockResolvedValue({ id: 'm1', productId: 'other-product' });
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, { media: [{ id: 'm2', type: MediaType.IMAGE, storageRef: 'local:products/b.jpg' }] }),
+      );
       await expect(service.removeMedia('p1', 'm1')).rejects.toThrow(NotFoundException);
       expect(storage.delete).not.toHaveBeenCalled();
     });
 
-    it('deletes from storage and the database', async () => {
-      prisma.productMedia.findUnique.mockResolvedValue({ id: 'm1', productId: 'p1', storageRef: 'local:products/a.jpg' });
-      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100));
+    it('deletes from storage and the database, resequencing what remains', async () => {
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, {
+          media: [
+            { id: 'm1', type: MediaType.IMAGE, storageRef: 'local:products/a.jpg' },
+            { id: 'm2', type: MediaType.IMAGE, storageRef: 'local:products/b.jpg' },
+          ],
+        }),
+      );
 
       await service.removeMedia('p1', 'm1');
 
       expect(storage.delete).toHaveBeenCalledWith('local:products/a.jpg');
       expect(prisma.productMedia.delete).toHaveBeenCalledWith({ where: { id: 'm1' } });
+      expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm2' }, data: { sortOrder: 0 } });
+    });
+
+    it('rejects removing the last image while a video remains on the product', async () => {
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, {
+          media: [
+            { id: 'm1', type: MediaType.IMAGE, storageRef: 'local:products/a.jpg' },
+            { id: 'm2', type: MediaType.VIDEO, storageRef: 'local:products/clip.mp4' },
+          ],
+        }),
+      );
+
+      await expect(service.removeMedia('p1', 'm1')).rejects.toThrow(ConflictException);
+      expect(storage.delete).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('allows removing a video even when it is the only other item', async () => {
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, {
+          media: [
+            { id: 'm1', type: MediaType.IMAGE, storageRef: 'local:products/a.jpg' },
+            { id: 'm2', type: MediaType.VIDEO, storageRef: 'local:products/clip.mp4' },
+          ],
+        }),
+      );
+
+      await service.removeMedia('p1', 'm2');
+
+      expect(storage.delete).toHaveBeenCalledWith('local:products/clip.mp4');
     });
   });
 
   describe('reorderMedia', () => {
     it('rejects a mediaIds list that does not exactly match the product’s current media', async () => {
-      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100, { media: [{ id: 'm1' }, { id: 'm2' }] }));
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, { media: [{ id: 'm1', type: MediaType.IMAGE }, { id: 'm2', type: MediaType.IMAGE }] }),
+      );
       await expect(service.reorderMedia('p1', ['m1'])).rejects.toThrow(BadRequestException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('updates sortOrder to match the given order', async () => {
-      prisma.product.findUnique.mockResolvedValue(fakeProduct('p1', 100, { media: [{ id: 'm1' }, { id: 'm2' }] }));
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, { media: [{ id: 'm1', type: MediaType.IMAGE }, { id: 'm2', type: MediaType.IMAGE }] }),
+      );
 
       await service.reorderMedia('p1', ['m2', 'm1']);
 
       expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm2' }, data: { sortOrder: 0 } });
       expect(prisma.productMedia.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { sortOrder: 1 } });
+    });
+
+    it('rejects moving a video to index 0 — a video can never be the thumbnail', async () => {
+      prisma.product.findUnique.mockResolvedValue(
+        fakeProduct('p1', 100, {
+          media: [
+            { id: 'm1', type: MediaType.IMAGE },
+            { id: 'm2', type: MediaType.VIDEO },
+          ],
+        }),
+      );
+
+      await expect(service.reorderMedia('p1', ['m2', 'm1'])).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
   });
 

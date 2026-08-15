@@ -1,5 +1,5 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProductStatus, SizeScheme } from '@prisma/client';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { MediaType, Prisma, ProductStatus, SizeScheme } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -13,6 +13,7 @@ import { ProductSort, QueryProductsDto } from './dto/query-products.dto';
 import { PaginatedResult, PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { MAX_IMAGE_BYTES, isAllowedImageMimeType } from '../../common/media/image-upload.constraints';
+import { MAX_VIDEO_BYTES, isAllowedVideoMimeType } from '../../common/media/video-upload.constraints';
 import {
   NO_RATING,
   RatingAggregate,
@@ -497,8 +498,21 @@ export class ProductsService {
   // --- Media management -------------------------------------------------
 
   // Shared with the controller's ParseFilePipe and the admin/uploads route
-  // via common/media/image-upload.constraints — one definition of the limit,
-  // still checked independently at each layer.
+  // via common/media/{image,video}-upload.constraints — one definition of
+  // each limit, still checked independently at each layer.
+  //
+  // FEAT-PRODUCT-VIDEO-MEDIA §5: the thumbnail — the media item at
+  // sortOrder 0 — must always be an IMAGE. That's a database CHECK
+  // constraint (product_media_thumbnail_is_image), the lowest layer that can
+  // enforce it (Constitution Law 4). The checks below exist so a caller
+  // hits a clear 400/409 instead of a raw constraint-violation error; they
+  // are a UX layer in front of the real guarantee, not a replacement for it.
+
+  private detectMediaType(mimetype: string): MediaType {
+    if (isAllowedImageMimeType(mimetype)) return MediaType.IMAGE;
+    if (isAllowedVideoMimeType(mimetype)) return MediaType.VIDEO;
+    throw new BadRequestException(`Unsupported file type: ${mimetype}`);
+  }
 
   async addMedia(productId: string, file: { buffer: Buffer; mimetype: string; originalname: string }): Promise<ProductResponse> {
     await this.findProductOrThrow(productId);
@@ -508,14 +522,21 @@ export class ProductsService {
     // handed to the Storage port, and a service method callable from
     // anywhere shouldn't rely on one specific controller route being the
     // only caller that got the pipe configuration right.
-    if (!isAllowedImageMimeType(file.mimetype)) {
-      throw new BadRequestException(`Unsupported file type: ${file.mimetype}`);
-    }
-    if (file.buffer.byteLength > MAX_IMAGE_BYTES) {
-      throw new BadRequestException('File exceeds the 8 MB upload limit');
+    const mediaType = this.detectMediaType(file.mimetype);
+    const maxBytes = mediaType === MediaType.IMAGE ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
+    if (file.buffer.byteLength > maxBytes) {
+      throw new BadRequestException(
+        `File exceeds the ${maxBytes / (1024 * 1024)} MB upload limit for ${mediaType === MediaType.IMAGE ? 'images' : 'videos'}`,
+      );
     }
 
     const existingCount = await this.prisma.productMedia.count({ where: { productId } });
+    if (mediaType === MediaType.VIDEO && existingCount === 0) {
+      throw new BadRequestException(
+        'Upload at least one image before adding a video — the first item on a product is always its thumbnail image',
+      );
+    }
+
     const { storageRef } = await this.storage.upload({
       buffer: file.buffer,
       mimeType: file.mimetype,
@@ -524,7 +545,7 @@ export class ProductsService {
     });
 
     await this.prisma.productMedia.create({
-      data: { productId, storageRef, sortOrder: existingCount },
+      data: { productId, storageRef, type: mediaType, sortOrder: existingCount },
     });
 
     const product = await this.findProductOrThrow(productId);
@@ -533,25 +554,51 @@ export class ProductsService {
   }
 
   async removeMedia(productId: string, mediaId: string): Promise<ProductResponse> {
-    const media = await this.prisma.productMedia.findUnique({ where: { id: mediaId } });
-    if (!media || media.productId !== productId) {
+    const product = await this.findProductOrThrow(productId);
+    const media = product.media.find((m) => m.id === mediaId);
+    if (!media) {
       throw new NotFoundException('Media not found on this product');
     }
 
-    await this.storage.delete(media.storageRef);
-    await this.prisma.productMedia.delete({ where: { id: mediaId } });
+    // The remaining set, in display order, is what removeMedia is about to
+    // leave behind. If a video would end up first, the thumbnail invariant
+    // (FEAT-PRODUCT-VIDEO-MEDIA §5) would break — reject before touching
+    // storage rather than deleting the file and then failing on the DB write.
+    const remaining = product.media.filter((m) => m.id !== mediaId);
+    if (remaining.length > 0 && remaining[0].type !== MediaType.IMAGE) {
+      throw new ConflictException(
+        'Cannot remove the last image while a video remains on this product — add another image or delete the video first',
+      );
+    }
 
-    const product = await this.findProductOrThrow(productId);
+    await this.storage.delete(media.storageRef);
+    await this.prisma.$transaction([
+      this.prisma.productMedia.delete({ where: { id: mediaId } }),
+      // Resequence to a contiguous 0..n-1 so sortOrder actually reflects
+      // display order rather than leaving gaps — otherwise the CHECK
+      // constraint above only ever protects the literal sortOrder=0 row,
+      // not "whichever row displays first" (FEAT-PRODUCT-VIDEO-MEDIA §5).
+      ...remaining.map((m, index) =>
+        this.prisma.productMedia.update({ where: { id: m.id }, data: { sortOrder: index } }),
+      ),
+    ]);
+
+    const updated = await this.findProductOrThrow(productId);
     this.eventBus.emit('product.upserted', { productId });
-    return this.withResolvedMedia(product);
+    return this.withResolvedMedia(updated);
   }
 
   async reorderMedia(productId: string, mediaIds: string[]): Promise<ProductResponse> {
     const product = await this.findProductOrThrow(productId);
-    const existingIds = new Set(product.media.map((m) => m.id));
-    const sameSet = mediaIds.length === existingIds.size && mediaIds.every((id) => existingIds.has(id));
+    const byId = new Map(product.media.map((m) => [m.id, m]));
+    const sameSet = mediaIds.length === byId.size && mediaIds.every((id) => byId.has(id));
     if (!sameSet) {
       throw new BadRequestException('mediaIds must be exactly the product’s current media items, reordered');
+    }
+
+    const firstMedia = byId.get(mediaIds[0]);
+    if (firstMedia && firstMedia.type !== MediaType.IMAGE) {
+      throw new BadRequestException('The first media item must be an image — a video cannot be the thumbnail');
     }
 
     await this.prisma.$transaction(

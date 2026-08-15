@@ -8,6 +8,10 @@ function image(id: string, sortOrder: number, url = `https://cdn.example/${id}.j
   return { id, storageRef: `local:${id}.jpg`, url, type: 'IMAGE', sortOrder };
 }
 
+function video(id: string, sortOrder: number, url = `https://cdn.example/${id}.mp4`): ProductMedia {
+  return { id, storageRef: `local:${id}.mp4`, url, type: 'VIDEO', sortOrder };
+}
+
 describe('ProductGallery', () => {
   it('shows the first image as the main image', () => {
     render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
@@ -26,14 +30,8 @@ describe('ProductGallery', () => {
     expect(screen.getByAltText('Gold Ring')).toBeInTheDocument();
   });
 
-  it('orders images by sortOrder, not array order', () => {
-    render(
-      <ProductGallery
-        media={[image('second', 1), image('first', 0)]}
-        productId="p1"
-        productName="Gold Ring"
-      />,
-    );
+  it('orders media by sortOrder, not array order', () => {
+    render(<ProductGallery media={[image('second', 1), image('first', 0)]} productId="p1" productName="Gold Ring" />);
 
     expect(screen.getByAltText('Gold Ring')).toHaveAttribute(
       'src',
@@ -41,55 +39,39 @@ describe('ProductGallery', () => {
     );
   });
 
-  it('ignores non-image media', () => {
-    const video: ProductMedia = {
-      id: 'v1',
-      storageRef: 'local:v.mp4',
-      url: 'https://cdn.example/v.mp4',
-      type: 'VIDEO',
-      sortOrder: 0,
-    };
+  // FEAT-PRODUCT-VIDEO-MEDIA — media no longer filters out VIDEO items; the
+  // gallery renders whatever is at sortOrder 0, image or video.
+  it('renders a video as the main item when it is first in sort order', () => {
+    render(<ProductGallery media={[video('v1', 0), image('m1', 1)]} productId="p1" productName="Gold Ring" />);
 
-    render(
-      <ProductGallery media={[video, image('m1', 1)]} productId="p1" productName="Gold Ring" />,
-    );
+    expect(screen.queryByAltText('Gold Ring')).not.toBeInTheDocument();
+    const mainVideo = document.querySelector('video');
+    expect(mainVideo).toHaveAttribute('src', 'https://cdn.example/v1.mp4');
+  });
 
-    // Only one image remains, so no thumbnail strip is rendered.
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.getByAltText('Gold Ring')).toHaveAttribute(
-      'src',
-      expect.stringContaining(encodeURIComponent('https://cdn.example/m1.jpg')),
-    );
+  it('includes a video in the thumbnail strip alongside images', () => {
+    render(<ProductGallery media={[image('m1', 0), video('v1', 1)]} productId="p1" productName="Gold Ring" />);
+
+    expect(screen.getByLabelText('Show image 1 of 2')).toBeInTheDocument();
+    expect(screen.getByLabelText('Play video 2 of 2')).toBeInTheDocument();
   });
 
   it('renders no thumbnail strip for a single image', () => {
     render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
 
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Show image|Play video/)).not.toBeInTheDocument();
   });
 
-  it('renders one thumbnail per image when there is more than one', () => {
-    render(
-      <ProductGallery
-        media={[image('m1', 0), image('m2', 1)]}
-        productId="p1"
-        productName="Gold Ring"
-      />,
-    );
+  it('renders one thumbnail per item when there is more than one', () => {
+    render(<ProductGallery media={[image('m1', 0), image('m2', 1)]} productId="p1" productName="Gold Ring" />);
 
-    expect(screen.getAllByRole('button')).toHaveLength(2);
+    expect(screen.getAllByLabelText(/Show image/)).toHaveLength(2);
     expect(screen.getByLabelText('Show image 1 of 2')).toBeInTheDocument();
   });
 
   it('swaps the main image when a thumbnail is clicked', async () => {
     const user = userEvent.setup();
-    render(
-      <ProductGallery
-        media={[image('m1', 0), image('m2', 1)]}
-        productId="p1"
-        productName="Gold Ring"
-      />,
-    );
+    render(<ProductGallery media={[image('m1', 0), image('m2', 1)]} productId="p1" productName="Gold Ring" />);
 
     await user.click(screen.getByLabelText('Show image 2 of 2'));
 
@@ -101,13 +83,7 @@ describe('ProductGallery', () => {
 
   it('marks the selected thumbnail as current for assistive tech', async () => {
     const user = userEvent.setup();
-    render(
-      <ProductGallery
-        media={[image('m1', 0), image('m2', 1)]}
-        productId="p1"
-        productName="Gold Ring"
-      />,
-    );
+    render(<ProductGallery media={[image('m1', 0), image('m2', 1)]} productId="p1" productName="Gold Ring" />);
 
     expect(screen.getByLabelText('Show image 1 of 2')).toHaveAttribute('aria-current', 'true');
 
@@ -115,5 +91,13 @@ describe('ProductGallery', () => {
 
     expect(screen.getByLabelText('Show image 2 of 2')).toHaveAttribute('aria-current', 'true');
     expect(screen.getByLabelText('Show image 1 of 2')).toHaveAttribute('aria-current', 'false');
+  });
+
+  it('offers a zoom trigger on the main image but not on a video', () => {
+    const { rerender } = render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
+    expect(screen.getByLabelText('Open full-screen view to zoom in')).toBeInTheDocument();
+
+    rerender(<ProductGallery media={[video('v1', 0)]} productId="p1" productName="Gold Ring" />);
+    expect(screen.queryByLabelText('Open full-screen view to zoom in')).not.toBeInTheDocument();
   });
 });

@@ -1,13 +1,13 @@
 ---
 id: DOM-CATALOG
 title: 'Jwel / ELYSIAN — Domain: Catalog'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-15
 milestone: M5
 category: Domains
 priority: Critical
@@ -63,6 +63,7 @@ storefront copy, which lives in `brand.ts`.
 | 9 | A category declares a **sizing scheme** or declares it has none. `NULL` means "inherit from parent"; `SizeScheme.NONE` means "no size at all" and stops inheritance. | `FEAT-SIZE-TAXONOMY` |
 | 10 | A variant in a sized category **must** carry a size drawn from the seeded vocabulary for that scheme; a variant in an unsized category **must not** carry one. | `FEAT-SIZE-TAXONOMY` |
 | 11 | Size values are **seeded reference data**, never user-entered. There is no runtime write path for the vocabulary. | `FEAT-SIZE-TAXONOMY` |
+| 12 | `ProductMedia` may be an `IMAGE` or a `VIDEO`. The item at `sortOrder = 0` — the thumbnail — **must** be an `IMAGE`; a `VIDEO` can never occupy that position. | `FEAT-PRODUCT-VIDEO-MEDIA` |
 
 **Invariants 9–11 are implemented** (`FEAT-SIZE-TAXONOMY`). Invariant 10 spans
 `Category` → `Product` → `ProductVariant`, so it cannot be a CHECK constraint;
@@ -159,6 +160,11 @@ Catalog the sole writer of its own aggregate.
 
 ## Open items
 
+- ~~**Invariant 12 is unbuilt**~~ — **built 2026-08-15** (`FEAT-PRODUCT-VIDEO-MEDIA`).
+  Enforced by a database `CHECK` constraint (`product_media_thumbnail_is_image`)
+  plus `products.service.ts` resequencing remaining media to a contiguous
+  `sortOrder` on every delete, which is what keeps the constraint meaningful
+  rather than only protecting the literal `sortOrder = 0` row.
 - ~~**Invariant 2 is unbuilt**~~ — **built 2026-08-07**
   (`FEAT-PUBLISH-COMPLETENESS`), as §3 of this document already said. This
   entry contradicted it until 2026-08-09.
