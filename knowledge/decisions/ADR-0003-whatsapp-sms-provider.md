@@ -6,13 +6,16 @@ status: Proposal
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-08-16
 milestone: M3
 category: Decision
 priority: High
 depends_on: []
 required_by:
   - DOM-NOTIFICATION
+related_decisions:
+  - ADR-0022
+  - ADR-0023
 tags:
   - notification
   - whatsapp
@@ -23,6 +26,19 @@ complexity: Medium
 ---
 
 # ADR-0003 — WhatsApp (Meta Cloud API, direct) + MSG91 (SMS Fallback) as Notification Channels
+
+> **The WhatsApp half of this decision is superseded by `ADR-0023`
+> (2026-08-16); the SMS/MSG91 half is unaffected and still stands as
+> written below.** `ADR-0022` adopted Wati for ordering; `ADR-0023` resolved
+> the question that raised — Wati now carries WhatsApp notifications too,
+> replacing the direct-Meta-Cloud-API plan this document describes. Per Law
+> 2 this is annotated, not rewritten or deleted: the reasoning below was
+> sound for the problem it was solving (before ordering-over-WhatsApp was on
+> the table) and remains readable as such. This ADR was never built
+> (`DOM-NOTIFICATION`'s own header note), so nothing shipped needs to
+> change. Read `DOM-NOTIFICATION` and `FEAT-WHATSAPP-SMS-NOTIFICATIONS`
+> against `ADR-0023`, not against the WhatsApp sections below — the MSG91
+> SMS-fallback sections below are still current.
 
 ## Context
 

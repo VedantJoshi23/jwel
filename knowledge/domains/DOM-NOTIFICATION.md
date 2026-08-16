@@ -19,6 +19,7 @@ related_domains: []
 related_features: []
 related_decisions:
   - ADR-0003
+  - ADR-0023
 tags:
   - domain
   - notification
@@ -252,3 +253,12 @@ Both are new, cross-context read-reference to `users.id` only (no write)
   cost, unlike Resend's current usage) isn't designed here — whether
   that becomes an Analytics-domain concern or stays purely operational
   (a provider dashboard) is undecided.
+- ~~**Whether the WhatsApp channel here still means direct Meta Cloud
+  API**~~ — **resolved 2026-08-16** (`ADR-0023`). It does not: the WhatsApp
+  channel described in this domain now means Wati's template-send API, not
+  a direct Meta Cloud API adapter. `§2` and `§7` below still describe the
+  pre-`ADR-0023` shape (`ADR-0003`'s direct integration) and need revising
+  to name Wati before `FEAT-WHATSAPP-SMS-NOTIFICATIONS` is built against
+  them — tracked as the first item in
+  `docs/milestones/roadmap-whatsapp-ordering.md`. The SMS (MSG91) and email
+  (Resend) channels elsewhere in this document are unaffected.

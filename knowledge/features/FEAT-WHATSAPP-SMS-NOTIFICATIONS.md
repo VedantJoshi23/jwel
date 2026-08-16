@@ -6,13 +6,13 @@ status: Proposal
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-08-16
 milestone: M6
 category: Features
 priority: High
 depends_on:
   - DOM-NOTIFICATION
-  - ADR-0003
+  - ADR-0023
 required_by: []
 related_documents: []
 related_domains:
@@ -20,6 +20,7 @@ related_domains:
 related_features: []
 related_decisions:
   - ADR-0003
+  - ADR-0023
 tags:
   - feature
   - notification
@@ -30,6 +31,14 @@ complexity: Medium
 ---
 
 ## Feature: WhatsApp & SMS Transactional Notifications
+
+> **The WhatsApp channel below describes `ADR-0003`'s direct-Meta-Cloud-API
+> plan, superseded 2026-08-16 by `ADR-0023`.** WhatsApp sends now route
+> through Wati's template-send API instead. Per Law 2, annotated rather than
+> rewritten in place — this feature is still `Proposal` and unbuilt, so
+> revise the WhatsApp portions of §2–§9 to target Wati before implementation
+> starts, rather than building against the description below. The SMS
+> (MSG91) portions are unaffected.
 
 ### 1. Overview
 

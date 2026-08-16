@@ -27,6 +27,12 @@ actually blocks things here — not effort.
 promise nobody has decided about, a capability that exists but is not reachable,
 or a gap that is written down where it will be found.
 
+**A new vertical, tracked separately.** WhatsApp ordering (`ADR-0022`) is
+sequenced in its own file — [`roadmap-whatsapp-ordering.md`](roadmap-whatsapp-ordering.md)
+— rather than folded into the groups below. It is new work, not a gap in
+what already shipped, and it has its own phase-ordered dependencies this
+file's grouping doesn't fit.
+
 ---
 
 ## A. Client decisions — the launch blocker
