@@ -1,6 +1,4 @@
-import Image from 'next/image';
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
 import type { Metadata } from 'next';
 import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { safeGetActiveBanners } from '@/lib/api/cms';
@@ -8,8 +6,6 @@ import { ProductCard } from '@/components/product/product-card';
 import { PromoBanners } from '@/components/home/promo-banners';
 import { BestsellersCarousel } from '@/components/home/bestsellers-carousel';
 import { brand } from '@/lib/brand';
-import { categoryImages, heroImage } from '@/lib/jewellery-images';
-import { SUBSCRIPTION_STEP_ICONS } from '@/lib/subscription-icons';
 import { RecommendedRail } from '@/components/recommendations/personalized-rail';
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
@@ -20,10 +16,15 @@ export const metadata: Metadata = {
   description: brand.seo.defaultDescription,
 };
 
+// Hard cap, independent of whatever the API is asked for — the Bestsellers
+// section is a curated highlight strip, not a full listing, so this bounds
+// it even if the fetch below is ever changed to ask for more.
+const MAX_BESTSELLERS = 10;
+
 export default async function HomePage() {
   const [newIn, bestsellers, banners] = await Promise.all([
     safeGetProducts({ sort: 'newest', pageSize: 3 }),
-    safeGetProducts({ sort: 'popularity', pageSize: 8 }),
+    safeGetProducts({ sort: 'popularity', pageSize: MAX_BESTSELLERS }),
     safeGetActiveBanners(),
   ]);
 
@@ -33,15 +34,15 @@ export default async function HomePage() {
     <>
       {/* ── Hero — wireframe 01 split layout ──────────────────────────────── */}
       <section className="grid bg-surface-alt lg:grid-cols-2">
-        <div className="relative min-h-[280px] lg:min-h-[380px]" aria-hidden="true">
-          <Image
-            src={heroImage}
-            alt=""
-            fill
-            priority
-            sizes="(min-width: 1024px) 50vw, 100vw"
-            className="object-cover"
-          />
+        {/* Stock hero photography removed — this panel holds the brand mark
+            until real product photography is in place. */}
+        <div
+          className="flex min-h-[280px] items-center justify-center bg-surface-band lg:min-h-[380px]"
+          aria-hidden="true"
+        >
+          <span className="font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl">
+            {brand.name}
+          </span>
         </div>
         <div className="flex flex-col justify-center gap-5 bg-surface-alt px-6 py-14 lg:px-12">
           <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary lg:text-5xl">
@@ -74,18 +75,14 @@ export default async function HomePage() {
       <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
         {brand.homeCategories.map((category) => (
           <Link key={category.slug} href={`/collections/${category.slug}`} className="group">
-            {/* `rounded-m`, not `none` — this is navigational lifestyle
-                photography, not the product-card imagery DESIGN.md §2.4 keeps
-                sharp-framed; nothing about that rationale extends here. */}
-            <div className="relative h-[200px] overflow-hidden rounded-m">
-              <Image
-                src={categoryImages[category.slug] ?? heroImage}
-                alt={category.name}
-                fill
-                sizes="(min-width: 640px) 33vw, 100vw"
-                className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-              />
-            </div>
+            {/* Stock lifestyle photography removed — a plain tile until real
+                category photography exists. `rounded-m` stays: this is still
+                navigational imagery, not the product-card imagery DESIGN.md
+                §2.4 keeps sharp-framed. */}
+            <div
+              className="h-[200px] rounded-m border border-border bg-surface-band transition-colors group-hover:bg-price-bg"
+              aria-hidden="true"
+            />
             <p className="mt-3.5 text-center font-medium">{category.name}</p>
           </Link>
         ))}
@@ -119,42 +116,6 @@ export default async function HomePage() {
         )}
       </RevealSection>
 
-      {/* ── Subscription / Jewel Box ──────────────────────────────────────── */}
-      <RevealSection className="px-6 py-14 text-center lg:px-8">
-        <h2 className="font-display text-3xl font-bold tracking-tight">
-          {brand.subscription.headline}
-        </h2>
-        <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-ink-secondary">
-          {brand.subscription.subtext}
-        </p>
-
-        <div className="mx-auto mt-9 flex max-w-lg flex-wrap justify-center gap-14">
-          {brand.subscription.steps.map((step) => {
-            const Icon = SUBSCRIPTION_STEP_ICONS[step] ?? Sparkles;
-            return (
-              <div key={step} className="text-center">
-                <div className="mx-auto flex h-[78px] w-[78px] items-center justify-center rounded-[14px] bg-price-bg text-brand-ink">
-                  <Icon className="h-7 w-7" aria-hidden="true" />
-                </div>
-                <p className="mt-3 text-sm font-medium">{step}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-8 flex flex-col items-center gap-3">
-          <Link
-            href="/subscriptions"
-            className="inline-block bg-brand-primary px-8 py-3.5 text-sm font-semibold text-white hover:bg-brand-dark"
-          >
-            {brand.subscription.cta}
-          </Link>
-          <Link href="/subscriptions" className="inline-block text-xs text-ink-muted underline">
-            {brand.subscription.manageLink}
-          </Link>
-        </div>
-      </RevealSection>
-
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
         <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:px-8">
@@ -177,7 +138,7 @@ export default async function HomePage() {
             stops that growth without touching the carousel component itself.
           */}
           <div className="w-full lg:ml-auto lg:max-w-[640px]">
-            <BestsellersCarousel products={bestsellers} />
+            <BestsellersCarousel products={bestsellers.slice(0, MAX_BESTSELLERS)} />
           </div>
         </RevealSection>
       )}

@@ -55,7 +55,11 @@ export function BestsellersCarousel({ products }: { products: Product[] }) {
         >
           {extended.map((product, i) => (
             <div key={`${product.id}-${i}`} className="w-1/2 shrink-0 px-3">
-              <ProductCard product={product} />
+              {/* All slides are always mounted (just translated off-screen),
+                  and the list is small — eager-load every image so fast
+                  clicking through the carousel doesn't outrun native lazy
+                  loading and flash blank cards. See ProductCard's `eager`. */}
+              <ProductCard product={product} eager />
             </div>
           ))}
         </div>

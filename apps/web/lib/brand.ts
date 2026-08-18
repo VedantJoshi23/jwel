@@ -110,15 +110,6 @@ export const brand = {
     subtext: 'Freshly crafted — ready to adorn',
   },
 
-  subscription: {
-    headline: 'Join Our Style Club',
-    subtext:
-      'Subscribe to our monthly Jewel Box and save 30%. A curated festive piece — kundan, meenakari or temple jewelry — delivered every month. Skip or cancel anytime.',
-    steps: ['Pick your style', 'Choose frequency', 'Cancel anytime'],
-    cta: 'Subscribe now',
-    manageLink: 'Existing subscriber? Manage your Jewel Box here.',
-  },
-
   bestsellers: {
     headline: 'Best Sellers',
     subtext:
@@ -229,7 +220,6 @@ export const brand = {
     otherLinks: [
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Sitemap', href: '/sitemap.xml' },
-      { label: 'Subscriptions', href: '/subscriptions' },
     ],
   },
 } as const;

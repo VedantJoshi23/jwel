@@ -36,7 +36,10 @@ function BannerCard({ banner }: { banner: ActiveBanner }) {
   const href = safeBannerHref(banner.linkUrl);
 
   const image = (
-    <div className="relative h-[220px] overflow-hidden">
+    // `rounded-m` matches the category trio just below on this page — both
+    // are lifestyle/promotional photography, not the sharp-framed product
+    // imagery DESIGN.md keeps unrounded.
+    <div className="relative h-[220px] overflow-hidden rounded-m">
       <Image
         src={banner.imageUrl}
         alt={banner.title}

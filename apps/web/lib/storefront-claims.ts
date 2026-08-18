@@ -207,9 +207,14 @@ export const STOREFRONT_CLAIMS: StorefrontClaim[] = [
     claim: 'Monthly "Jewel Box" subscription',
     where: ['lib/brand.ts', 'app/(storefront)/page.tsx'],
     pattern: /Jewel Box/,
-    status: 'outstanding',
+    status: 'resolved',
+    resolvedBy: 'removed',
     reality: 'No model, no module. Deferred pending client feedback (KC-106).',
-    resolution: 'Remove the section and footer link, or build it. It is a whole product, not copy.',
+    resolution:
+      'Removed 2026-08-18 by owner decision: the homepage section, the `/subscriptions` route, ' +
+      'the footer link, and the sitemap entry are all gone, along with the now-unused ' +
+      '`brand.subscription` copy and `subscription-icons.tsx`. Not corrected to true copy — ' +
+      'there was never a subscription product behind it.',
   },
   {
     id: 'whatsapp-contact',
