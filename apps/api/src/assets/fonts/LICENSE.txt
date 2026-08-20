@@ -1,0 +1,8 @@
+DejaVu Sans / DejaVu Sans Bold — bundled here because pdfkit's built-in
+standard fonts (Helvetica etc.) have no glyph for ₹ (U+20B9), which
+FEAT-CATALOGUE-EXPORT's PDF prices need. DejaVu Sans does.
+
+Based on Bitstream Vera Fonts, Copyright (c) 2003 by Bitstream, Inc.
+DejaVu changes are in the public domain. Bitstream Vera license (permissive,
+free to embed/redistribute) — full text and author list:
+https://dejavu-fonts.github.io/License.html

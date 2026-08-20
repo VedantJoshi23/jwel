@@ -1,8 +1,19 @@
+import { join } from 'path';
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
+
+// pdfkit's built-in standard fonts (Helvetica etc.) are WinAnsi-only — no
+// glyph for ₹ (U+20B9). Without this, every price in the PDF rendered as a
+// mangled "¹5,000" instead of "₹5,000" (found by actually opening a
+// generated PDF, not assumed). DejaVu Sans has the glyph; bundled under
+// src/assets/fonts (copied to dist/assets/fonts by nest-cli.json's asset
+// list, the same mechanism already used for prisma/schema.prisma) so this
+// works identically in dev and the built Docker image, independent of cwd.
+const FONT_REGULAR = join(__dirname, '../../assets/fonts/DejaVuSans.ttf');
+const FONT_BOLD = join(__dirname, '../../assets/fonts/DejaVuSans-Bold.ttf');
 
 // FEAT-CATALOGUE-EXPORT. A synchronous, in-request PDF build — no queue, no
 // background job. Fine at today's catalogue size; if a full-catalogue export
@@ -131,13 +142,21 @@ export class CatalogueExportService {
     const images = await this.fetchImagesWithLimit(data.products);
 
     const doc = new PDFDocument({ size: 'A4', margin: PAGE_MARGIN });
+    doc.registerFont('Body', FONT_REGULAR);
+    doc.registerFont('Heading', FONT_BOLD);
+    doc.font('Body');
+
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
 
-    doc.fontSize(24).text('ELYSIAN', { align: 'center' });
+    doc.font('Heading').fontSize(24).text('ELYSIAN', { align: 'center' });
     doc.fontSize(16).text(data.title, { align: 'center' });
-    doc.fontSize(9).fillColor('#666666').text(`Generated ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
+    doc
+      .font('Body')
+      .fontSize(9)
+      .fillColor('#666666')
+      .text(`Generated ${new Date().toLocaleDateString('en-IN')}`, { align: 'center' });
     doc.fillColor('#000000');
     doc.moveDown(2);
 
@@ -164,7 +183,8 @@ export class CatalogueExportService {
       products.sort((a, b) => a.name.localeCompare(b.name));
 
       if (doc.y > PAGE_MARGIN + 40) doc.moveDown(1);
-      doc.fontSize(14).text(categoryName, { underline: true });
+      doc.font('Heading').fontSize(14).text(categoryName, { underline: true });
+      doc.font('Body');
       doc.moveDown(0.5);
 
       let col = 0;
