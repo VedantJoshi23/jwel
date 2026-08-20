@@ -111,8 +111,9 @@ demo seed, CSV bulk import and manual SQL correction are all live bypasses.
 
 **Customer** — `GET /products`, `GET /products/:slug`, `GET /collections`,
 `GET /collections/:slug`, `POST /products/:productId/views`
-**Admin** — product CRUD, media upload and reorder, CSV bulk import, category
-and collection CRUD.
+**Admin** — product CRUD, media upload and reorder, CSV bulk import (schema
+documented in `FEAT-BULK-IMPORT`, not restated here), category and collection
+CRUD, catalogue PDF export (`FEAT-CATALOGUE-EXPORT`).
 
 ## 5. Events
 

@@ -17,6 +17,14 @@ vi.mock('@/lib/api/admin-products', () => ({
   adminListProducts: vi.fn(),
   adminUpdateProductStatus: vi.fn(),
   bulkImportProducts: vi.fn(),
+  // Pulled in by CatalogueExportControl (FEAT-CATALOGUE-EXPORT), rendered
+  // on this page — not this file's own concern, just needs to resolve.
+  adminListCategories: vi.fn().mockResolvedValue([]),
+  adminDownloadCataloguePdf: vi.fn(),
+}));
+
+vi.mock('@/lib/api/admin-collections', () => ({
+  adminListCollections: vi.fn().mockResolvedValue([]),
 }));
 
 const listProducts = vi.mocked(adminListProducts);

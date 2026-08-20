@@ -1,4 +1,4 @@
-import { apiFetch, apiUpload } from './client';
+import { apiDownload, apiFetch, apiUpload, saveBlob } from './client';
 import type { BulkImportResult, Category, CertificationType, MetalType, Product } from './types';
 import type { ProductQuery } from './products';
 
@@ -95,4 +95,18 @@ export function adminReorderProductMedia(token: string, productId: string, media
     token,
     body: JSON.stringify({ mediaIds }),
   });
+}
+
+// FEAT-CATALOGUE-EXPORT §4 — mutually exclusive with each other; neither
+// present means the whole catalogue.
+export type CatalogueExportScope = { categoryId: string } | { collectionId: string } | Record<string, never>;
+
+export async function adminDownloadCataloguePdf(token: string, scope: CatalogueExportScope): Promise<void> {
+  const params = new URLSearchParams();
+  if ('categoryId' in scope) params.set('categoryId', scope.categoryId);
+  if ('collectionId' in scope) params.set('collectionId', scope.collectionId);
+  const query = params.toString();
+
+  const blob = await apiDownload(`/admin/products/catalogue/pdf${query ? `?${query}` : ''}`, token);
+  saveBlob(blob, 'catalogue.pdf');
 }

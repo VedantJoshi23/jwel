@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { BulkImportService } from './bulk-import.service';
+import { CatalogueExportService } from './catalogue-export.service';
 
 describe('ProductsController', () => {
   let products: {
@@ -21,6 +22,7 @@ describe('ProductsController', () => {
     deleteCategory: jest.Mock;
   };
   let bulkImport: { importProductsCsv: jest.Mock };
+  let catalogueExport: { generatePdf: jest.Mock };
   let controller: ProductsController;
 
   beforeEach(() => {
@@ -41,7 +43,12 @@ describe('ProductsController', () => {
       deleteCategory: jest.fn().mockResolvedValue(undefined),
     };
     bulkImport = { importProductsCsv: jest.fn().mockResolvedValue('import-result') };
-    controller = new ProductsController(products as unknown as ProductsService, bulkImport as unknown as BulkImportService);
+    catalogueExport = { generatePdf: jest.fn().mockResolvedValue({ buffer: Buffer.from('pdf'), filename: 'catalogue.pdf' }) };
+    controller = new ProductsController(
+      products as unknown as ProductsService,
+      bulkImport as unknown as BulkImportService,
+      catalogueExport as unknown as CatalogueExportService,
+    );
   });
 
   it('findAll delegates with the query', () => {
@@ -90,6 +97,31 @@ describe('ProductsController', () => {
       const file = { buffer: Buffer.from('csv,data') } as any;
       expect(await controller.bulkImport(file)).toBe('import-result');
       expect(bulkImport.importProductsCsv).toHaveBeenCalledWith(file.buffer);
+    });
+  });
+
+  describe('exportCataloguePdf', () => {
+    it('requests the whole catalogue when neither categoryId nor collectionId is given', async () => {
+      const file = await controller.exportCataloguePdf({});
+      expect(catalogueExport.generatePdf).toHaveBeenCalledWith({});
+      expect(file.getStream().readable).toBe(true);
+    });
+
+    it('scopes to categoryId when given', async () => {
+      await controller.exportCataloguePdf({ categoryId: 'cat-1' });
+      expect(catalogueExport.generatePdf).toHaveBeenCalledWith({ categoryId: 'cat-1' });
+    });
+
+    it('scopes to collectionId when given', async () => {
+      await controller.exportCataloguePdf({ collectionId: 'col-1' });
+      expect(catalogueExport.generatePdf).toHaveBeenCalledWith({ collectionId: 'col-1' });
+    });
+
+    it('rejects when both categoryId and collectionId are given', async () => {
+      await expect(controller.exportCataloguePdf({ categoryId: 'cat-1', collectionId: 'col-1' })).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(catalogueExport.generatePdf).not.toHaveBeenCalled();
     });
   });
 

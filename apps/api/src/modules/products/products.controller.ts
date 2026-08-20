@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpStatus,
   Param,
@@ -12,6 +13,7 @@ import {
   Post,
   Put,
   Query,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -19,12 +21,14 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { BulkImportService } from './bulk-import.service';
+import { CatalogueExportService } from './catalogue-export.service';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ReorderMediaDto } from './dto/reorder-media.dto';
+import { CatalogueExportQueryDto } from './dto/catalogue-export-query.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
@@ -60,6 +64,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly bulkImportService: BulkImportService,
+    private readonly catalogueExportService: CatalogueExportService,
   ) {}
 
   @Public()
@@ -173,13 +178,39 @@ export class ProductsController {
   @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
   @ApiOperation({
     summary:
-      '[Admin/Staff] Bulk-create products from a CSV (one row = one product + one variant). Columns: name,slug,category_slug,description,certification_type,certification_doc_ref,sku,metal,purity,size,weight_grams,base_price_minor_units',
+      '[Admin/Staff] Bulk-create products from a CSV (one row = one product + one variant). ' +
+      'Required: name, slug, category_slug, description, sku, metal, weight_grams, base_price_minor_units. ' +
+      'Optional: certification_type, certification_doc_ref, purity, size. ' +
+      'Full schema and per-column error behavior: FEAT-BULK-IMPORT.md.',
   })
   async bulkImport(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded — expected a multipart field named "file"');
     }
     return this.bulkImportService.importProductsCsv(file.buffer);
+  }
+
+  @ApiBearerAuth()
+  @Get('admin/products/catalogue/pdf')
+  @Roles(Role.ADMIN, Role.STAFF)
+  @Header('Content-Type', 'application/pdf')
+  @ApiOperation({
+    summary:
+      '[Admin/Staff] Download the catalogue as a PDF — whole catalogue, or scoped to one categoryId or one collectionId (mutually exclusive). Draft products are never included.',
+  })
+  async exportCataloguePdf(@Query() query: CatalogueExportQueryDto): Promise<StreamableFile> {
+    if (query.categoryId && query.collectionId) {
+      throw new BadRequestException('categoryId and collectionId are mutually exclusive — pass at most one');
+    }
+    const scope = query.categoryId
+      ? { categoryId: query.categoryId }
+      : query.collectionId
+        ? { collectionId: query.collectionId }
+        : {};
+    const { buffer, filename } = await this.catalogueExportService.generatePdf(scope);
+    return new StreamableFile(buffer, {
+      disposition: `attachment; filename="${filename}"`,
+    });
   }
 
   @ApiBearerAuth()

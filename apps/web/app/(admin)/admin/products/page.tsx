@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/common/pagination';
+import { CatalogueExportControl } from '@/components/admin/catalogue-export-control';
 import { useAuthStore } from '@/lib/auth-store';
 import { adminListProducts, adminUpdateProductStatus, bulkImportProducts } from '@/lib/api/admin-products';
 import { formatMinorUnits } from '@/lib/money';
@@ -43,6 +44,7 @@ function AdminProductsPageInner() {
   const [publishWarnings, setPublishWarnings] = useState<string[]>([]);
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
   const [importing, setImporting] = useState(false);
+  const [showImportHelp, setShowImportHelp] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Page lives in the URL, not local state, so a page is linkable and the
@@ -130,8 +132,71 @@ function AdminProductsPageInner() {
           <Button onClick={() => fileInputRef.current?.click()} loading={importing}>
             Bulk import (CSV)
           </Button>
+          <Button variant="ghost" size="s" onClick={() => setShowImportHelp((v) => !v)}>
+            {showImportHelp ? 'Hide CSV format' : 'CSV format?'}
+          </Button>
         </div>
       </div>
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-s border border-border bg-surface-alt px-4 py-3">
+        <p className="text-sm text-ink-secondary">Send the catalogue to someone outside the platform</p>
+        <CatalogueExportControl />
+      </div>
+
+      {/* FEAT-BULK-IMPORT §5 — the schema, in the admin's own words. Kept
+          collapsed by default so it doesn't compete with the product table
+          on every visit; an admin who already knows the format never needs
+          to see it. */}
+      {showImportHelp && (
+        <Card className="mb-6">
+          <CardContent className="space-y-3 text-sm">
+            <p>
+              <a
+                href="/templates/product-bulk-import-template.csv"
+                download
+                className="font-medium text-ink-primary underline-offset-2 hover:underline"
+              >
+                Download a template CSV
+              </a>{' '}
+              — the header row plus one example, ready to fill in.{' '}
+              <span className="text-ink-secondary">
+                Its example category (&ldquo;rings&rdquo;) may not exist in this store — replace{' '}
+                <code className="rounded bg-surface px-1">category_slug</code> with a real category&rsquo;s slug.
+              </span>
+            </p>
+            <div>
+              <p className="font-medium">Required columns — a blank value rejects that row</p>
+              <p className="mt-1 text-ink-secondary">
+                <code className="rounded bg-surface px-1">name</code>,{' '}
+                <code className="rounded bg-surface px-1">slug</code>,{' '}
+                <code className="rounded bg-surface px-1">category_slug</code> (must match an existing category),{' '}
+                <code className="rounded bg-surface px-1">description</code>,{' '}
+                <code className="rounded bg-surface px-1">sku</code> (must be unique),{' '}
+                <code className="rounded bg-surface px-1">metal</code> (GOLD, GOLD_PLATED, SILVER, PLATINUM, or
+                STAINLESS_STEEL), <code className="rounded bg-surface px-1">weight_grams</code>, and{' '}
+                <code className="rounded bg-surface px-1">base_price_minor_units</code> (the price in paise — ₹899 is{' '}
+                <code className="rounded bg-surface px-1">89900</code>).
+              </p>
+            </div>
+            <div>
+              <p className="font-medium">Optional columns — blank is fine</p>
+              <p className="mt-1 text-ink-secondary">
+                <code className="rounded bg-surface px-1">certification_type</code> (BIS_HALLMARK, IGI, GIA, SGL, or
+                HKD — if given, must be valid),{' '}
+                <code className="rounded bg-surface px-1">certification_doc_ref</code>,{' '}
+                <code className="rounded bg-surface px-1">purity</code>, and{' '}
+                <code className="rounded bg-surface px-1">size</code> (if given, must be a valid size for that
+                category).
+              </p>
+            </div>
+            <p className="text-ink-secondary">
+              One row makes one product with exactly one variant — there&rsquo;s no way to import several sizes of the
+              same design in one row. A bad row doesn&rsquo;t stop the rest of the file; you&rsquo;ll get a per-row
+              result after uploading. Every imported product starts as a draft, same as creating one by hand.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
