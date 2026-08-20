@@ -121,3 +121,46 @@ export async function apiUpload<T>(path: string, formData: FormData, token?: str
   });
   return handleResponse<T>(response, Boolean(token));
 }
+
+/**
+ * A binary (non-JSON) download — `handleResponse` assumes a JSON body, which
+ * a PDF is not, so this stays a separate path rather than a branch inside
+ * `apiFetch`. Error responses are still JSON (`AllExceptionsFilter`), so
+ * those go through the same envelope parsing on failure.
+ */
+export async function apiDownload(path: string, token?: string): Promise<Blob> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+
+  if (!response.ok) {
+    if (response.status === 401 && token) {
+      handleExpiredSession();
+    }
+    let envelope: ApiErrorEnvelope | undefined;
+    try {
+      envelope = await response.json();
+    } catch {
+      // Same reasoning as handleResponse: a parse failure here means the API
+      // is unreachable, not a 4xx/5xx body.
+    }
+    const message = Array.isArray(envelope?.message)
+      ? envelope.message.join(', ')
+      : (envelope?.message ?? response.statusText);
+    throw new ApiError(message, response.status, envelope?.correlationId);
+  }
+
+  return response.blob();
+}
+
+/** Triggers a browser save-as for a Blob without navigating away from the page. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
