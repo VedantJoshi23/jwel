@@ -619,6 +619,11 @@ export interface ActiveBanner extends Banner {
   imageUrl: string;
 }
 
+/** What `GET /cms/announcement` returns — `null` when the strip is turned off. */
+export interface Announcement {
+  text: string;
+}
+
 export interface TopProduct {
   productId: string;
   name: string;

@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { brand } from '@/lib/brand';
 import { springs } from '@/lib/motion';
 import { SearchSuggestions } from '@/components/common/search-suggestions';
+import type { Announcement } from '@/lib/api/types';
 
 /**
  * The cart glyph, reacting to `itemCount` on its own rather than being told
@@ -68,7 +69,12 @@ function CartIcon({ itemCount }: { itemCount: number }) {
   );
 }
 
-export function SiteHeader() {
+interface SiteHeaderProps {
+  /** Fetched server-side (SiteChrome) and admin-editable — see FEAT-SETTINGS-STORE. */
+  announcement?: Announcement | null;
+}
+
+export function SiteHeader({ announcement = null }: SiteHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { itemCount } = useCart();
@@ -106,9 +112,11 @@ export function SiteHeader() {
         the sticky class onto `<header>` itself, with `<body>` as its
         (page-height) containing block, is what makes it actually stay put.
       */}
-      <div className="overflow-hidden bg-brand-primary px-4 py-2.5 text-center text-sm font-semibold tracking-wide text-white">
-        {brand.announcement}
-      </div>
+      {announcement && (
+        <div className="overflow-hidden bg-brand-primary px-4 py-2.5 text-center text-sm font-semibold tracking-wide text-white">
+          {announcement.text}
+        </div>
+      )}
 
       {/*
         `material-chrome` gives the header its glass surface in both themes

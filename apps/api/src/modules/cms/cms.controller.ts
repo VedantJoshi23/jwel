@@ -18,6 +18,13 @@ export class CmsController {
     return this.cmsService.listActiveBanners();
   }
 
+  @Public()
+  @Get('cms/announcement')
+  @ApiOperation({ summary: 'The site-wide announcement strip, or null when turned off' })
+  getAnnouncement() {
+    return this.cmsService.getAnnouncement();
+  }
+
   @ApiBearerAuth()
   @Get('admin/cms/banners')
   @Roles(Role.ADMIN, Role.STAFF)

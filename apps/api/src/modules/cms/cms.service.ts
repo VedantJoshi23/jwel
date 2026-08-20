@@ -2,13 +2,29 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class CmsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProviderPort,
+    private readonly settings: SettingsService,
   ) {}
+
+  // Public surface, same discipline as `listActiveBanners`: filters server-
+  // side rather than shipping the raw `active` flag for the client to
+  // interpret, so a storefront that forgets to check it can't show a
+  // deactivated announcement. `null` (not an empty string) is the "nothing to
+  // show" case — SiteHeader renders nothing at all when this is null, the
+  // same contract PromoBanners already uses for an empty banner feed.
+  async getAnnouncement(): Promise<{ text: string } | null> {
+    const [text, active] = await Promise.all([
+      this.settings.get('announcement.text'),
+      this.settings.get('announcement.active'),
+    ]);
+    return active ? { text } : null;
+  }
 
   // Public surface: only banners that are flagged active AND inside their
   // optional scheduling window — lets marketing queue up a banner ahead of a

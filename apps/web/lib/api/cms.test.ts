@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getActiveBanners, safeGetActiveBanners } from './cms';
+import { getActiveBanners, getAnnouncement, safeGetActiveBanners, safeGetAnnouncement } from './cms';
 
 describe('getActiveBanners', () => {
   beforeEach(() => {
@@ -42,5 +42,40 @@ describe('safeGetActiveBanners', () => {
       vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'boom' }), { status: 500 })),
     );
     await expect(safeGetActiveBanners()).resolves.toEqual([]);
+  });
+});
+
+describe('getAnnouncement', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('calls the public announcement endpoint', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('null', { status: 200 })));
+    await getAnnouncement();
+    const [url] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/cms/announcement');
+  });
+});
+
+describe('safeGetAnnouncement', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('returns the announcement on success', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ text: 'SALE LIVE' }), { status: 200 })),
+    );
+    await expect(safeGetAnnouncement()).resolves.toEqual({ text: 'SALE LIVE' });
+  });
+
+  it('returns null when the strip is turned off', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('null', { status: 200 })));
+    await expect(safeGetAnnouncement()).resolves.toBeNull();
+  });
+
+  // Same discipline as safeGetActiveBanners — chrome shown on every page must
+  // not take the whole page down when the API is unreachable.
+  it('degrades to null when the API is unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));
+    await expect(safeGetAnnouncement()).resolves.toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { CmsService } from './cms.service';
 describe('CmsController', () => {
   let service: {
     listActiveBanners: jest.Mock;
+    getAnnouncement: jest.Mock;
     adminListBanners: jest.Mock;
     adminCreateBanner: jest.Mock;
     adminUpdateBanner: jest.Mock;
@@ -14,6 +15,7 @@ describe('CmsController', () => {
   beforeEach(() => {
     service = {
       listActiveBanners: jest.fn().mockReturnValue('active'),
+      getAnnouncement: jest.fn().mockReturnValue('announcement'),
       adminListBanners: jest.fn().mockReturnValue('all'),
       adminCreateBanner: jest.fn().mockReturnValue('created'),
       adminUpdateBanner: jest.fn().mockReturnValue('updated'),
@@ -24,6 +26,10 @@ describe('CmsController', () => {
 
   it('listActiveBanners delegates with no args', () => {
     expect(controller.listActiveBanners()).toBe('active');
+  });
+
+  it('getAnnouncement delegates with no args', () => {
+    expect(controller.getAnnouncement()).toBe('announcement');
   });
 
   it('adminListBanners delegates with no args', () => {

@@ -2,12 +2,14 @@ import { NotFoundException } from '@nestjs/common';
 import { CmsService } from './cms.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageProviderPort } from '../storage/ports/storage-provider.port';
+import { SettingsService } from '../settings/settings.service';
 
 type MockPrisma = { banner: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock } };
 
 describe('CmsService', () => {
   let prisma: MockPrisma;
   let storage: { upload: jest.Mock; delete: jest.Mock; resolveUrl: jest.Mock };
+  let settings: { get: jest.Mock };
   let service: CmsService;
 
   beforeEach(() => {
@@ -17,7 +19,28 @@ describe('CmsService', () => {
       delete: jest.fn(),
       resolveUrl: jest.fn((ref: string) => `https://cdn.example/${ref}`),
     };
-    service = new CmsService(prisma as unknown as PrismaService, storage as unknown as StorageProviderPort);
+    settings = { get: jest.fn() };
+    service = new CmsService(
+      prisma as unknown as PrismaService,
+      storage as unknown as StorageProviderPort,
+      settings as unknown as SettingsService,
+    );
+  });
+
+  describe('getAnnouncement', () => {
+    it('returns the text when active', async () => {
+      settings.get.mockImplementation((key: string) =>
+        key === 'announcement.text' ? Promise.resolve('SALE LIVE') : Promise.resolve(true),
+      );
+      expect(await service.getAnnouncement()).toEqual({ text: 'SALE LIVE' });
+    });
+
+    it('returns null when turned off, even with text set', async () => {
+      settings.get.mockImplementation((key: string) =>
+        key === 'announcement.text' ? Promise.resolve('SALE LIVE') : Promise.resolve(false),
+      );
+      expect(await service.getAnnouncement()).toBeNull();
+    });
   });
 
   describe('listActiveBanners', () => {

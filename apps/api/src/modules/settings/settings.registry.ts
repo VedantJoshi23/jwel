@@ -38,6 +38,46 @@ export interface SettingDefinition<T> {
   validate: (value: T) => string | null;
 }
 
+function stringSetting(
+  owner: string,
+  description: string,
+  defaultValue: string,
+  maxLength: number,
+): SettingDefinition<string> {
+  return {
+    owner,
+    description,
+    default: defaultValue,
+    parse: (raw) => raw,
+    serialise: (value) => value,
+    validate: (value) => {
+      if (value.trim().length === 0) return 'must not be empty';
+      if (value.length > maxLength) return `must be at most ${maxLength} characters`;
+      return null;
+    },
+  };
+}
+
+function booleanSetting(
+  owner: string,
+  description: string,
+  defaultValue: boolean,
+): SettingDefinition<boolean> {
+  return {
+    owner,
+    description,
+    default: defaultValue,
+    parse: (raw) => {
+      const normalised = raw.trim().toLowerCase();
+      if (normalised === 'true') return true;
+      if (normalised === 'false') return false;
+      throw new Error(`"${raw}" is not "true" or "false"`);
+    },
+    serialise: (value) => String(value),
+    validate: () => null,
+  };
+}
+
 function positiveIntSetting(
   owner: string,
   description: string,
@@ -93,6 +133,25 @@ export const SETTINGS = {
     // No sensible upper bound in principle — the guard is against a typo that
     // would silently empty every rail.
     1000,
+  ),
+  // The default deliberately drops the "Free shipping on orders above ₹999"
+  // clause the hardcoded copy used to carry — storefront-claims.ts flagged
+  // that promise as unbacked (no shipping-fee rule exists to enforce it).
+  // An admin who wants it back can type it in; that is now operator-entered
+  // content, the same category as a banner's title or link, not developer-
+  // shipped copy asserting a capability the system does not have.
+  'announcement.text': stringSetting(
+    'DOM-CONTENT',
+    'The site-wide announcement strip shown above the header on every storefront page.',
+    'SALE LIVE ✦ Up to 60% OFF ✦ Extra ₹300 off at checkout',
+    200,
+  ),
+  'announcement.active': booleanSetting(
+    'DOM-CONTENT',
+    'Whether the announcement strip is shown at all. Off by default would mean a fresh ' +
+      'environment shows nothing until an admin opts in; on by default matches every other ' +
+      'piece of homepage marketing copy in this codebase, which ships live.',
+    true,
   ),
 } as const;
 
