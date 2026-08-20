@@ -103,6 +103,15 @@ claims:
     confidence: 100
     evidence_ids: [EVD-002, EVD-004]
     investigation: feature-inventory
+    note: >
+      True at the time this claim was recorded (2026-08-07). The fourth
+      category was renamed "Bracelets & Bangles" in the admin on 2026-08-19,
+      after M1 Discovery had already closed — not a Discovery-time error to
+      correct with a superseding claim, just reality moving on afterward.
+      Retained as-is rather than edited, per this log's own no-rewrite rule;
+      the storefront's static copy (`apps/web/lib/brand.ts`) had drifted from
+      the rename and was fixed 2026-08-20 after a customer found the
+      "Bracelets" filter showing zero products.
   - id: KC-007
     statement: >
       Category listing supports filtering by category, price min/max, and

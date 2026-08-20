@@ -122,7 +122,15 @@ export const brand = {
   // the client's real main-category taxonomy (was a flat, partly-invented
   // list mixing top-level and sub-category names: Jhumkas/Necklace Sets/
   // Bangles/Choker Sets never actually existed as top-level categories).
-  productTypes: ['Rings', 'Earrings', 'Necklaces & Pendants', 'Bracelets & Anklets'],
+  //
+  // "Bracelets & Bangles", not "Bracelets & Anklets" — the category was
+  // renamed in the admin (row's updated_at is weeks after its created_at)
+  // and this static copy was never updated to match, so the filter pill's
+  // derived slug (bracelets-and-anklets) matched zero real products.
+  // Found 2026-08-20 by a customer report ("selecting Bracelets shows
+  // nothing"); DISC-002/KC-006 recorded the old name as fact at the time,
+  // which was true then and isn't now — see that record's own annotation.
+  productTypes: ['Rings', 'Earrings', 'Necklaces & Pendants', 'Bracelets & Bangles'],
 
   // Sub-categories per main category, per the client-provided taxonomy.
   // Not yet wired into a filter UI (the collection page's `FilterForm` only
@@ -135,7 +143,7 @@ export const brand = {
     Rings: ['Solitaire', 'Couple', 'Adjustable', 'Toe rings'],
     Earrings: ['Jhumkas', 'Hoops', 'Studs', 'Oxidised Silver'],
     'Necklaces & Pendants': ['Heart pendants', 'Zodiac pendants', 'Spiritual pendants'],
-    'Bracelets & Anklets': ['Charm bracelets', 'Nazariya', "Kids' silver"],
+    'Bracelets & Bangles': ['Charm bracelets', 'Nazariya', "Kids' silver"],
   },
 
   // Sidebar filter sections on collection pages — values must match the

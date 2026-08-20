@@ -30,7 +30,7 @@ export const categoryImages: Record<string, string> = {
   rings: '/images/jewellery/bestseller-ring.jpg',
   necklaces: '/images/jewellery/bestseller-necklace.jpg',
   'necklaces-and-pendants': '/images/jewellery/bestseller-necklace.jpg',
-  'bracelets-and-anklets': '/images/jewellery/newarrival-bracelet.jpg',
+  'bracelets-and-bangles': '/images/jewellery/newarrival-bracelet.jpg',
   'temple-jewelry': '/images/jewellery/hero-model.jpg',
   'choker-sets': '/images/jewellery/newarrival-pearl.jpg',
   all: '/images/jewellery/hero-model.jpg',

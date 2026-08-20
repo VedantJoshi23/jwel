@@ -208,7 +208,7 @@ surfacing in the size guide.
 | Category | Scheme | Reason |
 | --- | --- | --- |
 | Rings | `RING_INDIA` | Fit is essential; wrong size is unwearable |
-| Bracelets & Anklets | `BRACELET_LENGTH_MM` | Length varies materially |
+| Bracelets & Bangles | `BRACELET_LENGTH_MM` | Length varies materially |
 | Necklaces & Pendants | `CHAIN_LENGTH_MM` | Chain length is a real choice |
 | Earrings | **none** | No meaningful size dimension for studs, hoops or jhumkas |
 
