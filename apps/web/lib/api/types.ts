@@ -669,3 +669,48 @@ export interface ApiErrorEnvelope {
   correlationId: string;
   timestamp: string;
 }
+
+/**
+ * What `GET /admin/settings` returns for one declared key
+ * (`FEAT-SETTINGS-STORE` — `apps/api/.../settings.service.ts` `SettingView`).
+ * `value`/`default` are `unknown` because the registry backing this is a
+ * closed set of mixed types (string, boolean, integer today) behind one
+ * `TEXT` column — the admin UI renders a control per `typeof value` rather
+ * than assuming a shape.
+ */
+export interface SettingView {
+  key: string;
+  value: unknown;
+  default: unknown;
+  description: string;
+  owner: string;
+  /** True when an admin has overridden the default. */
+  overridden: boolean;
+}
+
+/**
+ * `GET /shipping/serviceability` (`FEAT-DELIVERY-ESTIMATE`, `ADR-0024`).
+ * `source` is always `'ESTIMATED'` today — a future Shiprocket-backed
+ * provider could return `'CARRIER_VERIFIED'` behind the same shape, which is
+ * why the UI keys its "Estimated" disclosure off this field rather than
+ * assuming.
+ */
+export interface ServiceabilityResult {
+  pincode: string;
+  deliverable: boolean;
+  estimatedMinDays: number | null;
+  estimatedMaxDays: number | null;
+  source: 'ESTIMATED' | 'CARRIER_VERIFIED';
+}
+
+/** An admin-managed exception to the pan-India default (`FEAT-DELIVERY-ESTIMATE`). */
+export interface PincodeOverride {
+  id: string;
+  pincode: string;
+  deliverable: boolean;
+  estimatedMinDays: number | null;
+  estimatedMaxDays: number | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

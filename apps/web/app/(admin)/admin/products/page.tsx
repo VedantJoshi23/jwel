@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/common/pagination';
 import { CatalogueExportControl } from '@/components/admin/catalogue-export-control';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminListProducts, adminUpdateProductStatus, bulkImportProducts } from '@/lib/api/admin-products';
+import {
+  adminDeleteProduct,
+  adminListProducts,
+  adminUpdateProductStatus,
+  bulkImportProducts,
+} from '@/lib/api/admin-products';
 import { formatMinorUnits } from '@/lib/money';
 import type { BulkImportResult, Product } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
@@ -82,6 +87,27 @@ function AdminProductsPageInner() {
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to update status');
+    }
+  }
+
+  async function handleDelete(product: Product) {
+    if (!token) return;
+    // Destructive and, per adminFindAll's `deletedAt: null` filter, final —
+    // the product drops out of this list entirely rather than just changing
+    // badge, so it gets its own confirmation same as Categories/Collections.
+    if (
+      !window.confirm(
+        `Delete "${product.name}"? This removes it from the catalogue entirely and can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await adminDeleteProduct(token, product.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to delete product');
     }
   }
 
@@ -272,12 +298,11 @@ function AdminProductsPageInner() {
                           Edit
                         </Link>
                       </div>
-                      <div className="w-[92px] shrink-0 border-l border-border pl-4">
+                      <div className="flex shrink-0 items-center gap-2 border-l border-border pl-4">
                         {product.status === 'DRAFT' && (
                           <Button
                             size="s"
                             variant="secondary"
-                            className="w-full"
                             onClick={() => handleStatusChange(product, 'PUBLISHED')}
                           >
                             Publish
@@ -287,10 +312,19 @@ function AdminProductsPageInner() {
                           <Button
                             size="s"
                             variant="secondary"
-                            className="w-full"
                             onClick={() => handleStatusChange(product, 'ARCHIVED')}
                           >
                             Archive
+                          </Button>
+                        )}
+                        {/* PUBLISHED already has an end-state one click away
+                            (Archive, above) — Delete stays off it so there
+                            aren't two buttons doing overlapping things.
+                            DRAFT and ARCHIVED currently have no way off this
+                            list at all, which is the actual gap. */}
+                        {product.status !== 'PUBLISHED' && (
+                          <Button size="s" variant="destructive" onClick={() => handleDelete(product)}>
+                            Delete
                           </Button>
                         )}
                       </div>

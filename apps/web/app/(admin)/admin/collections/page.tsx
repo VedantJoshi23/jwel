@@ -44,6 +44,28 @@ function toIso(value: string): string | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
 
+/** The inverse — pre-filling an edit form's `datetime-local` input from a stored ISO string. */
+function toDatetimeLocal(iso: string | null): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+const EMPTY_EDIT_FORM = {
+  name: '',
+  slug: '',
+  type: 'SEASONAL' as CollectionType,
+  description: '',
+  heroImageRef: '',
+  heroImageUrl: '',
+  startsAt: '',
+  endsAt: '',
+  isFeatured: false,
+};
+type EditFormState = typeof EMPTY_EDIT_FORM;
+
 function scheduleLabel(collection: AdminCollection): string {
   const from = collection.startsAt ? new Date(collection.startsAt).toLocaleDateString() : null;
   const to = collection.endsAt ? new Date(collection.endsAt).toLocaleDateString() : null;
@@ -59,6 +81,15 @@ export default function AdminCollectionsPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Inline edit — same shape as CMS Banners' editingId pattern. Deliberately
+  // has no product picker: `adminList` returns only `_count.products`, never
+  // the member ids, so there is no way to pre-fill a picker with the actual
+  // current selection. Submitting `productIds: undefined` on save leaves
+  // membership untouched, the same convention `handleToggleFeatured` below
+  // already relies on.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>(EMPTY_EDIT_FORM);
 
   const load = useCallback(() => {
     if (!token) return;
@@ -131,6 +162,51 @@ export default function AdminCollectionsPage() {
         startsAt: collection.startsAt ?? undefined,
         endsAt: collection.endsAt ?? undefined,
       });
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to update collection');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEdit(collection: AdminCollection) {
+    setEditingId(collection.id);
+    setEditForm({
+      name: collection.name,
+      slug: collection.slug,
+      type: collection.type,
+      description: collection.description ?? '',
+      heroImageRef: collection.heroImageRef ?? '',
+      heroImageUrl: collection.heroImageUrl ?? '',
+      startsAt: toDatetimeLocal(collection.startsAt),
+      endsAt: toDatetimeLocal(collection.endsAt),
+      isFeatured: collection.isFeatured,
+    });
+    setError('');
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function handleSaveEdit(id: string) {
+    if (!token || !editForm.name.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      await adminUpdateCollection(token, id, {
+        name: editForm.name.trim(),
+        slug: editForm.slug.trim() || undefined,
+        type: editForm.type,
+        description: editForm.description.trim() || undefined,
+        heroImageRef: editForm.heroImageRef || undefined,
+        isFeatured: editForm.isFeatured,
+        startsAt: toIso(editForm.startsAt),
+        endsAt: toIso(editForm.endsAt),
+        // productIds intentionally omitted — see the state comment above.
+      });
+      setEditingId(null);
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to update collection');
@@ -329,35 +405,193 @@ export default function AdminCollectionsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {collections.map((collection) => (
-                    <tr key={collection.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 font-medium">{collection.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-ink-secondary">/{collection.slug}</td>
-                      <td className="px-4 py-3">{collection.type}</td>
-                      <td className="px-4 py-3">{collection._count?.products ?? 0}</td>
-                      <td className="px-4 py-3 text-xs">{scheduleLabel(collection)}</td>
-                      <td className="px-4 py-3">
-                        <Button
-                          variant="ghost"
-                          size="s"
-                          disabled={busy}
-                          onClick={() => handleToggleFeatured(collection)}
-                        >
-                          {collection.isFeatured ? 'Yes' : 'No'}
-                        </Button>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button
-                          variant="ghost"
-                          size="s"
-                          disabled={busy}
-                          onClick={() => handleDelete(collection)}
-                        >
-                          Delete
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {collections.map((collection) =>
+                    editingId === collection.id ? (
+                      <tr key={collection.id} className="border-b border-border last:border-0">
+                        <td colSpan={7} className="px-4 py-4">
+                          <div className="space-y-3">
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-name-${collection.id}`}
+                                >
+                                  Name
+                                </label>
+                                <Input
+                                  id={`col-edit-name-${collection.id}`}
+                                  value={editForm.name}
+                                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-slug-${collection.id}`}
+                                >
+                                  Slug
+                                </label>
+                                <Input
+                                  id={`col-edit-slug-${collection.id}`}
+                                  value={editForm.slug}
+                                  onChange={(e) => setEditForm((f) => ({ ...f, slug: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-type-${collection.id}`}
+                                >
+                                  Type
+                                </label>
+                                <Select
+                                  id={`col-edit-type-${collection.id}`}
+                                  value={editForm.type}
+                                  onChange={(e) =>
+                                    setEditForm((f) => ({ ...f, type: e.target.value as CollectionType }))
+                                  }
+                                >
+                                  {COLLECTION_TYPES.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-description-${collection.id}`}
+                                >
+                                  Description (optional)
+                                </label>
+                                <Input
+                                  id={`col-edit-description-${collection.id}`}
+                                  value={editForm.description}
+                                  onChange={(e) =>
+                                    setEditForm((f) => ({ ...f, description: e.target.value }))
+                                  }
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-starts-${collection.id}`}
+                                >
+                                  Goes live (optional)
+                                </label>
+                                <Input
+                                  id={`col-edit-starts-${collection.id}`}
+                                  type="datetime-local"
+                                  value={editForm.startsAt}
+                                  onChange={(e) => setEditForm((f) => ({ ...f, startsAt: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium"
+                                  htmlFor={`col-edit-ends-${collection.id}`}
+                                >
+                                  Ends (optional)
+                                </label>
+                                <Input
+                                  id={`col-edit-ends-${collection.id}`}
+                                  type="datetime-local"
+                                  value={editForm.endsAt}
+                                  onChange={(e) => setEditForm((f) => ({ ...f, endsAt: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+
+                            <ImageUploadField
+                              label="Hero image (optional)"
+                              folder="collections"
+                              token={token}
+                              value={editForm.heroImageRef || null}
+                              previewUrl={editForm.heroImageUrl || null}
+                              onChange={(storageRef, previewUrl) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  heroImageRef: storageRef ?? '',
+                                  heroImageUrl: previewUrl ?? '',
+                                }))
+                              }
+                              disabled={busy}
+                            />
+
+                            <p className="text-xs text-ink-muted">
+                              Products aren&rsquo;t editable here — this list doesn&rsquo;t carry current
+                              membership, only a count, so there&rsquo;s no safe way to pre-fill a picker.
+                              Saving leaves the collection&rsquo;s products unchanged.
+                            </p>
+
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={editForm.isFeatured}
+                                onChange={(e) =>
+                                  setEditForm((f) => ({ ...f, isFeatured: e.target.checked }))
+                                }
+                              />
+                              Featured
+                            </label>
+
+                            <div className="flex gap-2">
+                              <Button
+                                size="s"
+                                onClick={() => handleSaveEdit(collection.id)}
+                                loading={busy}
+                                disabled={!editForm.name.trim()}
+                              >
+                                Save
+                              </Button>
+                              <Button size="s" variant="secondary" onClick={cancelEdit}>
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={collection.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3 font-medium">{collection.name}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-ink-secondary">/{collection.slug}</td>
+                        <td className="px-4 py-3">{collection.type}</td>
+                        <td className="px-4 py-3">{collection._count?.products ?? 0}</td>
+                        <td className="px-4 py-3 text-xs">{scheduleLabel(collection)}</td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="ghost"
+                            size="s"
+                            disabled={busy}
+                            onClick={() => handleToggleFeatured(collection)}
+                          >
+                            {collection.isFeatured ? 'Yes' : 'No'}
+                          </Button>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="s"
+                              disabled={busy}
+                              onClick={() => startEdit(collection)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="s"
+                              disabled={busy}
+                              onClick={() => handleDelete(collection)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  )}
                 </tbody>
               </table>
             </div>

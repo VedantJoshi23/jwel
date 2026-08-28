@@ -21,6 +21,8 @@ const NAV_ITEMS = [
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/coupons', label: 'Coupons' },
   { href: '/admin/cms', label: 'CMS' },
+  { href: '/admin/settings', label: 'Settings' },
+  { href: '/admin/shipping', label: 'Delivery Estimate' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
