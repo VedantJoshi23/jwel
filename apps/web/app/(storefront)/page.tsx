@@ -10,6 +10,7 @@ import { RecommendedRail } from '@/components/recommendations/personalized-rail'
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
+import { PincodeCheck } from '@/components/shipping/pincode-check';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -71,6 +72,13 @@ export default async function HomePage() {
         not applied to the hero: the first thing on the page should already
         be there, not arrive.
       */}
+      {/* ── Delivery check (FEAT-DELIVERY-ESTIMATE) ───────────────────────── */}
+      <RevealSection className="border-y border-border bg-surface px-6 py-10 lg:px-8">
+        <h2 className="font-display text-2xl font-bold tracking-tight">{brand.deliveryCheck.headline}</h2>
+        <p className="mt-1.5 text-sm text-ink-secondary">{brand.deliveryCheck.subtext}</p>
+        <PincodeCheck className="mt-5" />
+      </RevealSection>
+
       {/* ── Category trio ─────────────────────────────────────────────────── */}
       <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
         {brand.homeCategories.map((category) => (

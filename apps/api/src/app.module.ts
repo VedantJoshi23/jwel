@@ -36,6 +36,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { AuditLogModule } from './modules/audit-log/audit-log.module';
+import { ShippingModule } from './modules/shipping/shipping.module';
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { AuditLogModule } from './modules/audit-log/audit-log.module';
     AnalyticsModule,
     HealthModule,
     AuditLogModule,
+    ShippingModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

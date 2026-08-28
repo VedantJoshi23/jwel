@@ -116,6 +116,14 @@ export const brand = {
       'The pieces our customers treasure most — handcrafted, tarnish-proof and made to last through every festive season.',
   },
 
+  // FEAT-DELIVERY-ESTIMATE — shown above the pincode widget on both the home
+  // page and the product detail page (ADR-0024: an estimate, not a
+  // carrier-confirmed check, which is why the heading avoids promising one).
+  deliveryCheck: {
+    headline: 'Check delivery to your area',
+    subtext: 'Enter your pincode for an estimated delivery window.',
+  },
+
   // ── Product / catalogue ───────────────────────────────────────────────────
 
   // Top-level product category pills shown on shop/collection pages —

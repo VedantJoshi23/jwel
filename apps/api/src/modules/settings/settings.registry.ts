@@ -153,6 +153,24 @@ export const SETTINGS = {
       'piece of homepage marketing copy in this codebase, which ships live.',
     true,
   ),
+  // Read by StaticZoneShippingProvider whenever a pincode has no explicit
+  // PincodeServiceabilityOverride row (FEAT-DELIVERY-ESTIMATE, ADR-0024) — the
+  // pan-India default window, tunable without a deploy the same way
+  // `recommendations.min_co_occurrence` is.
+  'shipping.default_min_days': positiveIntSetting(
+    'DOM-SHIPPING',
+    'Default lower bound (business days) shown for a pincode with no serviceability override. ' +
+      'Interim estimate only — not a carrier-confirmed figure (ADR-0024).',
+    4,
+    60,
+  ),
+  'shipping.default_max_days': positiveIntSetting(
+    'DOM-SHIPPING',
+    'Default upper bound (business days) shown for a pincode with no serviceability override. ' +
+      'Interim estimate only — not a carrier-confirmed figure (ADR-0024).',
+    7,
+    60,
+  ),
 } as const;
 
 export type SettingKey = keyof typeof SETTINGS;

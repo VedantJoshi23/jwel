@@ -15,6 +15,7 @@ import { ProductGallery } from '@/components/product/product-gallery';
 import { ProductRail } from '@/components/recommendations/product-rail';
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RecordProductView } from '@/components/recommendations/record-product-view';
+import { PincodeCheck } from '@/components/shipping/pincode-check';
 import { getFrequentlyBoughtTogether } from '@/lib/api/recommendations';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
@@ -158,6 +159,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
             {/* Shipping note */}
             <p className="mt-4 text-xs text-ink-muted">{brand.pdp.shippingNote}</p>
+
+            {/* Delivery check (FEAT-DELIVERY-ESTIMATE) */}
+            <div className="mt-6 border-t border-border pt-6">
+              <h2 className="text-sm font-semibold text-ink-primary">{brand.deliveryCheck.headline}</h2>
+              <PincodeCheck className="mt-3" />
+            </div>
           </div>
         </div>
       </div>

@@ -1003,3 +1003,34 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@map("audit_logs")
 }
+
+// ──────────────────────────────────────────────────────────────────────────
+// SHIPPING (INTERIM) — FEAT-DELIVERY-ESTIMATE, ADR-0024
+// ──────────────────────────────────────────────────────────────────────────
+
+// Deliberately NOT `DOM-SHIPPING` §6's `shipments` / `shipment_status_history`
+// / `cod_remittances` tables — those belong to the real Shiprocket-backed
+// `FEAT-SHIPPING`, which remains unbuilt and blocked on the client's
+// suspended Shiprocket account (see that domain doc's status banner). This
+// table backs a narrower, interim capability only: an admin-maintained
+// exception list layered under a pan-India "deliverable unless flagged"
+// default (the site-wide default window lives in `Setting`, not here — see
+// `shipping.default_min_days`/`shipping.default_max_days` in
+// `settings.registry.ts`), powering a pincode estimate widget on the
+// storefront while Shiprocket access is unavailable.
+//
+// A row exists only for a pincode an admin has actually flagged — same
+// "only overrides are stored, defaults live elsewhere" shape `Setting`
+// already uses.
+model PincodeServiceabilityOverride {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pincode          String   @unique
+  deliverable      Boolean  @default(true)
+  estimatedMinDays Int?     @map("estimated_min_days")
+  estimatedMaxDays Int?     @map("estimated_max_days")
+  note             String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("pincode_serviceability_overrides")
+}
