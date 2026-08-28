@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CouponsService } from './coupons.service';
 import { ValidateCouponDto } from './dto/validate-coupon.dto';
@@ -39,5 +39,23 @@ export class CouponsController {
   @ApiOperation({ summary: '[Admin] Deactivate a coupon' })
   adminDeactivate(@Param('id') id: string) {
     return this.couponsService.adminDeactivate(id);
+  }
+
+  @Patch('admin/coupons/:id/archive')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: '[Admin] Archive (soft-delete) a coupon — hides it from the list; redemption history is preserved',
+  })
+  adminArchive(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.couponsService.adminArchive(id, actor);
+  }
+
+  @Delete('admin/coupons/:id')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: '[Admin] Permanently delete a coupon — refused if it has ever been redeemed; archive it instead',
+  })
+  adminHardDelete(@Param('id') id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.couponsService.adminHardDelete(id, actor);
   }
 }

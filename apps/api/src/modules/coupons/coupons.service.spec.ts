@@ -1,10 +1,14 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { DiscountType } from '@prisma/client';
+import { DiscountType, Prisma } from '@prisma/client';
 import { CouponsService } from './coupons.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
+
+const actor: AuthenticatedUser = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 type MockPrisma = {
-  coupon: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock };
+  coupon: { findUnique: jest.Mock; findMany: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock };
   couponRedemption: { count: jest.Mock; create: jest.Mock };
   order: { count: jest.Mock };
 };
@@ -31,15 +35,23 @@ function buildCoupon(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('CouponsService', () => {
   let prisma: MockPrisma;
+  let auditLog: { record: jest.Mock };
   let service: CouponsService;
 
   beforeEach(() => {
     prisma = {
-      coupon: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
-      couponRedemption: { count: jest.fn(), create: jest.fn() },
+      coupon: {
+        findUnique: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+      },
+      couponRedemption: { count: jest.fn().mockResolvedValue(0), create: jest.fn() },
       order: { count: jest.fn() },
     };
-    service = new CouponsService(prisma as unknown as PrismaService);
+    auditLog = { record: jest.fn() };
+    service = new CouponsService(prisma as unknown as PrismaService, auditLog as unknown as AuditLogService);
   });
 
   describe('validate', () => {
@@ -145,6 +157,83 @@ describe('CouponsService', () => {
         where: { id: 'coupon-1' },
         data: { isActive: false },
       });
+    });
+  });
+
+  describe('adminArchive', () => {
+    it('throws NotFoundException for an unknown id', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(null);
+      await expect(service.adminArchive('missing', actor)).rejects.toThrow(NotFoundException);
+    });
+
+    it('sets deletedAt regardless of redemption history — always safe (DOM-PRICING §8 Edge Case 6)', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.coupon.update.mockResolvedValue(buildCoupon({ deletedAt: new Date() }));
+      await service.adminArchive('coupon-1', actor);
+      expect(prisma.coupon.update).toHaveBeenCalledWith({
+        where: { id: 'coupon-1' },
+        data: { deletedAt: expect.any(Date) },
+      });
+      // No redemption check at all — archiving never needs one.
+      expect(prisma.couponRedemption.count).not.toHaveBeenCalled();
+    });
+
+    it('records an audit entry', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.coupon.update.mockResolvedValue(buildCoupon({ deletedAt: new Date() }));
+      await service.adminArchive('coupon-1', actor);
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actor, action: 'coupons.archive', entityId: 'coupon-1' }),
+      );
+    });
+  });
+
+  describe('adminHardDelete', () => {
+    it('throws NotFoundException for an unknown id', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(null);
+      await expect(service.adminHardDelete('missing', actor)).rejects.toThrow(NotFoundException);
+    });
+
+    it('deletes a never-redeemed coupon outright', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.couponRedemption.count.mockResolvedValue(0);
+      await service.adminHardDelete('coupon-1', actor);
+      expect(prisma.coupon.delete).toHaveBeenCalledWith({ where: { id: 'coupon-1' } });
+    });
+
+    it('refuses to delete a coupon that has been redeemed, naming the count', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.couponRedemption.count.mockResolvedValue(3);
+      await expect(service.adminHardDelete('coupon-1', actor)).rejects.toThrow(/redeemed 3 time\(s\)/);
+      expect(prisma.coupon.delete).not.toHaveBeenCalled();
+    });
+
+    it('translates a foreign-key violation from the database into the same named error (defensive backstop)', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.couponRedemption.count.mockResolvedValue(0);
+      prisma.coupon.delete.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('FK violation', {
+          code: 'P2003',
+          clientVersion: '5.0.0',
+        }),
+      );
+      await expect(service.adminHardDelete('coupon-1', actor)).rejects.toThrow(BadRequestException);
+    });
+
+    it('propagates an unrelated database error rather than mislabeling it', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.couponRedemption.count.mockResolvedValue(0);
+      prisma.coupon.delete.mockRejectedValue(new Error('connection reset'));
+      await expect(service.adminHardDelete('coupon-1', actor)).rejects.toThrow('connection reset');
+    });
+
+    it('records an audit entry only after the delete succeeds', async () => {
+      prisma.coupon.findUnique.mockResolvedValue(buildCoupon());
+      prisma.couponRedemption.count.mockResolvedValue(0);
+      await service.adminHardDelete('coupon-1', actor);
+      expect(auditLog.record).toHaveBeenCalledWith(
+        expect.objectContaining({ actor, action: 'coupons.hard_delete', entityId: 'coupon-1' }),
+      );
     });
   });
 

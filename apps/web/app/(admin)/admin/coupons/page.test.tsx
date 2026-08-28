@@ -2,18 +2,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import AdminCouponsPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminCreateCoupon, adminDeactivateCoupon, adminListCoupons } from '@/lib/api/admin-coupons';
+import {
+  adminArchiveCoupon,
+  adminCreateCoupon,
+  adminDeactivateCoupon,
+  adminHardDeleteCoupon,
+  adminListCoupons,
+} from '@/lib/api/admin-coupons';
+import { ApiError } from '@/lib/api/client';
 import type { Coupon } from '@/lib/api/types';
 
 vi.mock('@/lib/api/admin-coupons', () => ({
   adminListCoupons: vi.fn(),
   adminCreateCoupon: vi.fn(),
   adminDeactivateCoupon: vi.fn(),
+  adminArchiveCoupon: vi.fn(),
+  adminHardDeleteCoupon: vi.fn(),
 }));
 
 const listCoupons = vi.mocked(adminListCoupons);
 const createCoupon = vi.mocked(adminCreateCoupon);
 const deactivateCoupon = vi.mocked(adminDeactivateCoupon);
+const archiveCoupon = vi.mocked(adminArchiveCoupon);
+const hardDeleteCoupon = vi.mocked(adminHardDeleteCoupon);
 
 function makeCoupon(overrides: Partial<Coupon> = {}): Coupon {
   return {
@@ -42,7 +53,10 @@ describe('AdminCouponsPage', () => {
     listCoupons.mockReset();
     createCoupon.mockReset();
     deactivateCoupon.mockReset();
+    archiveCoupon.mockReset();
+    hardDeleteCoupon.mockReset();
     listCoupons.mockResolvedValue([]);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     useAuthStore.getState().setSession('token-1', {
       id: 'u1',
       email: 'admin@example.com',
@@ -150,6 +164,49 @@ describe('AdminCouponsPage', () => {
     render(<AdminCouponsPage />);
     fireEvent.click(await screen.findByRole('button', { name: 'Deactivate' }));
     await waitFor(() => expect(deactivateCoupon).toHaveBeenCalledWith('token-1', 'c1'));
+  });
+
+  it('archiving a coupon asks for confirmation, then calls the API and reloads', async () => {
+    listCoupons.mockResolvedValue([makeCoupon()]);
+    archiveCoupon.mockResolvedValue(makeCoupon());
+    render(<AdminCouponsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive' }));
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/Archive coupon "SHINE10"/));
+    await waitFor(() => expect(archiveCoupon).toHaveBeenCalledWith('token-1', 'c1'));
+  });
+
+  it('does not archive when the confirmation is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    listCoupons.mockResolvedValue([makeCoupon()]);
+    render(<AdminCouponsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Archive' }));
+    expect(archiveCoupon).not.toHaveBeenCalled();
+  });
+
+  it('permanently deleting a never-used coupon calls the API and reloads', async () => {
+    listCoupons.mockResolvedValue([makeCoupon()]);
+    hardDeleteCoupon.mockResolvedValue(undefined);
+    render(<AdminCouponsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(hardDeleteCoupon).toHaveBeenCalledWith('token-1', 'c1'));
+  });
+
+  it("surfaces the API's refusal message when deleting a redeemed coupon, rather than a generic error", async () => {
+    listCoupons.mockResolvedValue([makeCoupon()]);
+    hardDeleteCoupon.mockRejectedValue(
+      new ApiError('Coupon "SHINE10" has been redeemed 3 time(s) and cannot be permanently deleted.', 400),
+    );
+    render(<AdminCouponsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText(/redeemed 3 time\(s\)/)).toBeInTheDocument();
+  });
+
+  it('does not permanently delete when the confirmation is declined', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    listCoupons.mockResolvedValue([makeCoupon()]);
+    render(<AdminCouponsPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(hardDeleteCoupon).not.toHaveBeenCalled();
   });
 
   it('shows an empty state when there are no coupons', async () => {

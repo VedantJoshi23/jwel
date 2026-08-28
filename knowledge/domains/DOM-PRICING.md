@@ -1,13 +1,13 @@
 ---
 id: DOM-PRICING
 title: 'Jwel / ELYSIAN — Domain: Pricing & Promotion'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-08-28
 milestone: M5
 category: Domains
 priority: High
@@ -71,7 +71,10 @@ proposal to split the column so each type can be constrained; it remains open.
 
 **Customer** — `POST /coupons/validate`
 **Admin** — `GET /admin/coupons`, `POST /admin/coupons`,
-`PATCH /admin/coupons/:id/deactivate`
+`PATCH /admin/coupons/:id/deactivate`, `PATCH /admin/coupons/:id/archive`
+(soft-delete), `DELETE /admin/coupons/:id` (permanent — refused per Edge
+Case 7). No edit endpoint exists, or is planned — a coupon's terms are
+immutable once created, current or past (2026-08-28, owner decision).
 
 ## 5. Events
 
@@ -110,6 +113,15 @@ Payments, Returns or Shopping; emitting events.
    not a valid order.
 6. **Soft-deleted coupon with historical redemptions.** Redemptions remain,
    referential integrity holds.
+7. **Permanently deleting a coupon that has been redeemed.** Refused (2026-08-28,
+   admin request) — `CouponRedemption` is append-only (Invariant 2) and
+   `Order.couponId` is a historical reference; destroying either would violate
+   `STD-DATABASE` r3. The service checks `CouponRedemption` count first, for a
+   named error rather than a raw constraint violation; the database's own
+   foreign key (`Order.couponId`, `CouponRedemption.couponId`) is the backstop
+   if that check is ever bypassed. A never-redeemed coupon has no such
+   reference and is deleted outright. Soft-delete (`adminArchive`) has no such
+   restriction — it is always available, per Edge Case 6.
 
 ## Constitution compliance
 

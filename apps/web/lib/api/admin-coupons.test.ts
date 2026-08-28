@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { adminCreateCoupon, adminDeactivateCoupon, adminListCoupons } from './admin-coupons';
+import {
+  adminArchiveCoupon,
+  adminCreateCoupon,
+  adminDeactivateCoupon,
+  adminHardDeleteCoupon,
+  adminListCoupons,
+} from './admin-coupons';
 
 describe('admin-coupons API', () => {
   beforeEach(() => {
@@ -26,5 +32,21 @@ describe('admin-coupons API', () => {
     const [url, options] = (fetch as any).mock.calls[0];
     expect(url).toContain('/admin/coupons/c1/deactivate');
     expect(options.method).toBe('PATCH');
+  });
+
+  it('adminArchiveCoupon PATCHes the archive endpoint', async () => {
+    await adminArchiveCoupon('token-1', 'c1');
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/coupons/c1/archive');
+    expect(options.method).toBe('PATCH');
+  });
+
+  it('adminHardDeleteCoupon DELETEs the coupon directly, with no sub-path', async () => {
+    await adminHardDeleteCoupon('token-1', 'c1');
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/coupons/c1');
+    expect(url).not.toContain('/archive');
+    expect(url).not.toContain('/deactivate');
+    expect(options.method).toBe('DELETE');
   });
 });

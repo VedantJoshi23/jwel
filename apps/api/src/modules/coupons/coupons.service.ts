@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Coupon, DiscountType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
+import { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { CreateCouponDto } from './dto/create-coupon.dto';
 
 type Client = PrismaService | Prisma.TransactionClient;
@@ -12,7 +14,10 @@ export interface CouponValidationResult {
 
 @Injectable()
 export class CouponsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditLog: AuditLogService,
+  ) {}
 
   async validate(
     code: string,
@@ -87,5 +92,82 @@ export class CouponsService {
 
   async adminDeactivate(id: string) {
     return this.prisma.coupon.update({ where: { id }, data: { isActive: false } });
+  }
+
+  /**
+   * Soft-delete — hides the coupon from `adminList` and makes `validate`
+   * reject it (same check `deletedAt` already backs), while leaving
+   * `CouponRedemption` history and any `Order.couponId` reference intact.
+   * Always safe, regardless of redemption history (`DOM-PRICING` §8 Edge
+   * Case 6). There is deliberately no "un-archive" — same as Product/Category
+   * soft-delete, this is a one-way action from the admin surface today.
+   */
+  async adminArchive(id: string, actor: AuthenticatedUser): Promise<Coupon> {
+    const coupon = await this.findOrThrow(id);
+    const archived = await this.prisma.coupon.update({ where: { id }, data: { deletedAt: new Date() } });
+
+    await this.auditLog.record({
+      actor,
+      action: 'coupons.archive',
+      entityType: 'Coupon',
+      entityId: id,
+      metadata: { code: coupon.code },
+    });
+
+    return archived;
+  }
+
+  /**
+   * A real, irreversible delete — refused once the coupon has ever been
+   * redeemed. `CouponRedemption` is an append-only ledger (`DOM-PRICING` §8
+   * Invariant 2) and `Order.couponId` is a historical reference; destroying
+   * either would violate `STD-DATABASE` r3 (history is append-only) and could
+   * silently corrupt a past order's discount record. A never-redeemed coupon
+   * has no such reference and can be removed outright — this is what
+   * distinguishes it from `adminArchive`, not an admin preference alone.
+   */
+  async adminHardDelete(id: string, actor: AuthenticatedUser): Promise<void> {
+    const coupon = await this.findOrThrow(id);
+
+    const redemptionCount = await this.prisma.couponRedemption.count({ where: { couponId: id } });
+    if (redemptionCount > 0) {
+      throw new BadRequestException(
+        `Coupon "${coupon.code}" has been redeemed ${redemptionCount} time(s) and cannot be permanently ` +
+          'deleted — archive it instead to keep redemption history intact.',
+      );
+    }
+
+    try {
+      await this.prisma.coupon.delete({ where: { id } });
+    } catch (error) {
+      // Defensive backstop, not the primary check: an Order references a
+      // coupon via `Order.couponId` independently of CouponRedemption, so the
+      // database's own foreign key is what actually guarantees this, not the
+      // count() above alone. Translated into the same named error rather than
+      // a raw constraint-violation code reaching an admin.
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+        throw new BadRequestException(
+          `Coupon "${coupon.code}" is referenced by at least one order and cannot be permanently deleted — ` +
+            'archive it instead.',
+        );
+      }
+      throw error;
+    }
+
+    await this.auditLog.record({
+      actor,
+      action: 'coupons.hard_delete',
+      entityType: 'Coupon',
+      entityId: id,
+      metadata: { code: coupon.code, discountType: coupon.discountType, value: coupon.value },
+    });
+  }
+
+  private async findOrThrow(id: string): Promise<Coupon> {
+    const coupon = await this.prisma.coupon.findUnique({ where: { id } });
+    if (!coupon) {
+      throw new NotFoundException('Coupon not found');
+    }
+    return coupon;
   }
 }
