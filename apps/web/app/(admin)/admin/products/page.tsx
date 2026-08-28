@@ -317,11 +317,24 @@ function AdminProductsPageInner() {
                             Archive
                           </Button>
                         )}
-                        {/* PUBLISHED already has an end-state one click away
-                            (Archive, above) — Delete stays off it so there
-                            aren't two buttons doing overlapping things.
-                            DRAFT and ARCHIVED currently have no way off this
-                            list at all, which is the actual gap. */}
+                        {product.status === 'ARCHIVED' && (
+                          // Back to DRAFT, not straight to PUBLISHED — an
+                          // archived listing may be stale (price, photos), so
+                          // re-publishing goes through the same edit-then-
+                          // Publish path (and the same completeness gate,
+                          // assertPublishable) as any other draft, rather
+                          // than a second one-step "republish" transition.
+                          <Button
+                            size="s"
+                            variant="secondary"
+                            onClick={() => handleStatusChange(product, 'DRAFT')}
+                          >
+                            Unarchive
+                          </Button>
+                        )}
+                        {/* PUBLISHED keeps a single one-way action (Archive,
+                            above) — soft-delete is intentionally not exposed
+                            on a live product, only on DRAFT/ARCHIVED. */}
                         {product.status !== 'PUBLISHED' && (
                           <Button size="s" variant="destructive" onClick={() => handleDelete(product)}>
                             Delete

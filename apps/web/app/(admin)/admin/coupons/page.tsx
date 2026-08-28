@@ -365,8 +365,13 @@ export default function AdminCouponsPage() {
                       {coupon.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {/* nowrap, not flex-wrap — three buttons wrapping onto an
+                        uneven two-line stack read as broken, not busy. Same
+                        right-aligned single-row treatment as the Products
+                        table's row actions (admin/products/page.tsx); the
+                        table's own overflow-x-auto is the width fallback. */}
+                    <div className="flex items-center justify-end gap-2">
                       {coupon.isActive && (
                         <Button size="s" variant="secondary" onClick={() => handleDeactivate(coupon.id)}>
                           Deactivate
