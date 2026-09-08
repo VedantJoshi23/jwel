@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   adminCreateProduct,
+  adminDeleteProduct,
   adminGetProduct,
   adminListCategories,
   adminListProducts,
@@ -129,5 +130,12 @@ describe('admin-products API', () => {
     expect(url).toContain('/admin/products/p1/media/reorder');
     expect(options.method).toBe('PUT');
     expect(JSON.parse(options.body)).toEqual({ mediaIds: ['m2', 'm1'] });
+  });
+
+  it('adminDeleteProduct DELETEs the product', async () => {
+    await adminDeleteProduct('token-1', 'p1');
+    const [url, options] = (fetch as any).mock.calls[0];
+    expect(url).toContain('/admin/products/p1');
+    expect(options.method).toBe('DELETE');
   });
 });

@@ -1,7 +1,9 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { safeGetActiveBanners } from '@/lib/api/cms';
+import { getProductStockImage } from '@/lib/jewellery-images';
 import { ProductCard } from '@/components/product/product-card';
 import { PromoBanners } from '@/components/home/promo-banners';
 import { BestsellersCarousel } from '@/components/home/bestsellers-carousel';
@@ -29,33 +31,38 @@ export default async function HomePage() {
   ]);
 
   const hero = brand.hero;
+  // Real catalogue photography, not stock/invented imagery — the first
+  // bestseller (falling back to the deterministic per-product stock image
+  // ProductCard itself uses when a product has no media) rather than a
+  // hardcoded image reference, so this stays correct as the catalogue changes.
+  const heroProduct = bestsellers[0] ?? newIn[0] ?? null;
+  const heroImageUrl = heroProduct
+    ? (heroProduct.media[0]?.url ?? getProductStockImage(heroProduct.id))
+    : null;
 
   return (
     <>
-      {/* ── Hero — wireframe 01 split layout ──────────────────────────────── */}
+      {/* ── Hero — Lavender Rose: gradient type panel + real product photo ── */}
       <section className="grid bg-surface-alt lg:grid-cols-2">
-        {/* Stock hero photography removed — this panel holds the brand mark
-            until real product photography is in place. */}
-        <div
-          className="flex min-h-[280px] items-center justify-center bg-surface-band lg:min-h-[380px]"
-          aria-hidden="true"
-        >
-          <span className="font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl">
-            {brand.name}
-          </span>
+        <div className="relative min-h-[280px] bg-surface-band lg:min-h-[380px]" aria-hidden="true">
+          {heroImageUrl ? (
+            <Image src={heroImageUrl} alt="" fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <span className="font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl">{brand.name}</span>
+            </div>
+          )}
         </div>
-        <div className="flex flex-col justify-center gap-5 bg-surface-alt px-6 py-14 lg:px-12">
-          <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary lg:text-5xl">
-            {hero.headline}
+        <div className="band-gradient flex flex-col justify-center gap-5 px-6 py-14 text-white lg:px-12">
+          <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
+            {hero.headline || brand.tagline}
           </h1>
-          <p className="max-w-md text-sm leading-relaxed text-ink-secondary">
-            {hero.subtext}
-          </p>
+          {hero.subtext && <p className="max-w-md text-sm leading-relaxed">{hero.subtext}</p>}
           <div className="flex flex-wrap gap-3.5 pt-1">
-            <Button asChild size="l">
+            <Button asChild size="l" className="bg-brand-accent text-ink-primary hover:bg-brand-accent/90">
               <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
             </Button>
-            <Button asChild size="l" variant="secondary">
+            <Button asChild size="l" variant="secondary" className="border-white text-white hover:bg-white/10">
               <Link href={hero.secondaryCtaHref}>{hero.secondaryCta}</Link>
             </Button>
           </div>
@@ -71,6 +78,10 @@ export default async function HomePage() {
         not applied to the hero: the first thing on the page should already
         be there, not arrive.
       */}
+      {/* Delivery check (FEAT-DELIVERY-ESTIMATE) moved into the header
+          (components/layout/header.tsx) so it's available on every page —
+          removed from here rather than duplicated. */}
+
       {/* ── Category trio ─────────────────────────────────────────────────── */}
       <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
         {brand.homeCategories.map((category) => (
@@ -118,7 +129,7 @@ export default async function HomePage() {
 
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
-        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:px-8">
+        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-8">
           <div>
             <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">
               {brand.bestsellers.headline}
@@ -136,8 +147,19 @@ export default async function HomePage() {
             site 2026-08-15). Capping the column's own width, not the tiles'
             percentage split BestsellersCarousel's slide math depends on,
             stops that growth without touching the carousel component itself.
+
+            `min-w-0` (and `minmax(0, …)` on the lg track above) is the other
+            half of that, and it is what was missing: a grid item defaults to
+            `min-width: auto`, so this column refused to shrink below the
+            carousel track's intrinsic width — ~1570px of slides laid side by
+            side. That sized the whole single-column mobile grid to 1570px,
+            blew the document out to a ~1600px scrollWidth at a 320-390px
+            viewport, and let mobile browsers widen the layout viewport and
+            zoom out into dead space (client-reported 2026-09-08). The
+            carousel's own `overflow-hidden` clips the track visually but
+            does not stop it contributing that intrinsic width upward.
           */}
-          <div className="w-full lg:ml-auto lg:max-w-[640px]">
+          <div className="w-full min-w-0 lg:ml-auto lg:max-w-[640px]">
             <BestsellersCarousel products={bestsellers.slice(0, MAX_BESTSELLERS)} />
           </div>
         </RevealSection>

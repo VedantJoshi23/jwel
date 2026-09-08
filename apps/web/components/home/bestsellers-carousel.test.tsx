@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BestsellersCarousel } from './bestsellers-carousel';
@@ -21,26 +21,52 @@ function fakeProduct(overrides: Partial<Product> = {}): Product {
   };
 }
 
+/**
+ * jsdom has no `matchMedia` at all (confirmed against jsdom 25 — calling it
+ * throws "not a function"), so it has to be stubbed for any test that
+ * exercises `useVisibleCount`. `matches` is fixed per stub rather than
+ * simulating a live resize, since the component only reads it once on mount
+ * plus a `change` listener it never needs to fire in these tests.
+ */
+function stubViewport(matchesDesktop: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({
+      matches: matchesDesktop,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  );
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('BestsellersCarousel', () => {
   it('renders nothing when there are no products', () => {
+    stubViewport(true);
     const { container } = render(<BestsellersCarousel products={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it('offers no way back — a "previous" control does not exist', () => {
+    stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     render(<BestsellersCarousel products={products} />);
     expect(screen.getAllByRole('button')).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Show the next bestseller' })).toBeInTheDocument();
   });
 
-  it('hides the advance control when every product already fits on screen', () => {
+  it('hides the advance control when every product already fits on screen (desktop, 2 visible)', () => {
+    stubViewport(true);
     const products = [1, 2].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     render(<BestsellersCarousel products={products} />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('advancing slides the track forward by one item', async () => {
+  it('advancing slides the track forward by one item (desktop, 2 visible)', async () => {
+    stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     const user = userEvent.setup();
     render(<BestsellersCarousel products={products} />);
@@ -54,6 +80,7 @@ describe('BestsellersCarousel', () => {
   });
 
   it('loops back to the start instead of stopping at the last item — the infinite-scroll requirement', async () => {
+    stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     const user = userEvent.setup();
     render(<BestsellersCarousel products={products} />);
@@ -78,5 +105,35 @@ describe('BestsellersCarousel', () => {
     // Still showing real product 1's name — the loop landed back on real
     // content, not on an empty or broken slide.
     expect(screen.getAllByText('Ring 1').length).toBeGreaterThan(0);
+  });
+
+  describe('on mobile (below the sm breakpoint)', () => {
+    it('shows one card at a time, full width — the mobile bug this guards against', () => {
+      stubViewport(false);
+      const products = [1, 2].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
+      render(<BestsellersCarousel products={products} />);
+
+      // 2 products no longer "already fit" once only 1 is visible — unlike
+      // the desktop case above, the advance control must appear.
+      const button = screen.getByRole('button', { name: 'Show the next bestseller' });
+      const track = button.previousElementSibling!.firstElementChild as HTMLElement;
+
+      const [firstSlide] = track.children;
+      expect(firstSlide).toHaveClass('w-full');
+      expect(track.style.transform).toBe('translateX(-0%)');
+    });
+
+    it('advancing slides the track forward by a full 100% — one card per click', async () => {
+      stubViewport(false);
+      const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
+      const user = userEvent.setup();
+      render(<BestsellersCarousel products={products} />);
+
+      const button = screen.getByRole('button', { name: 'Show the next bestseller' });
+      const track = button.previousElementSibling!.firstElementChild as HTMLElement;
+
+      await user.click(button);
+      expect(track.style.transform).toBe('translateX(-100%)');
+    });
   });
 });

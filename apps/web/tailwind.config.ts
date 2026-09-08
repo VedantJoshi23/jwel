@@ -4,7 +4,7 @@ import type { Config } from 'tailwindcss';
  * Colour tokens are indirect: every name below resolves to a CSS custom
  * property defined in `app/globals.css`'s `:root`, not to a literal hex.
  *
- * The variables hold **raw channels** (`200 146 42`), not `#C8922A`, and the
+ * The variables hold **raw channels** (`201 162 75`), not `#C9A24B`, and the
  * values below wrap them with `<alpha-value>`. That is load-bearing: this
  * codebase uses Tailwind opacity modifiers heavily (`bg-brand-accent/10`,
  * `bg-brand-primary/5`, `hover:bg-feedback-error/90`). A `var(--x)` holding a
@@ -86,7 +86,7 @@ const config: Config = {
         },
       },
 
-      // `s`/`m` bumped and `l` added under ADR-0019 — "buttons are boxy"
+      // `sm`/`m` bumped and `l` added under ADR-0019 — "buttons are boxy"
       // was a fair read of 6px on a brand whose whole pitch is that
       // affordable doesn't mean cut-rate. Product photography frames stay at
       // `none` on purpose (DESIGN.md §2.4: luxury references avoid rounded
@@ -94,9 +94,21 @@ const config: Config = {
       // imagery, not the imagery itself. `rounded-full` (buttons, inputs,
       // badges, the search bar) is Tailwind's built-in 9999px and needs no
       // token here.
+      //
+      // RENAMED 's' -> 'sm' 2026-09-08 (design/ui-redesign): Tailwind v3.3+
+      // reserves `rounded-s`/`rounded-e` for its own logical-property
+      // start/end corner utilities (RTL support), which are NOT the same as
+      // a theme key literally named "s" — both rules compiled and the
+      // longhand logical-property rule (`border-start-start-radius` /
+      // `border-end-start-radius`, defaulting to Tailwind's own 0.25rem)
+      // won the cascade over this theme's `border-radius: 10px` shorthand
+      // for the two left corners only. The bug was latent in every prior
+      // `rounded-s` usage across the app (admin included) — this redesign's
+      // heavy reuse of it just made a two-corners-wrong button impossible to
+      // miss. `sm` doesn't collide with any Tailwind-reserved radius name.
       borderRadius: {
         none: '0px',
-        s: '10px',
+        sm: '10px',
         m: '18px',
         l: '28px',
       },

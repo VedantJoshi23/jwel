@@ -1,0 +1,139 @@
+# Ephemeral design-review preview stack for the `design/ui-redesign` branch.
+#
+# Deliberately NOT part of the `jwel` / `jwel-data` project pair (see the
+# comments in docker-compose.api.yml and docker-compose.postgres.yml for why
+# those are split) — this stack has its own project name, its own network and
+# its own Postgres, so it can never be reached by `--remove-orphans` on the
+# real stacks and can never write to production data. The only thing it
+# shares with production is a READ-ONLY mount of the real product-image
+# volume, so the preview shows the actual catalog imagery without copying
+# 500+MB of it.
+#
+# This is not a long-lived environment. Bring it up for a review session,
+# tear it down after:
+#
+#   docker compose -f docker-compose.preview.yml --env-file .env.preview up -d --build
+#   docker compose -f docker-compose.preview.yml --env-file .env.preview run --rm restore
+#   docker compose -f docker-compose.preview.yml --env-file .env.preview down -v   # when done
+#
+# Safety: PAYMENTS_MODE=simulated + NEXT_PUBLIC_DEMO_MODE=true (RUNBOOK §13) —
+# no Razorpay keys exist in .env.preview, checkout completes through the mock
+# provider, and the storefront shows the demo banner + noindex. This is not
+# optional here: it is what makes it safe to point this stack at a full copy
+# of production data without also copying production payment credentials.
+
+name: jwel-preview
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: "no"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - preview_pgdata:/var/lib/postgresql/data
+      - ./backups:/backups:ro
+    networks:
+      - preview-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # One-shot: restores the prod data dump into this stack's own Postgres.
+  # --no-owner/--no-privileges because the dump's roles (the real prod user)
+  # don't exist here. --clean --if-exists makes reruns idempotent.
+  restore:
+    image: postgres:16-bookworm
+    profiles: ["tools"]
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: >
+      pg_restore -h postgres -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+      --no-owner --no-privileges --clean --if-exists
+      /backups/preview_dump.dump
+    volumes:
+      - ./backups:/backups:ro
+    networks:
+      - preview-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./.env.preview
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: ${DATABASE_URL}
+    volumes:
+      # Read-only: this stack must never be able to write into the real
+      # product-image volume.
+      - uploads:/app/uploads:ro
+    networks:
+      - preview-net
+    ports:
+      - "127.0.0.1:4100:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      args:
+        # "api" (not 127.0.0.1) so this resolves correctly from BOTH sides:
+        # server-side fetches inside this container hit the api container
+        # directly over the Docker network (port 4000, its real listening
+        # port); the browser resolves "api" via a /etc/hosts entry mapping it
+        # to 127.0.0.1 and reaches it through an SSH tunnel on local port
+        # 4000 -> the VM's published 4100. See the `up` instructions below —
+        # a shared 127.0.0.1 URL cannot work for both, since each container's
+        # loopback is its own, not the host's.
+        NEXT_PUBLIC_API_URL: http://api:4000/api/v1
+        NEXT_PUBLIC_API_ORIGIN: http://api:4000
+        NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+        NEXT_PUBLIC_DEMO_MODE: "true"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks:
+      - preview-net
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  preview_pgdata:
+  uploads:
+    external: true
+    name: jwel_uploads
+
+networks:
+  preview-net:

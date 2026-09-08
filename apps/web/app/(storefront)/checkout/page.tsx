@@ -259,7 +259,7 @@ export default function CheckoutPage() {
           {/* Shipping */}
           <div className="mt-6">
             <p className="mb-3 font-semibold">{brand.checkout.shippingLabel}</p>
-            <div className="flex items-center justify-between rounded-s border border-brand-ink px-4 py-3.5 text-sm">
+            <div className="flex items-center justify-between rounded-sm border border-brand-ink px-4 py-3.5 text-sm">
               <span className="flex items-center gap-2.5">
                 <span className="h-2.5 w-2.5 rounded-full bg-brand-primary" />
                 {brand.checkout.standardDeliveryLabel}
@@ -284,7 +284,7 @@ export default function CheckoutPage() {
               (which already reads `user.email` directly). Showing the
               account's own details, with a link to change them, replaces
               retyping with confirming. */}
-          <div className="mt-6 flex items-center justify-between rounded-s border border-border-warm px-4 py-3 text-sm">
+          <div className="mt-6 flex items-center justify-between rounded-sm border border-border-warm px-4 py-3 text-sm">
             <div>
               {user?.name && <p className="font-medium">{user.name}</p>}
               <p className="text-ink-secondary">{user?.email}</p>
@@ -304,7 +304,7 @@ export default function CheckoutPage() {
                 {savedAddresses.map((saved) => (
                   <label
                     key={saved.id}
-                    className={`flex cursor-pointer items-start gap-3 rounded-s border p-3 text-sm transition-colors ${
+                    className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 text-sm transition-colors ${
                       selectedAddressId === saved.id
                         ? 'border-brand-ink bg-surface-alt'
                         : 'border-border-warm hover:border-brand-ink/50'
@@ -326,7 +326,7 @@ export default function CheckoutPage() {
                   </label>
                 ))}
                 <label
-                  className={`flex cursor-pointer items-center gap-3 rounded-s border p-3 text-sm transition-colors ${
+                  className={`flex cursor-pointer items-center gap-3 rounded-sm border p-3 text-sm transition-colors ${
                     selectedAddressId === 'new'
                       ? 'border-brand-ink bg-surface-alt'
                       : 'border-border-warm hover:border-brand-ink/50'

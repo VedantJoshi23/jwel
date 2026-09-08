@@ -75,7 +75,7 @@ export function RequestReturnForm({
           id={`reason-${item.id}`}
           value={reason}
           onChange={(e) => setReason(e.target.value as ReturnReason)}
-          className="mt-1 h-10 w-full rounded-s border border-border bg-surface px-3 text-sm"
+          className="mt-1 h-10 w-full rounded-sm border border-border bg-surface px-3 text-sm"
         >
           {REASONS.map((r) => (
             <option key={r.value} value={r.value}>

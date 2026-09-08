@@ -1,11 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ProductCard } from '@/components/product/product-card';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/api/types';
 
-const VISIBLE_COUNT = 2;
+/**
+ * One card at a time below Tailwind's `sm` breakpoint, two at/above it.
+ * Below `sm` a two-up `translateX` slide math packed a full `ProductCard`
+ * (fixed `aspect-square` image + title/rating/price body) into half the
+ * viewport width, which is what actually produced the oversized, overflowing
+ * mobile cards — not a regression of the desktop fix in `page.tsx` (that one
+ * capped the column's width, not the tile count, and never touched mobile).
+ *
+ * Resolved after mount via `matchMedia`, same "unknown until the effect
+ * runs" pattern `useReducedMotion` uses elsewhere in this codebase
+ * (`components/motion/reveal.tsx`) — defaulting to the mobile value (1) for
+ * the server-rendered/pre-hydration frame, since Tailwind's own breakpoints
+ * are mobile-first.
+ */
+function useVisibleCount() {
+  const [count, setCount] = useState(1);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(min-width: 640px)');
+    const apply = () => setCount(query.matches ? 2 : 1);
+    apply();
+    query.addEventListener('change', apply);
+    return () => query.removeEventListener('change', apply);
+  }, []);
+
+  return count;
+}
 
 /**
  * A forward-only carousel: one arrow, no way back. That's a deliberate
@@ -26,6 +53,7 @@ const VISIBLE_COUNT = 2;
 export function BestsellersCarousel({ products }: { products: Product[] }) {
   const [index, setIndex] = useState(0);
   const [animate, setAnimate] = useState(true);
+  const VISIBLE_COUNT = useVisibleCount();
 
   if (products.length === 0) return null;
 
@@ -54,7 +82,7 @@ export function BestsellersCarousel({ products }: { products: Product[] }) {
           style={{ transform: `translateX(-${index * (100 / VISIBLE_COUNT)}%)` }}
         >
           {extended.map((product, i) => (
-            <div key={`${product.id}-${i}`} className="w-1/2 shrink-0 px-3">
+            <div key={`${product.id}-${i}`} className="w-full shrink-0 px-3 sm:w-1/2">
               {/* All slides are always mounted (just translated off-screen),
                   and the list is small — eager-load every image so fast
                   clicking through the carousel doesn't outrun native lazy

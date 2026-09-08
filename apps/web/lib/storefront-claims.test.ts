@@ -138,14 +138,18 @@ describe('storefront claims registry', () => {
       }
     });
 
-    it('keeps the placeholder markers on unreviewed copy', () => {
-      // These markers are what stop the FAQ being mistaken for reviewed
-      // content. They may only be removed together with the claims.
-      //
-      // Reads the **raw** source deliberately: the marker is itself a comment,
-      // and the claim checks above strip comments because commented-out markup
-      // is not shipped. Two different questions, two different readers.
-      expect(rawSourceOf('app/(storefront)/faq/page.tsx')).toMatch(/MUST NOT GO LIVE AS-IS/);
+    it('does not still carry the resolved "NOT REVIEWED" marker', () => {
+      // 2026-09-03 (design/ui-redesign): the four false/unverifiable FAQ
+      // entries this marker was warning about (COD, delivery timing,
+      // tarnish-proof, customisation) are removed — see the cod-available,
+      // customisation, tarnish-resistant and live-tracking entries above,
+      // all now `resolved`. The two remaining FAQ entries (returns, tracking)
+      // are accurate, so a blanket "MUST NOT GO LIVE AS-IS" over the whole
+      // file would itself now be a stale, inaccurate claim — the opposite
+      // problem this test used to guard against. Reads the **raw** source
+      // deliberately, matching the removed test this replaces: the marker
+      // was itself a comment, invisible to the stripped-comment checks above.
+      expect(rawSourceOf('app/(storefront)/faq/page.tsx')).not.toMatch(/MUST NOT GO LIVE AS-IS/);
     });
   });
 });

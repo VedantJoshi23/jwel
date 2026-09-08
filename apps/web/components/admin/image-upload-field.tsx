@@ -87,7 +87,7 @@ export function ImageUploadField({
           // Not alt="": this preview is the only confirmation the operator
           // gets that the right file landed, so it is content, not decoration.
           alt={`${label} preview`}
-          className="mb-2 h-28 w-full rounded-s border border-border object-cover"
+          className="mb-2 h-28 w-full rounded-sm border border-border object-cover"
         />
       )}
 
@@ -98,7 +98,7 @@ export function ImageUploadField({
         accept="image/jpeg,image/png,image/webp"
         disabled={disabled || uploading || !token}
         onChange={(e) => handleFile(e.target.files?.[0])}
-        // `file:rounded-s` (10px) read as visually "off" next to every other
+        // `file:rounded-sm` (10px) read as visually "off" next to every other
         // button in the app, which is `rounded-full` per ADR-0019's baseline
         // pill shape — the one native-styled control left behind that update.
         className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-brand-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"

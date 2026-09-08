@@ -3,7 +3,9 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const badgeVariants = cva(
-  'material-raised inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+  // rounded-sm (10px) — see button.tsx's comment on the Lavender Rose redesign
+  // superseding ADR-0019's pill shape.
+  'material-raised inline-flex items-center rounded-sm border px-2.5 py-0.5 text-xs font-medium',
   {
     variants: {
       variant: {

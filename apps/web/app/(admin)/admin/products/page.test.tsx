@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminProductsPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminListProducts, adminUpdateProductStatus } from '@/lib/api/admin-products';
+import { adminDeleteProduct, adminListProducts, adminUpdateProductStatus } from '@/lib/api/admin-products';
 import { ApiError } from '@/lib/api/client';
 
 let searchParams = new URLSearchParams();
@@ -16,6 +16,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/api/admin-products', () => ({
   adminListProducts: vi.fn(),
   adminUpdateProductStatus: vi.fn(),
+  adminDeleteProduct: vi.fn(),
   bulkImportProducts: vi.fn(),
   // Pulled in by CatalogueExportControl (FEAT-CATALOGUE-EXPORT), rendered
   // on this page — not this file's own concern, just needs to resolve.
@@ -208,5 +209,83 @@ describe('AdminProductsPage — publish gate (FEAT-PUBLISH-COMPLETENESS)', () =>
     await waitFor(() =>
       expect(screen.queryByText('Published, with warnings')).not.toBeInTheDocument(),
     );
+  });
+});
+
+describe('AdminProductsPage — delete', () => {
+  beforeEach(() => {
+    searchParams = new URLSearchParams();
+    listProducts.mockReset();
+    vi.mocked(adminDeleteProduct).mockReset();
+    useAuthStore.getState().setSession('token-1', {
+      id: 'u1',
+      email: 'a@b.c',
+      name: 'Admin',
+      role: 'ADMIN',
+    });
+  });
+  afterEach(() => useAuthStore.getState().logout());
+
+  it('offers Delete for a DRAFT product — previously its only way off the list at all', async () => {
+    listProducts.mockResolvedValue(pageOf(1) as never);
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('does not offer Delete for a PUBLISHED product — Archive already reaches its end state', async () => {
+    listProducts.mockResolvedValue({
+      ...pageOf(1),
+      items: [{ ...product('p1'), status: 'PUBLISHED' }],
+    } as never);
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    expect(screen.getByRole('button', { name: 'Archive' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  it('offers Delete for an ARCHIVED product, which otherwise has no actions at all', async () => {
+    listProducts.mockResolvedValue({
+      ...pageOf(1),
+      items: [{ ...product('p1'), status: 'ARCHIVED' }],
+    } as never);
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('asks for confirmation before deleting, and does nothing when declined', async () => {
+    listProducts.mockResolvedValue(pageOf(1) as never);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(adminDeleteProduct).not.toHaveBeenCalled();
+  });
+
+  it('deletes and reloads the list once confirmed', async () => {
+    listProducts.mockResolvedValue(pageOf(1) as never);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(adminDeleteProduct).mockResolvedValue(undefined as never);
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(adminDeleteProduct).toHaveBeenCalledWith('token-1', 'p1'));
+    expect(listProducts).toHaveBeenCalledTimes(2);
+  });
+
+  it('surfaces the API error message when a delete fails', async () => {
+    listProducts.mockResolvedValue(pageOf(1) as never);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(adminDeleteProduct).mockRejectedValue(
+      new ApiError('Cannot delete a product referenced by an existing order', 409),
+    );
+    const user = userEvent.setup();
+    render(<AdminProductsPage />);
+    await screen.findByText('Untitled Draft p1');
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText(/referenced by an existing order/)).toBeInTheDocument();
   });
 });

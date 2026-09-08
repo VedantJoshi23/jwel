@@ -56,7 +56,7 @@ export function AskQuestionForm({ productId }: { productId: string }) {
         onChange={(e) => setBody(e.target.value)}
         rows={3}
         placeholder="Ask about sizing, materials, care…"
-        className="w-full rounded-s border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
+        className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
       />
       <Button type="submit" disabled={!body.trim()} loading={mutation.isPending}>
         Post question

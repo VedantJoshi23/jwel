@@ -2,10 +2,11 @@ import { formatMinorUnits } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 /**
- * Displays a product price following the GLINT wireframe pattern:
+ * Displays a product price:
  *  - If on sale: MRP strikethrough + discount % badge, then sale price on
- *    cream (#F7E8C0 / price-bg) background in crimson
+ *    the price-bg background in the brand color
  *  - If not on sale: price on price-bg background
+ * Figures render in font-mono (IBM Plex Mono) — see globals.css's --font-mono.
  */
 export function PriceTag({
   amountMinorUnits,
@@ -25,15 +26,15 @@ export function PriceTag({
     <div className={cn('space-y-1', className)}>
       {onSale && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted line-through">
+          <span className="font-mono text-xs text-ink-muted line-through">
             {formatMinorUnits(compareAtMinorUnits!)}
           </span>
-          <span className="bg-brand-primary px-1.5 py-0.5 text-[9px] font-bold leading-none text-white">
+          <span className="bg-brand-primary px-1.5 py-0.5 font-mono text-[9px] font-bold leading-none text-white">
             {discountPct}% OFF
           </span>
         </div>
       )}
-      <span className="inline-block bg-price-bg px-3 py-1 text-sm font-bold text-brand-ink">
+      <span className="inline-block bg-price-bg px-3 py-1 font-mono text-sm font-bold text-brand-ink">
         {formatMinorUnits(amountMinorUnits)}
       </span>
     </div>

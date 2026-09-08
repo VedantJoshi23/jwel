@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { formatMinorUnitsForEmail } from './format-money';
 
+const ADMIN_EMAIL = 'admin@elysianjewellers.com';
+
 /**
  * Resend integration, graceful-degradation variant — unlike Payments (which
  * must fail loudly if Razorpay is invoked without activation, SECURITY.md
@@ -28,24 +30,38 @@ export class NotificationsService implements OnModuleInit {
     this.eventBus.on('order.confirmed', (payload) =>
       this.send(
         payload.userEmail,
-        'Your Jwel order is confirmed',
+        'Your ELYSIAN order is confirmed',
         `Order ${payload.orderId} is confirmed — total ${formatMinorUnitsForEmail(payload.totalMinorUnits)}.`,
       ),
     );
-    this.eventBus.on('return.requested', (payload) =>
+    this.eventBus.on('return.requested', (payload) => {
       this.send(
         payload.userEmail,
         'We received your return request',
         `We've received your return request for ${payload.productName}. We'll email you once it's reviewed.`,
-      ),
-    );
-    this.eventBus.on('return.refunded', (payload) =>
+      );
+      // Refund lifecycle starts here, not at return.refunded — a return sits
+      // in REQUESTED until staff reviews it (returns.service.ts
+      // adminUpdateStatus), so admin@ needs to hear about it at the moment
+      // that review becomes necessary, not only once money has already moved.
+      this.send(
+        ADMIN_EMAIL,
+        'New return request — action needed',
+        `Return ${payload.returnId} requested for ${payload.productName}. Review it in the admin panel.`,
+      );
+    });
+    this.eventBus.on('return.refunded', (payload) => {
       this.send(
         payload.userEmail,
         'Your refund has been processed',
         `A refund of ${formatMinorUnitsForEmail(payload.refundAmountMinorUnits)} has been issued for return ${payload.returnId}.`,
-      ),
-    );
+      );
+      this.send(
+        ADMIN_EMAIL,
+        'Refund completed',
+        `Refund of ${formatMinorUnitsForEmail(payload.refundAmountMinorUnits)} completed for return ${payload.returnId}.`,
+      );
+    });
   }
 
   private async send(to: string, subject: string, body: string): Promise<void> {
@@ -60,7 +76,15 @@ export class NotificationsService implements OnModuleInit {
           Authorization: `Bearer ${this.resendApiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ from: 'Jwel <orders@jwel.example>', to, subject, text: body }),
+        body: JSON.stringify({
+          from: 'ELYSIAN <orders@elysianjewellers.com>',
+          // Customer replies to a transactional email should land in a
+          // monitored inbox, not bounce off the send-only orders@ address.
+          reply_to: 'support@elysianjewellers.com',
+          to,
+          subject,
+          text: body,
+        }),
       });
     } catch (error) {
       this.logger.error(`Failed to send email "${subject}" to ${to}`, error as Error);

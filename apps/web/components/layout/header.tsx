@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { brand } from '@/lib/brand';
 import { springs } from '@/lib/motion';
 import { SearchSuggestions } from '@/components/common/search-suggestions';
+import { PincodeCheck } from '@/components/shipping/pincode-check';
 import type { Announcement } from '@/lib/api/types';
 
 /**
@@ -180,7 +181,7 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
           <form
             role="search"
             onSubmit={handleSearch}
-            className="material-raised flex items-center gap-2 rounded-full border border-brand-ink px-4 py-2.5 text-sm text-ink-muted"
+            className="material-raised flex items-center gap-2 rounded-sm border border-brand-ink px-4 py-2.5 text-sm text-ink-muted"
           >
             <Search className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
             <label htmlFor="site-search" className="sr-only">
@@ -214,6 +215,12 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
             />
           )}
         </div>
+
+        {/* Pincode/delivery check — reuses the same component and API call as
+            the home page and PDP (FEAT-DELIVERY-ESTIMATE), not a new one.
+            Desktop-only: there isn't room for it alongside search on mobile,
+            and the PDP instance already covers that case. */}
+        <PincodeCheck floatingStatus className="hidden shrink-0 lg:block lg:w-56" />
 
         {/* Search toggle — mobile only */}
         <button

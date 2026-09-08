@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/common/pagination';
 import { CatalogueExportControl } from '@/components/admin/catalogue-export-control';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminListProducts, adminUpdateProductStatus, bulkImportProducts } from '@/lib/api/admin-products';
+import {
+  adminDeleteProduct,
+  adminListProducts,
+  adminUpdateProductStatus,
+  bulkImportProducts,
+} from '@/lib/api/admin-products';
 import { formatMinorUnits } from '@/lib/money';
 import type { BulkImportResult, Product } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
@@ -85,6 +90,27 @@ function AdminProductsPageInner() {
     }
   }
 
+  async function handleDelete(product: Product) {
+    if (!token) return;
+    // Destructive and, per adminFindAll's `deletedAt: null` filter, final —
+    // the product drops out of this list entirely rather than just changing
+    // badge, so it gets its own confirmation same as Categories/Collections.
+    if (
+      !window.confirm(
+        `Delete "${product.name}"? This removes it from the catalogue entirely and can't be undone.`,
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await adminDeleteProduct(token, product.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to delete product');
+    }
+  }
+
   async function handleFileSelected(file: File) {
     if (!token) return;
     setImporting(true);
@@ -138,7 +164,7 @@ function AdminProductsPageInner() {
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-s border border-border bg-surface-alt px-4 py-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-surface-alt px-4 py-3">
         <p className="text-sm text-ink-secondary">Send the catalogue to someone outside the platform</p>
         <CatalogueExportControl />
       </div>
@@ -201,7 +227,7 @@ function AdminProductsPageInner() {
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
       {publishWarnings.length > 0 && (
-        <div className="mb-4 rounded-s border border-border-warm bg-surface-alt p-3">
+        <div className="mb-4 rounded-sm border border-border-warm bg-surface-alt p-3">
           <p className="text-sm font-medium">Published, with warnings</p>
           <ul className="mt-1 space-y-1 text-sm text-ink-secondary">
             {publishWarnings.map((warning) => (
@@ -272,12 +298,11 @@ function AdminProductsPageInner() {
                           Edit
                         </Link>
                       </div>
-                      <div className="w-[92px] shrink-0 border-l border-border pl-4">
+                      <div className="flex shrink-0 items-center gap-2 border-l border-border pl-4">
                         {product.status === 'DRAFT' && (
                           <Button
                             size="s"
                             variant="secondary"
-                            className="w-full"
                             onClick={() => handleStatusChange(product, 'PUBLISHED')}
                           >
                             Publish
@@ -287,10 +312,32 @@ function AdminProductsPageInner() {
                           <Button
                             size="s"
                             variant="secondary"
-                            className="w-full"
                             onClick={() => handleStatusChange(product, 'ARCHIVED')}
                           >
                             Archive
+                          </Button>
+                        )}
+                        {product.status === 'ARCHIVED' && (
+                          // Back to DRAFT, not straight to PUBLISHED — an
+                          // archived listing may be stale (price, photos), so
+                          // re-publishing goes through the same edit-then-
+                          // Publish path (and the same completeness gate,
+                          // assertPublishable) as any other draft, rather
+                          // than a second one-step "republish" transition.
+                          <Button
+                            size="s"
+                            variant="secondary"
+                            onClick={() => handleStatusChange(product, 'DRAFT')}
+                          >
+                            Unarchive
+                          </Button>
+                        )}
+                        {/* PUBLISHED keeps a single one-way action (Archive,
+                            above) — soft-delete is intentionally not exposed
+                            on a live product, only on DRAFT/ARCHIVED. */}
+                        {product.status !== 'PUBLISHED' && (
+                          <Button size="s" variant="destructive" onClick={() => handleDelete(product)}>
+                            Delete
                           </Button>
                         )}
                       </div>

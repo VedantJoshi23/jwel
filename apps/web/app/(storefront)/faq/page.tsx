@@ -8,64 +8,30 @@ export const metadata: Metadata = {
 };
 
 /**
- * PLACEHOLDER CONTENT — NOT REVIEWED, MUST NOT GO LIVE AS-IS.
+ * RESOLVED 2026-09-03 (design/ui-redesign) — see git history for the prior
+ * audit comment this replaces. Of the six original entries, four made false
+ * or unverifiable claims and are removed rather than rewritten (COD, delivery
+ * timing, tarnish-proof, customisation — the real answers are the client's to
+ * give, not ours to invent, same discipline as lib/brand.ts's pending-copy
+ * notes). The two kept below are accurate as of this date:
  *
- * Every answer below makes a factual commitment to a customer, and several are
- * currently false. Flagged rather than rewritten (same discipline as brand.ts's
- * pending-copy TODOs) because the real answers are the client's to give, not
- * ours to invent. Audited 2026-08-06 against the system — see
- * knowledge/discovery/DISC-003-feature-inventory.md:
+ *   - Returns: backed by `returns.window_days` (FEAT-SETTINGS-STORE),
+ *     currently 10 — see lib/storefront-claims.ts if that setting changes.
+ *   - Tracking: trimmed to the order-status timeline that actually exists;
+ *     the original wording overclaimed live shipment tracking, which does
+ *     not exist because shipping itself is unbuilt (FR-10).
  *
- *   1. COD          — FALSE. The client has confirmed COD will not be offered
- *                     (KC-109). PaymentProvider is RAZORPAY only; no
- *                     cash-on-delivery logic exists anywhere. Delete or rewrite.
- *   2. Delivery     — UNBACKED. "Ships within 24 hours", "3-6 business days".
- *                     Shipping is not implemented (Shiprocket blocked on the
- *                     client's account, KC-101); no dispatch SLA is enforced
- *                     anywhere in code (KC-013).
- *   3. Returns      — WINDOW NOW BACKED. Corrected 7 -> 10 days and enforced
- *                     as of FEAT-SETTINGS-STORE: `returns.window_days`
- *                     defaults to 10 and is checked at request time. The
- *                     number here is static copy and cannot read that
- *                     setting, so changing the setting makes this line wrong
- *                     — see lib/storefront-claims.ts. "Unworn, original
- *                     packaging" is still validated by nobody but a human.
- *   4. Tarnish      — PRODUCT CLAIM. Not verifiable from the system; needs the
- *                     client to stand behind it.
- *   5. Customisation— FALSE. No customisation capability exists (FR-12/FR-13
- *                     are unbuilt), and the fallback is an unstaffed promise to
- *                     "confirm feasibility" via the Contact page.
- *   6. Tracking     — PARTLY TRUE. Order status timeline exists; live shipment
- *                     tracking does not, because shipping is unbuilt (FR-10).
- *
- * The demo-store banner is the only thing currently preventing customers from
- * relying on any of this. Whatever change removes that banner must resolve this
- * list first — see deploy/RUNBOOK.md "Going live: the checklist" step 0.
+ * Re-add the removed entries only once the client has given real answers —
+ * do not restore this file's previous copy from history and ship it as-is.
  */
 const faqs = [
-  {
-    q: 'Do you offer Cash on Delivery?',
-    a: 'Yes, COD is available on most pincodes for orders under ₹10,000. Prepaid orders are eligible for the extra ₹300 checkout discount.',
-  },
-  {
-    q: 'How long does delivery take?',
-    a: 'Most orders ship within 24 hours and arrive in 3–6 business days depending on your location. You can track progress from your profile once the order is confirmed.',
-  },
   {
     q: 'Can I return or exchange a piece?',
     a: 'Unworn pieces in original packaging can be returned within 10 days of delivery. Start a return from your order history — see our Shipping & Returns page for the full policy.',
   },
   {
-    q: 'Is your jewellery tarnish-proof?',
-    a: 'Our gold-toned pieces use tarnish-resistant plating designed for daily wear. We recommend keeping pieces dry and storing them in the pouch provided when not in use.',
-  },
-  {
-    q: 'Do you offer customisation?',
-    a: 'Select necklace and ring styles can be customised for size or stone colour. Reach out through our Contact page before placing your order and we’ll confirm feasibility.',
-  },
-  {
     q: 'How do I track my order?',
-    a: 'Log in and visit your profile to see live status for every order, from confirmation through to delivery.',
+    a: 'Log in and visit your profile to see the status of every order.',
   },
 ];
 
@@ -85,7 +51,7 @@ export default function FaqPage() {
         <ul className="space-y-3">
           {faqs.map((item) => (
             <li key={item.q}>
-              <details className="group rounded-s border border-border-warm p-4">
+              <details className="group rounded-sm border border-border-warm p-4">
                 <summary className="cursor-pointer list-none font-medium text-ink-primary marker:content-none">
                   <span className="flex items-center justify-between gap-4">
                     {item.q}

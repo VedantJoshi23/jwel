@@ -7,7 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useAuthStore } from '@/lib/auth-store';
-import { adminCreateCoupon, adminDeactivateCoupon, adminListCoupons } from '@/lib/api/admin-coupons';
+import {
+  adminArchiveCoupon,
+  adminCreateCoupon,
+  adminDeactivateCoupon,
+  adminHardDeleteCoupon,
+  adminListCoupons,
+} from '@/lib/api/admin-coupons';
 import { formatMinorUnits } from '@/lib/money';
 import type { Coupon, DiscountType } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
@@ -119,6 +125,46 @@ export default function AdminCouponsPage() {
       load();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to deactivate coupon');
+    }
+  }
+
+  async function handleArchive(coupon: Coupon) {
+    if (!token) return;
+    if (
+      !window.confirm(
+        `Archive coupon "${coupon.code}"? It will be hidden from this list. Redemption history is kept.`,
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await adminArchiveCoupon(token, coupon.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to archive coupon');
+    }
+  }
+
+  // The API is the source of truth for whether this is allowed (it refuses a
+  // redeemed coupon with a message naming the redemption count) — this
+  // handler doesn't pre-guess that, it just surfaces whatever comes back.
+  async function handleHardDelete(coupon: Coupon) {
+    if (!token) return;
+    if (
+      !window.confirm(
+        `Permanently delete coupon "${coupon.code}"? This cannot be undone. If it has ever been redeemed, ` +
+          'this will be refused — archive it instead in that case.',
+      )
+    ) {
+      return;
+    }
+    setError('');
+    try {
+      await adminHardDeleteCoupon(token, coupon.id);
+      load();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to delete coupon');
     }
   }
 
@@ -319,12 +365,25 @@ export default function AdminCouponsPage() {
                       {coupon.isActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    {coupon.isActive && (
-                      <Button size="s" variant="secondary" onClick={() => handleDeactivate(coupon.id)}>
-                        Deactivate
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {/* nowrap, not flex-wrap — three buttons wrapping onto an
+                        uneven two-line stack read as broken, not busy. Same
+                        right-aligned single-row treatment as the Products
+                        table's row actions (admin/products/page.tsx); the
+                        table's own overflow-x-auto is the width fallback. */}
+                    <div className="flex items-center justify-end gap-2">
+                      {coupon.isActive && (
+                        <Button size="s" variant="secondary" onClick={() => handleDeactivate(coupon.id)}>
+                          Deactivate
+                        </Button>
+                      )}
+                      <Button size="s" variant="secondary" onClick={() => handleArchive(coupon)}>
+                        Archive
                       </Button>
-                    )}
+                      <Button size="s" variant="destructive" onClick={() => handleHardDelete(coupon)}>
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

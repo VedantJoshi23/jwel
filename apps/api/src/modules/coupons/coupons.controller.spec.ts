@@ -2,9 +2,17 @@ import { CouponsController } from './coupons.controller';
 import { CouponsService } from './coupons.service';
 
 const user = { userId: 'u1', email: 'a@b.com', role: 'CUSTOMER' };
+const admin = { userId: 'admin-1', email: 'admin@example.com', role: 'ADMIN' };
 
 describe('CouponsController', () => {
-  let service: { validate: jest.Mock; adminList: jest.Mock; adminCreate: jest.Mock; adminDeactivate: jest.Mock };
+  let service: {
+    validate: jest.Mock;
+    adminList: jest.Mock;
+    adminCreate: jest.Mock;
+    adminDeactivate: jest.Mock;
+    adminArchive: jest.Mock;
+    adminHardDelete: jest.Mock;
+  };
   let controller: CouponsController;
 
   beforeEach(() => {
@@ -13,6 +21,8 @@ describe('CouponsController', () => {
       adminList: jest.fn().mockReturnValue('list'),
       adminCreate: jest.fn().mockReturnValue('created'),
       adminDeactivate: jest.fn().mockReturnValue('deactivated'),
+      adminArchive: jest.fn().mockReturnValue('archived'),
+      adminHardDelete: jest.fn().mockReturnValue(undefined),
     };
     controller = new CouponsController(service as unknown as CouponsService);
   });
@@ -35,5 +45,15 @@ describe('CouponsController', () => {
   it('adminDeactivate delegates with the coupon id', () => {
     expect(controller.adminDeactivate('c1')).toBe('deactivated');
     expect(service.adminDeactivate).toHaveBeenCalledWith('c1');
+  });
+
+  it('adminArchive delegates with the coupon id and the acting admin', () => {
+    expect(controller.adminArchive('c1', admin as any)).toBe('archived');
+    expect(service.adminArchive).toHaveBeenCalledWith('c1', admin);
+  });
+
+  it('adminHardDelete delegates with the coupon id and the acting admin', () => {
+    expect(controller.adminHardDelete('c1', admin as any)).toBeUndefined();
+    expect(service.adminHardDelete).toHaveBeenCalledWith('c1', admin);
   });
 });

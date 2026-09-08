@@ -73,6 +73,18 @@ export function adminUpdateProductStatus(token: string, id: string, status: Prod
   });
 }
 
+/**
+ * Archives (soft-deletes) a product — sets `deletedAt` and `status:
+ * ARCHIVED` server-side (`products.service.ts` `adminDelete`). Distinct from
+ * `adminUpdateProductStatus(..., 'ARCHIVED')`: that PATCH only changes
+ * status and leaves the product listed; this DELETE also drops it out of
+ * `adminFindAll`'s `deletedAt: null` filter, removing it from the admin
+ * products list entirely.
+ */
+export function adminDeleteProduct(token: string, id: string) {
+  return apiFetch<void>(`/admin/products/${id}`, { method: 'DELETE', token });
+}
+
 export function bulkImportProducts(token: string, file: File) {
   const formData = new FormData();
   formData.append('file', file);

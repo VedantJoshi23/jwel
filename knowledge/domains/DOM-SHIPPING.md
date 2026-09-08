@@ -28,22 +28,36 @@ complexity: High
 
 # Domain: Shipping
 
-> **NOT IMPLEMENTED — context does not exist in code.** Annotated 2026-08-06
-> per `ADR-0009` (KC-162). No shipping implementation exists anywhere in
-> `apps/api` or `apps/web` — verified by `DISC-003` (KC-095). `ADR-0001`
-> (Shiprocket) still stands as the chosen provider and the work is **committed,
-> not dropped**: it is blocked on an external dependency — the client's
-> Shiprocket account is blocked and an application to restore it is pending
-> (KC-101).
+> **PARTIALLY IMPLEMENTED — an interim estimator only, not this domain's
+> design.** Annotated 2026-08-06 per `ADR-0009` (KC-162), corrected
+> 2026-08-28 per `ADR-0024`. Everything below this banner — shipment
+> creation, AWB tracking, checkout-time COD eligibility, NDR handling, COD
+> remittance — **still does not exist anywhere in `apps/api` or `apps/web`**,
+> for the same reason recorded on 2026-08-06: the client's Shiprocket account
+> is suspended, restoration still pending (KC-101). `ADR-0001` (Shiprocket)
+> still stands as the chosen provider for that real work, still committed,
+> still blocked.
 >
-> Consequences while this remains unbuilt:
+> **What does now exist:** `FEAT-DELIVERY-ESTIMATE`, an honestly-scoped,
+> non-Shiprocket pincode deliverability/estimated-window widget on the home
+> page and product detail page, built behind this domain's own
+> `ShippingProviderPort` (`ADR-0001`) so the adapter — not the surface — is
+> what changes when Shiprocket is restored. It has no COD-eligibility check,
+> is not gated into checkout, and is not `FEAT-SHIPPING`'s serviceability
+> Acceptance Criterion — see `ADR-0024` for why this is a separate, narrower
+> capability rather than a partial build of the one described below.
+>
+> Consequences while the real integration remains unbuilt:
 > - FR-10 order tracking is structurally incomplete — a status timeline with no
 >   shipment reference (`DISC-003`).
 > - The storefront's free-shipping and 24-hour-dispatch promises have no
 >   backing rule (KC-012, KC-013).
+> - Checkout still has no serviceability or COD-eligibility gate (Invariants
+>   2 and 4 below remain undelivered) — the pincode widget above is
+>   informational only, on two storefront surfaces, not a checkout control.
 >
-> This document describes the intended design, not the running system. Per
-> `ADR-0007` its body is left unrewritten.
+> This document describes the intended real-integration design, not the
+> running system. Per `ADR-0007` its body is left unrewritten.
 
 **Tier:** Full — owns real data (shipments, tracking events, COD ledger)
 and several invariants of its own; not a derived projection of another

@@ -4,28 +4,23 @@ import { brand } from '@/lib/brand';
 
 export const metadata: Metadata = {
   title: 'About Us',
-  description: `The story behind ${brand.name} — handcrafted jewellery for festive glamour and everyday elegance.`,
+  description: `${brand.name} — ${brand.tagline}.`,
 };
 
+// The previous copy here (brand.story.intro/values, plus a hardcoded second
+// paragraph about production practices) was the pre-rename "GLINT" narrative
+// — festive Kundan/temple-jhumka framing that doesn't match the ELYSIAN name,
+// the real catalogue (everyday sterling silver/CZ), or any verified claim
+// about how pieces are made or priced. Removed rather than rewritten: the
+// real ELYSIAN story is the client's to give, not ours to invent — same
+// discipline as lib/brand.ts's own pending-copy TODOs and the FAQ's audit
+// comment. `brand.story` stays defined (unused here) until that copy exists.
 export default function AboutPage() {
   return (
     <div>
       <PageHeader title="Our Story" subtitle={brand.tagline} />
       <div className="mx-auto max-w-3xl px-6 py-12 lg:px-8">
-        <p className="text-ink-secondary leading-relaxed">{brand.story.intro}</p>
-        <p className="mt-5 text-ink-secondary leading-relaxed">
-          Every collection is produced in small batches, checked piece by piece, and priced without the
-          heavy markup of traditional jewellery retail — so the craft stays intact without the ceremony.
-        </p>
-
-        <div className="mt-10 grid gap-8 sm:grid-cols-3">
-          {brand.story.values.map((v) => (
-            <div key={v.title}>
-              <h2 className="font-display text-lg font-bold">{v.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink-secondary">{v.body}</p>
-            </div>
-          ))}
-        </div>
+        <p className="text-ink-secondary leading-relaxed">This page is being finalized.</p>
       </div>
     </div>
   );
