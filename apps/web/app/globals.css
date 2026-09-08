@@ -38,7 +38,17 @@
 
     --color-ink-primary: 31 20 32;      /* #1F1420 near-black, plum-tinted */
     --color-ink-secondary: 80 58 85;    /* #503A55 */
-    --color-ink-muted: 147 128 156;     /* #93809C */
+    /* Darkened from the original mockup's #93809C — 3.61:1 against white,
+       caught by CI's axe check (PR #70), below the 4.5:1 AA requirement.
+       Same verification discipline this project already applies elsewhere
+       (see --color-brand-accent-deep below) — but white turned out not to be
+       the hardest case: this token also sits on --color-surface-alt and
+       --color-price-bg, both slightly darker than white, and a first
+       attempt at 4.75:1-against-white (#7E6D87) only cleared 4.42:1 against
+       surface-alt and 3.94:1 against price-bg. Measured against all three
+       real backgrounds this time: 5.07:1 against price-bg, the darkest of
+       them, with 5.69 and 6.11 against the other two. */
+    --color-ink-muted: 107 93 115;      /* #6B5D73 */
 
     --color-brand-primary: 107 67 128;  /* #6B4380 deep lavender — fills */
     /* The same lavender in its foreground role. Identical here on purpose,
@@ -46,9 +56,14 @@
        this light ground. */
     --color-brand-ink: 107 67 128;      /* #6B4380 */
     --color-brand-accent: 201 162 75;   /* #C9A24B gold — borders, rules */
-    /* Darkened until legible as text on a light ground — same AA reasoning
-       and same measurement method as the palette this replaces. */
-    --color-brand-accent-deep: 156 122 46;  /* #9C7A2E */
+    /* Darkened until legible as text on a light ground — same measurement
+       method as the palette this replaces (badge.tsx's "accent" variant
+       renders this as text over its own color at 10% opacity, i.e.
+       roughly #FAF6ED on this palette — the hard case, not white). The
+       first attempt (#9C7A2E) was carried over from an unverified mockup
+       value and only measured 3.72:1 there — axe caught it locally before
+       it reached CI. 4.86:1 against the tint, 5.24:1 against white. */
+    --color-brand-accent-deep: 133 104 39;  /* #856827 */
     --color-brand-dark: 168 73 106;         /* #A8496A — the gradient's second stop, used as a solid where the gradient itself doesn't fit (dividers, borders) */
 
     /* Unchanged from the previous palette — these are functional/semantic
