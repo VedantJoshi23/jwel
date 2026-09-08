@@ -191,7 +191,7 @@ export default function AdminProductMediaPage() {
             if (e.dataTransfer.files.length > 0) handleFilesSelected(e.dataTransfer.files);
           }}
           className={cn(
-            'rounded-s border-2 border-dashed p-2 transition-colors',
+            'rounded-sm border-2 border-dashed p-2 transition-colors',
             isDraggingOver ? 'border-brand-ink bg-brand-ink/10' : 'border-transparent',
           )}
         >
@@ -221,7 +221,7 @@ export default function AdminProductMediaPage() {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {product.media.map((media, index) => (
                 <div key={media.id} className="space-y-2">
-                  <div className="relative aspect-square overflow-hidden rounded-s border border-border bg-surface-alt">
+                  <div className="relative aspect-square overflow-hidden rounded-sm border border-border bg-surface-alt">
                     {media.type === 'VIDEO' ? (
                       <>
                         <video src={media.url} muted preload="metadata" className="h-full w-full object-cover" />

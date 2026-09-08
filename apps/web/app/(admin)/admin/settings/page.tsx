@@ -93,7 +93,7 @@ export default function AdminSettingsPage() {
       </div>
 
       {error && (
-        <p role="alert" className="rounded-s bg-feedback-error/10 px-3 py-2 text-sm text-feedback-error">
+        <p role="alert" className="rounded-sm bg-feedback-error/10 px-3 py-2 text-sm text-feedback-error">
           {error}
         </p>
       )}

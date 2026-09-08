@@ -242,7 +242,7 @@ export default function AdminCollectionsPage() {
       </div>
 
       {error && (
-        <p role="alert" className="rounded-s bg-feedback-error/10 px-3 py-2 text-sm text-feedback-error">
+        <p role="alert" className="rounded-sm bg-feedback-error/10 px-3 py-2 text-sm text-feedback-error">
           {error}
         </p>
       )}
@@ -341,7 +341,7 @@ export default function AdminCollectionsPage() {
             {products.length === 0 ? (
               <p className="text-xs text-ink-muted">No products available to add.</p>
             ) : (
-              <div className="max-h-56 overflow-y-auto rounded-s border border-border p-2">
+              <div className="max-h-56 overflow-y-auto rounded-sm border border-border p-2">
                 {products.map((product) => (
                   <label key={product.id} className="flex items-center gap-2 py-1 text-sm">
                     <input

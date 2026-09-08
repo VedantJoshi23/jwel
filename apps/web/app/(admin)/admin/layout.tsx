@@ -50,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'block rounded-s px-3 py-2 text-sm font-medium',
+                    'block rounded-sm px-3 py-2 text-sm font-medium',
                     // The active item used to be gold text on a gold tint —
                     // #C8922A on #F8ECDA, which measures 2.36:1 against the
                     // 4.5:1 AA needs. Exactly the failure NFR-5 predicted for

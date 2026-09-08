@@ -164,7 +164,7 @@ function AdminProductsPageInner() {
         </div>
       </div>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-s border border-border bg-surface-alt px-4 py-3">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-sm border border-border bg-surface-alt px-4 py-3">
         <p className="text-sm text-ink-secondary">Send the catalogue to someone outside the platform</p>
         <CatalogueExportControl />
       </div>
@@ -227,7 +227,7 @@ function AdminProductsPageInner() {
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
       {publishWarnings.length > 0 && (
-        <div className="mb-4 rounded-s border border-border-warm bg-surface-alt p-3">
+        <div className="mb-4 rounded-sm border border-border-warm bg-surface-alt p-3">
           <p className="text-sm font-medium">Published, with warnings</p>
           <ul className="mt-1 space-y-1 text-sm text-ink-secondary">
             {publishWarnings.map((warning) => (

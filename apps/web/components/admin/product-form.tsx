@@ -172,7 +172,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
           id="pf-description"
           required
           rows={4}
-          className="w-full rounded-s border border-border bg-surface px-3 py-2 text-sm text-ink-primary"
+          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary"
           value={values.description}
           onChange={(e) => update('description', e.target.value)}
         />
@@ -196,7 +196,7 @@ export function ProductForm({ mode, categories, initialProduct, submitting, erro
         </Select>
       </div>
 
-      <fieldset className="rounded-s border border-border p-4">
+      <fieldset className="rounded-sm border border-border p-4">
         <legend className="px-1 text-sm font-medium">
           {mode === 'create' ? 'Variant' : 'Price'}
         </legend>

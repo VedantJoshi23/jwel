@@ -57,7 +57,7 @@ export async function SizeGuide({ scheme }: { scheme: SizeScheme | null | undefi
   const hasUk = options.some((o) => o.ukEquivalent !== null);
 
   return (
-    <details className="mt-6 rounded-s border border-border-warm">
+    <details className="mt-6 rounded-sm border border-border-warm">
       <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-ink-primary">
         {copy.title}
       </summary>

@@ -53,7 +53,7 @@ export function SearchSuggestions({
       id={`${inputId}-suggestions`}
       role="listbox"
       aria-label="Search suggestions"
-      className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-s border border-border bg-surface shadow-lg"
+      className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-sm border border-border bg-surface shadow-lg"
     >
       {suggestions.map((suggestion) => (
         <li key={suggestion.productId} role="option" aria-selected={false}>

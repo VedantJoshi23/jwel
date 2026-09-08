@@ -130,7 +130,7 @@ function AdminQnaPageInner() {
                     alt=""
                     width={64}
                     height={64}
-                    className="h-16 w-16 shrink-0 rounded-s object-cover"
+                    className="h-16 w-16 shrink-0 rounded-sm object-cover"
                   />
                 )}
                 <div className="min-w-0 flex-1">
@@ -205,7 +205,7 @@ function AdminQnaPageInner() {
                       onChange={(e) => setAnswerDrafts((prev) => ({ ...prev, [q.id]: e.target.value }))}
                       rows={2}
                       placeholder="Write an answer…"
-                      className="w-full rounded-s border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
+                      className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
                     />
                     <Button
                       size="s"
