@@ -47,7 +47,11 @@ export function SiteFooter() {
               {brand.footer.newsletterSubtext}
             </p>
           */}
-          <div className="w-fit rounded-full border-[1.5px] border-footer-divider px-4 py-3 font-display text-sm font-bold tracking-logo">
+          {/* rounded-sm (10px) — see components/ui/button.tsx's comment on the
+              Lavender Rose redesign superseding ADR-0019's pill shape. The
+              social-icon dots below stay rounded-full: icon badges, not
+              controls, and circular is the expected shape for those either way. */}
+          <div className="w-fit rounded-sm border-[1.5px] border-footer-divider px-4 py-3 font-display text-sm font-bold tracking-logo">
             {brand.name}
           </div>
           {/* Social icon placeholders */}

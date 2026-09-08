@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, useId, useState } from 'react';
 import { checkServiceability } from '@/lib/api/shipping';
 import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,31 @@ const PINCODE_PATTERN = /^[1-9][0-9]{5}$/;
  * "Estimated" disclosure below is keyed off `result.source`, not a hardcoded
  * assumption, so a future carrier-backed provider changes what renders here
  * without this component itself changing.
+ *
+ * `useId()` for the input's id/label pairing — the Lavender Rose redesign
+ * added a second instance of this same component to the header, rendered on
+ * every page alongside the PDP's own instance, and a hardcoded id produced
+ * two `id="pincode-check-input"` elements on one page (invalid HTML, and it
+ * broke the `<label htmlFor>` association for whichever instance lost the
+ * id race).
+ *
+ * `floatingStatus` — same redesign, same header instance: the result/error
+ * region normally reserves `min-h-[1.25rem]` of block space below the form
+ * even while empty, which is fine stacked in a page section but threw off
+ * vertical centering in the header's compact single-line row (the taller
+ * empty box centered differently than the header's other icon-height
+ * items). In the header this floats the status below the input instead —
+ * same `SearchSuggestions` dropdown pattern already used elsewhere in that
+ * header — so the row's height is driven by the input/button alone.
  */
-export function PincodeCheck({ className }: { className?: string }) {
+export function PincodeCheck({
+  className,
+  floatingStatus = false,
+}: {
+  className?: string;
+  floatingStatus?: boolean;
+}) {
+  const inputId = useId();
   const [pincode, setPincode] = useState('');
   const [result, setResult] = useState<ServiceabilityResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,13 +72,13 @@ export function PincodeCheck({ className }: { className?: string }) {
   }
 
   return (
-    <div className={className}>
+    <div className={cn(floatingStatus && 'relative', className)}>
       <form onSubmit={handleSubmit} className="flex max-w-sm gap-2">
-        <label htmlFor="pincode-check-input" className="sr-only">
+        <label htmlFor={inputId} className="sr-only">
           Pincode
         </label>
         <input
-          id="pincode-check-input"
+          id={inputId}
           type="text"
           inputMode="numeric"
           maxLength={6}
@@ -72,7 +95,19 @@ export function PincodeCheck({ className }: { className?: string }) {
       {/* One live region for both outcomes — result and error are always
           mutually exclusive (each setter clears the other), so there is
           never a case needing two independent announcements. */}
-      <div role="status" aria-live="polite" className="mt-2 min-h-[1.25rem] text-sm">
+      <div
+        role="status"
+        aria-live="polite"
+        className={cn(
+          'text-sm',
+          floatingStatus
+            ? // Same dropdown treatment as components/common/search-suggestions.tsx,
+              // for the same reason: floats below the input instead of reserving
+              // block space, so it doesn't affect this row's height.
+              'empty:hidden absolute left-0 right-0 top-full z-50 mt-1 rounded-sm border border-border bg-surface p-2 shadow-lg'
+            : 'mt-2 min-h-[1.25rem]',
+        )}
+      >
         {error && <p className="text-feedback-error">{error}</p>}
         {result && (
           <p className={cn(result.deliverable ? 'text-feedback-success' : 'text-feedback-warning')}>

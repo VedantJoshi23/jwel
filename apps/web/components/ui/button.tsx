@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils';
 const buttonVariants = cva(
   // `material-raised` gives every button the glass surface and the
   // pointer-*down* press response (design-update.md §1) in one rule rather
-  // than per-variant. `rounded-full` — ADR-0019 — pill-shaped is the
-  // deliberate departure from the 6px box the standards doc originally
-  // specified for buttons.
-  'material-raised inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-cta font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50',
+  // than per-variant. `rounded-sm` (10px) — the Lavender Rose redesign
+  // (design/ui-redesign) supersedes ADR-0019's pill shape with a moderate
+  // radius: rounded but not fully pill-shaped.
+  'material-raised inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm text-cta font-semibold transition-colors disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {

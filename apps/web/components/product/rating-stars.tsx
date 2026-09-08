@@ -25,7 +25,11 @@ export function RatingStars({
           />
         ))}
       </span>
-      {count !== undefined && <span className="text-sm text-ink-secondary">{count} reviews</span>}
+      {count !== undefined && (
+        <span className="text-sm text-ink-secondary">
+          <span className="font-mono">{count}</span> reviews
+        </span>
+      )}
     </div>
   );
 }

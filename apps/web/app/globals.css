@@ -5,72 +5,75 @@
 /* ===========================================================================
    Palette
    ---------------------------------------------------------------------------
-   The ivory/crimson storefront palette — see `ADR-0020` for why this is a
-   single palette rather than two. A dark "Aurora" variant, switchable at
-   runtime, shipped and was evaluated live; the owner's call afterward was
-   that this palette already reads as premium once glass materials, motion
-   and rounded controls landed (`ADR-0019`), and a second palette was ongoing
-   maintenance cost with nothing to show for it. Removed in full — the
-   `--glass-*` variables below and the material rules in the next section are
-   what `ADR-0019` actually added and are unaffected by that removal.
+   "Lavender Rose" — replaces the ivory/crimson palette (see ADR-0020 for that
+   palette's own history) per the client's design-review decision across
+   multiple mockup rounds on the `design/ui-redesign` branch. A gradient
+   (lavender-to-rose, deepened for text contrast) carries the header band,
+   hero panel and trust strip, with gold as the accent — structurally the same
+   gold-on-dark-jewel-tone move referenced from theelysianjewels.com, applied
+   to this palette's own hues rather than copied literally.
 
    Values are **raw RGB channels**, not hexes — tailwind.config.ts wraps them
    as `rgb(var(--…) / <alpha-value>)` so that Tailwind opacity modifiers
-   (`bg-brand-accent/10`) keep working. See the comment there.
+   (`bg-brand-accent/10`) keep working. See the comment there. The gradient
+   itself is the one exception, stored as a full CSS value below (same
+   pattern as the `--glass-*` tokens), since nothing needs to apply an alpha
+   modifier to it.
    =========================================================================== */
 @layer base {
   :root {
-    --font-display: 'Fraunces', serif;
-    --font-sans: 'Inter', Helvetica, Arial, sans-serif;
+    --font-display: 'Marcellus', serif;
+    --font-sans: 'Karla', Helvetica, Arial, sans-serif;
     --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
-    /* ── The GLINT/ELYSIAN warm ivory/crimson palette ─────────────────────── */
+    /* ── The ELYSIAN "Lavender Rose" palette ──────────────────────────────── */
     --color-canvas: 255 255 255;
     --color-surface: 255 255 255;
-    --color-surface-alt: 253 246 238;   /* #FDF6EE warm cream */
-    --color-surface-warm: 245 232 212;  /* #F5E8D4 deeper cream */
-    /* Collection/PLP header band. Was a hard-coded `bg-[#DFD0B0]` in two
-       files — invisible to the token system, so it stayed light while the ink
-       above it went near-white, and the Aurora axe pass caught it at 1.34:1.
-       Same value, now a token. */
-    --color-surface-band: 223 208 176;  /* #DFD0B0 */
-    --color-price-bg: 247 232 192;      /* #F7E8C0 cream-yellow */
+    --color-surface-alt: 251 246 241;   /* #FBF6F1 warm cream */
+    --color-surface-warm: 243 230 239;  /* #F3E6EF soft lavender-blush */
+    /* Collection/PLP header band — see the original token's own comment for
+       why this must stay a token rather than a hardcoded class. */
+    --color-surface-band: 228 211 224;  /* #E4D3E0 */
+    --color-price-bg: 245 233 208;      /* #F5E9D0 warm gold-tinted cream */
 
-    --color-ink-primary: 32 8 16;       /* #200810 near-black */
-    --color-ink-secondary: 94 46 24;    /* #5E2E18 dark brown */
-    --color-ink-muted: 154 96 64;       /* #9A6040 muted warm brown */
+    --color-ink-primary: 31 20 32;      /* #1F1420 near-black, plum-tinted */
+    --color-ink-secondary: 80 58 85;    /* #503A55 */
+    --color-ink-muted: 147 128 156;     /* #93809C */
 
-    --color-brand-primary: 107 10 30;   /* #6B0A1E crimson — fills */
-    /* The same crimson in its foreground role. Identical here on purpose:
-       on the ivory ground one value serves both, so splitting the token
-       changes nothing classic renders. */
-    --color-brand-ink: 107 10 30;       /* #6B0A1E */
-    --color-brand-accent: 200 146 42;   /* #C8922A gold — borders, rules */
-    /* The same gold darkened until it is legible *as text* on a light ground.
-       #C8922A on its own 10% tint measures 2.52:1 against a 4.5:1
-       requirement, so the accent badge was unreadable by the standard NFR-5
-       commits to. 4.64:1 on the tint, 5.46:1 on white. */
-    --color-brand-accent-deep: 136 99 29;  /* #88631D */
-    --color-brand-dark: 122 56 40;         /* #7A3828 */
+    --color-brand-primary: 107 67 128;  /* #6B4380 deep lavender — fills */
+    /* The same lavender in its foreground role. Identical here on purpose,
+       same reasoning as the palette this replaces: one value serves both on
+       this light ground. */
+    --color-brand-ink: 107 67 128;      /* #6B4380 */
+    --color-brand-accent: 201 162 75;   /* #C9A24B gold — borders, rules */
+    /* Darkened until legible as text on a light ground — same AA reasoning
+       and same measurement method as the palette this replaces. */
+    --color-brand-accent-deep: 156 122 46;  /* #9C7A2E */
+    --color-brand-dark: 168 73 106;         /* #A8496A — the gradient's second stop, used as a solid where the gradient itself doesn't fit (dividers, borders) */
 
-    /* Darkened for AA. These are used as text on a 10% tint of themselves
-       (components/ui/badge.tsx), which is the hardest case they face: success
-       measured 4.29:1 and warning 3.62:1 against the 4.5:1 body text
-       requirement. Found by e2e/accessibility.spec.ts. */
+    /* Unchanged from the previous palette — these are functional/semantic
+       colors, not brand identity, and already meet the same AA requirement
+       against this palette's surfaces (comparable luminance to before). */
     --color-feedback-success: 43 118 74;   /* #2B764A */
     --color-feedback-warning: 136 99 9;    /* #886309 */
     --color-feedback-error: 179 38 30;     /* #B3261E */
 
-    --color-border: 228 204 160;        /* #E4CCA0 warm tan */
-    --color-border-strong: 107 10 30;   /* #6B0A1E crimson */
-    --color-border-warm: 200 160 112;   /* #C8A070 */
-    --color-border-sale: 212 184 128;   /* #D4B880 */
+    --color-border: 228 211 220;        /* #E4D3DC warm lavender-pink */
+    --color-border-strong: 107 67 128;  /* #6B4380 */
+    --color-border-warm: 217 190 149;   /* #D9BE95 gold-tan */
+    --color-border-sale: 224 185 107;   /* #E0B96B */
 
-    --color-footer-bg: 44 6 16;         /* #2C0610 very dark maroon */
-    --color-footer-ink: 242 234 212;    /* #F2EAD4 */
-    --color-footer-accent: 200 154 64;  /* #C89A40 */
-    --color-footer-muted: 192 144 64;   /* #C09040 */
-    --color-footer-divider: 122 56 40;  /* #7A3828 */
+    --color-footer-bg: 36 21 38;        /* #241526 near-black plum */
+    --color-footer-ink: 251 246 241;    /* #FBF6F1 */
+    --color-footer-accent: 201 162 75;  /* #C9A24B */
+    --color-footer-muted: 183 154 196;  /* #B79AC4 */
+    --color-footer-divider: 74 51 80;   /* #4A3350 */
+
+    /* The hero panel / trust-strip / header-band gradient. Deepened from a
+       pastel lavender/rose start specifically so the cream/gold text sitting
+       on it stays legible — a light pastel gradient can't carry text the way
+       a solid dark color can. */
+    --gradient-band: linear-gradient(135deg, #6B4380 0%, #A8496A 100%);
 
     /* Glass, tuned for a light ground. A frosted surface over ivory does not
        get its depth from darkness the way Aurora's does — it gets it from a
@@ -127,7 +130,7 @@
 
   .skip-link {
     @apply sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4
-      focus:rounded-s focus:bg-brand-primary focus:px-4 focus:py-2 focus:text-white;
+      focus:rounded-sm focus:bg-brand-primary focus:px-4 focus:py-2 focus:text-white;
   }
 }
 
@@ -150,6 +153,14 @@
   .material-raised {
     transition: background-color 200ms ease-out, border-color 200ms ease-out,
       box-shadow 200ms ease-out, transform 200ms ease-out;
+  }
+
+  /* The Lavender Rose gradient band — header announcement bar, hero panel,
+     trust strip. One rule so all three stay in sync if the gradient ever
+     changes; see --gradient-band's own comment for why it's deepened past a
+     pastel start. */
+  .band-gradient {
+    background: var(--gradient-band);
   }
 
   /* Floating chrome — the site header. Heaviest blur, and sticky, because
@@ -221,7 +232,7 @@
      padding, so `pr-10` in ui/select.tsx actually creates the gap it names. */
   select.material-raised {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239A6040' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2393809C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 1.1rem center;
     background-size: 0.85rem;

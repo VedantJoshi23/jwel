@@ -65,7 +65,7 @@ export function Pagination({
 
   const arrowLinkClasses = (disabled: boolean) =>
     cn(
-      'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm',
+      'flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border text-sm',
       disabled ? 'pointer-events-none border-border text-ink-secondary/40' : 'border-border hover:border-brand-ink',
     );
 
@@ -91,7 +91,7 @@ export function Pagination({
             href={hrefForPage(token)}
             aria-current={token === page ? 'page' : undefined}
             className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm',
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-sm border text-sm',
               token === page ? 'border-brand-ink bg-brand-primary text-white' : 'border-border',
             )}
           >

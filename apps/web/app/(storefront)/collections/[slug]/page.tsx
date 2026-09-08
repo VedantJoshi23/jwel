@@ -168,7 +168,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               <a
                 key={type}
                 href={`/collections/${typeSlug}`}
-                className={`rounded-full border px-5 py-2.5 text-sm font-medium transition-colors ${
+                className={`rounded-sm border px-5 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? 'border-brand-ink bg-brand-ink/10 text-ink-primary'
                     : 'border-border-warm text-ink-primary hover:border-brand-ink'
@@ -184,7 +184,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
             has plenty of room for it, no reason to make it wait for `lg`. */}
         <div className="grid gap-8 md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr]">
           <aside aria-label="Filters">
-            <details className="mb-6 rounded-s border border-border md:hidden">
+            <details className="mb-6 rounded-sm border border-border md:hidden">
               <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold">
                 Filters
               </summary>

@@ -30,7 +30,7 @@ function SizeChip({
   return (
     <label className="cursor-pointer">
       <input type="radio" name={name} value={value} defaultChecked={checked} className="peer sr-only" />
-      <span className="material-raised flex h-9 min-w-[2.25rem] items-center justify-center rounded-full border border-border-warm px-2.5 text-xs font-medium text-ink-secondary transition-colors peer-checked:border-brand-ink peer-checked:bg-brand-primary peer-checked:text-white">
+      <span className="material-raised flex h-9 min-w-[2.25rem] items-center justify-center rounded-sm border border-border-warm px-2.5 text-xs font-medium text-ink-secondary transition-colors peer-checked:border-brand-ink peer-checked:bg-brand-primary peer-checked:text-white">
         {label}
         {srSuffix && <span className="sr-only"> {srSuffix}</span>}
       </span>
@@ -67,7 +67,7 @@ export function SizeFilterDropdown({
 
   return (
     <details ref={detailsRef} className="group relative">
-      <summary className="material-raised flex h-11 w-full cursor-pointer list-none items-center justify-between rounded-full border border-border-warm bg-surface px-4 text-sm text-ink-primary marker:content-none">
+      <summary className="material-raised flex h-11 w-full cursor-pointer list-none items-center justify-between rounded-sm border border-border-warm bg-surface px-4 text-sm text-ink-primary marker:content-none">
         <span>{selected ? selected.label : 'Any size'}</span>
         <span className="text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true">
           ▾

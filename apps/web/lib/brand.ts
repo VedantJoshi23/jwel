@@ -20,43 +20,34 @@ export const brand = {
   // proposed to the client next, not decided yet.
   name: 'ELYSIAN',
   tagline: 'Elegance Redefined',
-  // TODO — pending brand positioning discussion: this description still
-  // describes the old GLINT festive/Kundan narrative, which doesn't match
-  // either the ELYSIAN name or the real category taxonomy (adjustable/toe
-  // rings, nazariya, kids' silver — broader everyday-wear range than a
-  // purely festive/heirloom line implies).
-  description:
-    'Handcrafted Kundan chokers, temple jhumkas, pearl sets and meenakari rings — heirloom pieces built for festive glamour and everyday elegance.',
+  // REMOVED 2026-09-03 (design/ui-redesign): this field held the old GLINT
+  // festive/Kundan narrative, unused anywhere in the codebase (confirmed by
+  // grep before removal) and pending a real brand-positioning discussion
+  // with the client — see the same flag on `story` below and on
+  // app/(storefront)/faq/page.tsx's audit comment. Left empty rather than
+  // rewritten: the real copy is the client's to give, not ours to invent.
+  description: '',
 
-  // ── Brand story (About page + reused anywhere the same value props appear) ──
-  // TODO — same pending-revision flag as `description` above; left intact
-  // (not deleted) so nothing on the About page breaks before a real
-  // ELYSIAN narrative is agreed with the client.
+  // ── Brand story (About page) ────────────────────────────────────────────
+  // REMOVED 2026-09-03: same GLINT festive-Kundan narrative as `description`
+  // above, no longer referenced by the About page (app/(storefront)/about
+  // /page.tsx now shows an honest "being finalized" placeholder instead).
+  // Left defined but empty, not deleted, so the shape is here to fill in
+  // once the client gives real copy — same discipline as `description`.
   story: {
-    intro:
-      "GLINT started with a simple idea: festive jewellery shouldn't mean choosing between heirloom craftsmanship and something you'd actually wear on a regular Tuesday. We work with artisan clusters who specialise in Kundan work, temple jhumkas, pearl sets and meenakari rings to bring that craftsmanship to pieces designed for everyday rotation, not just the back of a locker.",
-    values: [
-      {
-        title: 'Handcrafted',
-        body: 'Every piece is shaped, set and finished by hand by artisans who have spent decades perfecting Kundan, meenakari and temple jewellery techniques.',
-      },
-      {
-        title: 'Heritage-led',
-        body: 'Our designs draw on centuries-old South Asian jewellery traditions, reworked for how people actually dress and layer today.',
-      },
-      {
-        title: 'Built to last',
-        body: 'Tarnish-resistant plating and considered construction mean these are pieces you reach for season after season, not just for one occasion.',
-      },
-    ],
+    intro: '',
+    values: [] as { title: string; body: string }[],
   },
 
   // ── SEO defaults (used in layout.tsx metadata) ─────────────────────────────
   seo: {
     defaultTitle: 'ELYSIAN — Elegance Redefined',
     titleTemplate: '%s | ELYSIAN',
-    defaultDescription:
-      'Handcrafted Kundan, temple jhumkas, pearl sets and meenakari rings — heirloom jewellery built for festive glamour and everyday elegance.',
+    // Was the same fabricated GLINT narrative as `description`/`story`
+    // above. Replaced with the one thing that's actually verified: the name,
+    // tagline (the client's own, from their logo mockup) and real product
+    // category — not a rewritten marketing description.
+    defaultDescription: 'ELYSIAN — Elegance Redefined. Everyday sterling silver jewellery.',
     siteName: 'ELYSIAN',
   },
 
@@ -79,10 +70,14 @@ export const brand = {
   searchPlaceholder: 'Search jewellery…',
 
   // ── Homepage ──────────────────────────────────────────────────────────────
+  // REMOVED 2026-09-03: `headline`/`subtext` held the same GLINT
+  // festive-Kundan copy as `description`/`story` above. `headline` falls
+  // back to the real tagline (app/(storefront)/page.tsx renders `tagline`
+  // when `headline` is empty); `subtext` is left empty and the paragraph
+  // that rendered it no longer renders when there's nothing to show.
   hero: {
-    headline: 'Timeless craft,\nfestive spirit.',
-    subtext:
-      'Handcrafted Kundan chokers, temple jhumkas, pearl sets and meenakari rings — heirloom pieces built for festive glamour and everyday elegance.',
+    headline: '',
+    subtext: '',
     primaryCta: 'Shop the Collection',
     primaryCtaHref: '/collections/all',
     secondaryCta: 'Bestsellers',

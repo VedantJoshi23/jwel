@@ -73,7 +73,7 @@ export function FilterForm({
       <div className="pb-7">
         <p className="mb-4 text-sm font-semibold">Price</p>
         <div className="flex items-center gap-2">
-          <label className="material-raised flex flex-1 items-center gap-1 rounded-full border border-border-warm bg-surface px-3 py-2">
+          <label className="material-raised flex flex-1 items-center gap-1 rounded-sm border border-border-warm bg-surface px-3 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -96,7 +96,7 @@ export function FilterForm({
           <span className="text-ink-muted" aria-hidden="true">
             –
           </span>
-          <label className="material-raised flex flex-1 items-center gap-1 rounded-full border border-border-warm bg-surface px-3 py-2">
+          <label className="material-raised flex flex-1 items-center gap-1 rounded-sm border border-border-warm bg-surface px-3 py-2">
             <span className="text-sm text-ink-muted" aria-hidden="true">
               {brand.currencySymbol}
             </span>
@@ -149,7 +149,7 @@ export function FilterForm({
           <select
             name="sort"
             defaultValue={defaultSort ?? 'newest'}
-            className="material-raised mt-3 block w-full rounded-full border border-border-warm bg-surface px-4 py-2 text-sm text-ink-primary"
+            className="material-raised mt-3 block w-full rounded-sm border border-border-warm bg-surface px-4 py-2 text-sm text-ink-primary"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>

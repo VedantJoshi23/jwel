@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Fraunces, IBM_Plex_Mono, Inter } from 'next/font/google';
+import { IBM_Plex_Mono, Karla, Marcellus } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
 import { QueryProvider } from '@/providers/query-provider';
@@ -7,8 +7,11 @@ import { brand } from '@/lib/brand';
 
 // To swap fonts for a white-label: change these three Google Font imports
 // and update --font-display / --font-sans / --font-mono in globals.css.
-const fontDisplay = Fraunces({ subsets: ['latin'], variable: '--font-display', weight: ['600', '700'] });
-const fontSans = Inter({ subsets: ['latin'], variable: '--font-sans' });
+// Marcellus + Karla replaced Fraunces + Inter for the "Lavender Rose"
+// redesign (design/ui-redesign) — same variable names, so nothing else in
+// the app needed to change to pick this up.
+const fontDisplay = Marcellus({ subsets: ['latin'], variable: '--font-display', weight: ['400'] });
+const fontSans = Karla({ subsets: ['latin'], variable: '--font-sans', weight: ['300', '400', '500', '600'] });
 const fontMono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['500', '600'] });
 
 // robots.txt is advisory — crawlers that ignore it still honour a noindex

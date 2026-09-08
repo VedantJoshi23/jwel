@@ -81,7 +81,7 @@ export function QnaUpvoteButton({ id, kind, productId, count, upvoted }: QnaUpvo
     return (
       <span className="inline-flex items-center gap-1 text-sm text-ink-muted">
         <ArrowUp className="h-4 w-4" aria-hidden="true" />
-        {count}
+        <span className="font-mono">{count}</span>
         <span className="sr-only"> upvotes for {noun}</span>
       </span>
     );
@@ -95,14 +95,16 @@ export function QnaUpvoteButton({ id, kind, productId, count, upvoted }: QnaUpvo
       aria-pressed={Boolean(upvoted)}
       aria-label={`Upvote ${noun} — ${count} ${voteWord}${upvoted ? ', upvoted' : ''}`}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm font-medium transition-colors disabled:opacity-60',
+        // rounded-sm (10px) — see components/ui/button.tsx's comment on the
+        // Lavender Rose redesign superseding ADR-0019's pill shape.
+        'inline-flex items-center gap-1 rounded-sm border px-2.5 py-1 text-sm font-medium transition-colors disabled:opacity-60',
         upvoted
           ? 'border-brand-accent bg-brand-accent/10 text-brand-accentDeep'
           : 'border-border text-ink-secondary hover:bg-surface-alt',
       )}
     >
       <ArrowUp className="h-4 w-4" aria-hidden="true" />
-      {count}
+      <span className="font-mono">{count}</span>
     </button>
   );
 }
