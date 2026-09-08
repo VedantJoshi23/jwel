@@ -129,7 +129,7 @@ export default async function HomePage() {
 
       {/* ── Bestsellers ───────────────────────────────────────────────────── */}
       {bestsellers.length > 0 && (
-        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[1fr_1.2fr] lg:items-center lg:px-8">
+        <RevealSection className="grid gap-10 bg-surface-alt px-6 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:px-8">
           <div>
             <h2 className="font-display text-3xl font-bold leading-tight tracking-tight">
               {brand.bestsellers.headline}
@@ -147,8 +147,19 @@ export default async function HomePage() {
             site 2026-08-15). Capping the column's own width, not the tiles'
             percentage split BestsellersCarousel's slide math depends on,
             stops that growth without touching the carousel component itself.
+
+            `min-w-0` (and `minmax(0, …)` on the lg track above) is the other
+            half of that, and it is what was missing: a grid item defaults to
+            `min-width: auto`, so this column refused to shrink below the
+            carousel track's intrinsic width — ~1570px of slides laid side by
+            side. That sized the whole single-column mobile grid to 1570px,
+            blew the document out to a ~1600px scrollWidth at a 320-390px
+            viewport, and let mobile browsers widen the layout viewport and
+            zoom out into dead space (client-reported 2026-09-08). The
+            carousel's own `overflow-hidden` clips the track visually but
+            does not stop it contributing that intrinsic width upward.
           */}
-          <div className="w-full lg:ml-auto lg:max-w-[640px]">
+          <div className="w-full min-w-0 lg:ml-auto lg:max-w-[640px]">
             <BestsellersCarousel products={bestsellers.slice(0, MAX_BESTSELLERS)} />
           </div>
         </RevealSection>
