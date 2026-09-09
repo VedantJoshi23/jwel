@@ -239,7 +239,7 @@ export default function AdminCategoriesPage() {
                         ))}
                       </Select>
                       <p className="mt-1 text-xs text-ink-muted">
-                        Controls whether — and which — size filter appears on this category's storefront page.
+                        Controls whether — and which — size filter appears on this category&rsquo;s storefront page.
                       </p>
                     </div>
                     <div className="flex gap-2 sm:col-span-3">

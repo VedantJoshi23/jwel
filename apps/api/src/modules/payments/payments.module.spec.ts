@@ -22,7 +22,10 @@ function loadProviderFactory(nodeEnv: string, paymentsMode?: string) {
   let factory!: (config: ConfigService, mock: MockPaymentProvider) => unknown;
 
   jest.isolateModules(() => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    // A static import would be hoisted out of `isolateModules` and evaluate the
+    // module once, before the PAYMENTS_MODE env var above is set — which is the
+    // whole thing this spec varies. `require` is load-bearing here.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { PaymentsModule } = require('./payments.module');
     const providers = Reflect.getMetadata('providers', PaymentsModule) as Array<{
       provide?: unknown;

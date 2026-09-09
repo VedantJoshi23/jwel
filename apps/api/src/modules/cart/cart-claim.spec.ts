@@ -53,7 +53,7 @@ describe('CartService — claiming a guest cart', () => {
   /** guest cart, then account cart, then the reload after the move */
   function carts(guestItems: unknown[], accountItems: unknown[]) {
     prisma.cart.findUnique
-      .mockResolvedValueOnce(guestItems.length || true ? { id: 'guest-cart', items: guestItems } : null)
+      .mockResolvedValueOnce(guestItems.length ? { id: 'guest-cart', items: guestItems } : null)
       .mockResolvedValueOnce({ id: 'account-cart', items: accountItems })
       .mockResolvedValue({ id: 'account-cart', items: accountItems });
   }

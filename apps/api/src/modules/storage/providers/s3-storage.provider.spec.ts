@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { S3StorageProvider } from './s3-storage.provider';
 
 jest.mock('@aws-sdk/client-s3', () => {

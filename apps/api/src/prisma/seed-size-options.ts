@@ -86,11 +86,9 @@ if (require.main === module) {
     .then(() => assignCategorySchemes(prisma))
     .then(async () => {
       const count = await prisma.sizeOption.count();
-      // eslint-disable-next-line no-console -- seed scripts report to the operator
       console.log(`Seeded ${count} size options across ${new Set(SIZE_OPTION_SEED.map((o) => o.scheme)).size} schemes.`);
     })
     .catch((error) => {
-      // eslint-disable-next-line no-console -- seed scripts report to the operator
       console.error(error);
       process.exitCode = 1;
     })

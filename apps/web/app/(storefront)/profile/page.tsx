@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
-import { getProfile, listAddresses, addAddress } from '@/lib/api/users';
+import { listAddresses, addAddress } from '@/lib/api/users';
 import { getOrders } from '@/lib/api/orders';
 import { getReturns } from '@/lib/api/returns';
 import { RequestReturnForm } from '@/components/profile/request-return-form';

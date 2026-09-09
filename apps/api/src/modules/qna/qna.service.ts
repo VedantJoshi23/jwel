@@ -20,6 +20,10 @@ type PublicUserRow = { id: string; name: string | null; deletedAt: Date | null; 
 const adminUserSelect = { id: true, name: true, email: true, role: true } as const;
 type AdminUserRow = { id: string; name: string | null; email: string; role: Role };
 
+// Prisma's validator idiom: the const exists so `GetPayload<typeof …>` below can
+// derive the row type, while the validator call type-checks the include shape at
+// compile time. It is referenced only as a type by design, not by oversight.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const answerWithUser = Prisma.validator<Prisma.AnswerDefaultArgs>()({
   include: { user: { select: publicUserSelect }, _count: { select: { upvotes: true } } },
 });
@@ -38,6 +42,8 @@ const questionWithRelations = Prisma.validator<Prisma.QuestionDefaultArgs>()({
 });
 type QuestionWithRelations = Prisma.QuestionGetPayload<typeof questionWithRelations>;
 
+// Referenced only as a type — see the note on `answerWithUser` above.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adminAnswerWithUser = Prisma.validator<Prisma.AnswerDefaultArgs>()({
   include: { user: { select: adminUserSelect }, _count: { select: { upvotes: true } } },
 });

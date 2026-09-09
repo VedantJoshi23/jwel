@@ -202,7 +202,6 @@ if (require.main === module) {
   const prisma = new PrismaClient();
   normaliseVariantSizes(prisma)
     .then((report) => {
-      /* eslint-disable no-console -- migration scripts report to the operator */
       console.log(`Already valid : ${report.alreadyValid}`);
       console.log(`Normalised    : ${report.normalised}`);
       console.log(`Cleared       : ${report.cleared}  (category has no size dimension)`);
@@ -215,10 +214,8 @@ if (require.main === module) {
           console.log(`  ${entry.scheme}  "${entry.value}"  (${entry.variantCount} variants)`);
         }
       }
-      /* eslint-enable no-console */
     })
     .catch((error) => {
-      // eslint-disable-next-line no-console -- migration scripts report to the operator
       console.error(error);
       process.exitCode = 1;
     })

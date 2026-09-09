@@ -148,6 +148,32 @@ jobs:
         working-directory: apps/web
         run: npx tsc --noEmit
 
+  lint:
+    name: Lint (backend + frontend)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm install
+
+      # `apps/api`'s lint covers `src` and `test`, and tolerates a fixed budget
+      # of 14 pre-existing `no-explicit-any` warnings (all Elasticsearch and
+      # Prisma response shapes). The budget is a ratchet, not an allowance: the
+      # job fails if the count grows, so new code cannot add to it.
+      - name: Lint backend
+        working-directory: apps/api
+        run: npm run lint
+
+      # `apps/web` is at zero warnings and stays there.
+      - name: Lint frontend
+        working-directory: apps/web
+        run: npm run lint
+
   e2e:
     name: E2E (Playwright, real stack)
     runs-on: ubuntu-latest

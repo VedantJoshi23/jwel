@@ -23,7 +23,7 @@ export default function NotFound() {
       <div className="mx-auto flex max-w-md flex-col items-center px-6 py-24 text-center">
         <h1 className="font-display text-3xl font-bold">Page not found</h1>
         <p className="mt-3 text-ink-secondary">
-          The page you're looking for doesn't exist or may have been moved.
+          The page you&rsquo;re looking for doesn&rsquo;t exist or may have been moved.
         </p>
         <Button asChild size="l" className="mt-8">
           <Link href="/collections/all">Continue shopping at {brand.name}</Link>
