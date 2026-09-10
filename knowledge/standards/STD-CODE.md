@@ -1,13 +1,13 @@
 ---
 id: STD-CODE
 title: Jwel / ELYSIAN — Standard: Code
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-09-09
 milestone: M4
 category: Standards
 priority: High
@@ -97,7 +97,16 @@ that sets it, per Law 2.
 ## Enforcement
 
 - `tsc --noEmit` in CI covers rules 1–2 partially (both apps, already running).
-- **Lint is not currently run anywhere** (KC-062, KC-206). `STD-CICD` requires
-  adding it; until then rules 2, 5 and 6 are **human review only**.
+- ~~**Lint is not currently run anywhere** (KC-062, KC-206). `STD-CICD` requires
+  adding it; until then rules 2, 5 and 6 are **human review only**.~~
+  **Closed 2026-09-09** (KC-208, `EVD-030`). ESLint 9 flat configs now exist in
+  both apps and a blocking `lint` job runs in CI, so rules 2, 5 and 6 are
+  partially automated. Note the debt was larger than this line implied: no
+  ESLint config or dependency existed at all, and all three declared entry
+  points were inert (KC-207) — see `DISC-009` amendment A2.
+  **Carrying caveat:** the API budget is `--max-warnings=14`, covering 14
+  deferred `no-explicit-any` warnings (KC-210) that rule 2 would otherwise
+  reject. The budget is a ratchet — CI fails if the count grows. Its trigger
+  condition for closure is in `DISC-009` A2.
 - Rules 3, 4 and 7 are human review only. No automation proposed — the
   judgement is structural.

@@ -1,13 +1,13 @@
 ---
 id: STD-CICD
 title: Jwel / ELYSIAN — Standard: CI/CD
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-09-09
 milestone: M4
 category: Standards
 priority: High
@@ -44,6 +44,10 @@ What continuous integration must verify, and how deployment proceeds.
    against a real stack, **and lint**.
    *Rationale:* the first four exist. **Lint runs nowhere** (KC-062, KC-206)
    despite both apps defining it — this rule is what closes that.
+   **Satisfied 2026-09-09** (KC-208, `EVD-030`): a blocking `lint` job now runs
+   both apps. The rationale above understated the gap — both apps "defining it"
+   was itself untrue in the sense that mattered, since neither script could
+   execute (KC-207). See `DISC-009` amendment A2.
 
 3. **A declared command does something.** A script or task that silently no-ops
    is removed or implemented. **This is Constitution Law 1 applied to tooling.**

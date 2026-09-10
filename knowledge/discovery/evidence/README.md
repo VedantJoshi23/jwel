@@ -2883,6 +2883,104 @@ claims:
 
 ---
 
+## EVD-030
+
+```yaml
+id: EVD-030
+type: measurement
+source: >
+  ESLint stood up across both apps and run for the first time, 2026-09-09,
+  during pre-go-live hardening while the client's third-party credentials
+  remain outstanding. Commits df639e1 and 27b1a51.
+received: 2026-09-09
+summary: >
+  First lint run in the project's history. Closes KC-062/KC-206 (lint runs
+  nowhere) and supersedes KC-197's count of non-test `any` usages. Records one
+  real defect found, and one deferral with a named trigger.
+pipeline: technical
+processed: true
+claims:
+  - id: KC-207
+    statement: >
+      There was no ESLint configuration or dependency anywhere in the repo.
+      Both apps declared a `lint` script and turbo declared a `lint` task, but
+      none of the three could execute: the API's script aborted looking for a
+      flat config, `next lint` was uninitialised and dropped into an
+      interactive setup prompt, and turbo's `lint` task was an empty object.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-030]
+    investigation: technical-debt
+    notes: >
+      Sharpens KC-062/KC-206. Those recorded that lint was not *run*; the
+      stronger fact is that it could not have been — the scripts were
+      decorative. `next lint`'s interactive prompt means the previously
+      proposed "add lint to CI" one-liner would have hung the runner rather
+      than failing, which is the worse outcome. This is STD-CICD rule 3
+      (a declared command does something) violated three times over.
+  - id: KC-208
+    statement: >
+      ESLint 9 flat configs were added to both apps and a blocking `lint` job
+      added to CI, satisfying STD-CICD rule 2. Both apps report zero errors.
+      The web app is at zero warnings; the API carries a fixed budget of 14.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-030]
+    investigation: technical-debt
+    notes: >
+      Closes KC-062 and KC-206. STD-CODE's Enforcement section and STD-CICD
+      rule 2's rationale were annotated rather than rewritten, per Law 2.
+  - id: KC-209
+    statement: >
+      The first run surfaced 11 errors and 163 warnings across ~550 TypeScript
+      files. Of the 163 warnings, 149 were `no-explicit-any` in web test files
+      and zero were in web production code; the remaining 14 are
+      `no-explicit-any` in API production code.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-030]
+    investigation: technical-debt
+    notes: >
+      Supersedes KC-197 ("four type suppressions and eleven non-test `any`
+      usages"), measured 2026-08-07 by manual scan. The tool-measured figure is
+      14, all in the API. The direction of the discrepancy is unremarkable —
+      the codebase grew — but the earlier number should not be re-cited.
+  - id: KC-210
+    statement: >
+      The 14 remaining API `no-explicit-any` warnings are deferred, not fixed.
+      Eight are in `search.service.ts` and type Elasticsearch client responses;
+      the remaining six are in `all-exceptions.filter.ts`, `orders.service.ts`,
+      `qna.service.ts`, `reviews.service.ts` and `wishlist.service.ts`.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-030]
+    investigation: technical-debt
+    notes: >
+      Deferred because Elasticsearch is not currently running, so the response
+      shapes the eight `any`s stand in for cannot be observed — only guessed
+      from the ES 7 client's loose types. Typing them against a guess would
+      assert a contract the system has not demonstrated, which is Law 1 applied
+      to types. See DISC-009 amendment A2 for the trigger condition.
+  - id: KC-211
+    statement: >
+      Linting found one real defect on its first run: `cart-claim.spec.ts`
+      guarded a mock with `guestItems.length || true`, which is always truthy,
+      making the null-cart branch the helper advertised unreachable and
+      untested.
+    status: fact
+    confidence: 100
+    evidence_ids: [EVD-030]
+    investigation: technical-debt
+    notes: >
+      Caught by `no-constant-condition`. All ten call sites pass a non-empty
+      array, so removing `|| true` was behaviour-preserving and all 922 API
+      tests still pass — but the branch remains unexercised, which the test
+      previously implied was covered. Modest evidence for the value of the gate
+      rather than a serious defect.
+```
+
+---
+
 ## Investigation Coverage
 
 **M1 Discovery complete — all ten investigations Frozen, 2026-08-07.**

@@ -1,13 +1,13 @@
 ---
 id: DISC-009
 title: Discovery — Technical Debt
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-09-09
 milestone: M1
 category: Discovery
 priority: High
@@ -273,6 +273,57 @@ cleanly and held correct data. The item was ranked first because its status was
 broken.
 
 **Confidence unchanged at 89%.** One item's status changed; no observation did.
+
+### A2 — 2026-09-09, lint stood up and gated (KC-062, KC-206 closed)
+
+**Trigger.** Pre-go-live hardening, undertaken while the client's third-party
+credentials remain outstanding and feature work is blocked.
+
+**Outcome.** ESLint 9 flat configs added to both apps and a blocking CI job
+added, satisfying `STD-CICD` rule 2 (KC-208). Both apps report zero errors.
+
+**The item was under-described, not merely unresolved.** This investigation and
+`DISC-010` both framed the work as "a single small pass" to run an existing but
+unrun tool. There was no tool: no ESLint config or dependency existed anywhere
+in the repo, and all three declared entry points were inert — the API's script
+aborted looking for a flat config, `next lint` was uninitialised and opened an
+interactive prompt, and turbo's `lint` task was an empty object (KC-207).
+
+The `next lint` detail is the one worth carrying forward. The recommended
+one-line fix — add a lint job calling the existing scripts — would have hung a
+CI runner on an interactive prompt rather than failing it. An unrun command is
+not the same kind of debt as a command that cannot run, and `DISC-010` item 10
+priced the first when it had the second.
+
+**It found one real defect** (KC-211), a mock guard of `guestItems.length ||
+true` whose always-truthy condition made an advertised branch unreachable.
+Small, but it is the class of thing only a linter finds.
+
+**Deferred: 14 `no-explicit-any` warnings in API production code** (KC-210).
+Eight are in `search.service.ts`, typing Elasticsearch client responses.
+
+*Reasoning.* Elasticsearch is not currently running, so the actual response
+shapes cannot be observed — only inferred from the ES 7 client's deliberately
+loose types. Writing interfaces from that inference would put a contract in the
+type system that the system has never demonstrated, and every downstream reader
+would then treat it as verified. That is Law 1 applied to types: a declaration
+is a claim, and an unverified claim is worse than an honest `any`. The
+remaining six are lower-value and held with them rather than split across two
+passes.
+
+*Containment.* The API lint script pins `--max-warnings=14`. The budget is a
+ratchet, not an allowance — CI fails if the count grows, so new code cannot add
+to it, and the number only moves down.
+
+*Trigger condition.* **When Elasticsearch is next running against seeded data**
+— which Phase 2 of the current hardening plan requires anyway, since the search
+load scenario exercises both the ES path and the Postgres fallback (`ADR-0016`)
+— capture the real response shapes and type the eight, then lower the budget.
+The other six carry no such dependency and may be typed at any time.
+
+**Confidence unchanged at 89%.** Two items closed and one re-described; no
+observation was overturned. KC-197's manual count of non-test `any` usages is
+superseded by KC-209's tool-measured figure.
 
 ## Architecture Review
 

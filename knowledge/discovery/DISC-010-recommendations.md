@@ -1,13 +1,13 @@
 ---
 id: DISC-010
 title: Discovery — Recommendations
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-09-09
 milestone: M1
 category: Discovery
 priority: Critical
@@ -256,6 +256,28 @@ across investigations, each individually well-evidenced but assembled by me.
 Per `OV-001` this cannot exceed its weakest load-bearing claim. The six-layer
 pattern is what M2 is being asked to act on, and it is inference-tier — six
 independently-observed facts, one asserted common cause.
+
+## Amendments
+
+### A1 — 2026-09-09, item 10 partially done and re-priced
+
+The lint third of **item 10** is complete: ESLint 9 configs in both apps and a
+blocking CI job (KC-208, `EVD-030`). The `turbo run typecheck` no-op and the
+dual lockfiles remain — both lockfiles are still committed and still both
+maintained, since CI installs with npm while `package.json` declares pnpm.
+
+**"Minutes each" was wrong for the lint third.** The estimate assumed an
+existing tool that merely went unrun. No ESLint config or dependency existed,
+and all three declared entry points were inert — including `next lint`, which
+opens an *interactive prompt* and so would have hung a CI runner rather than
+failing it (KC-207). The work was standing up linting from nothing across ~550
+files, plus fixing 11 errors.
+
+This does not change the item's ranking, which was right for the wrong reason:
+it was cheap relative to its value either way. It is recorded because the same
+estimating error — reading a declared command as an implemented one — is
+exactly the "claim without a system behind it" pattern this document's own
+synthesis identifies, applied to our own tooling. See `DISC-009` A2.
 
 ## Architecture Review
 
