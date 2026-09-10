@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ProductStatus } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resilientFetch } from '../../common/http/resilient-fetch';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 
 // pdfkit's built-in standard fonts (Helvetica etc.) are WinAnsi-only — no
@@ -118,7 +119,15 @@ export class CatalogueExportService {
   /** One failed fetch must not fail the whole export (FEAT-CATALOGUE-EXPORT Edge Case 4). */
   private async fetchImage(url: string): Promise<Buffer | undefined> {
     try {
-      const response = await fetch(url);
+      // A GET, so retrying is safe. An export fetches many images in batches;
+      // without a timeout one stalled image previously held the whole export
+      // open, and the per-image budget keeps a slow origin from turning a
+      // catalogue export into an unbounded wait.
+      const response = await resilientFetch(url, {
+        timeoutMs: 5_000,
+        retries: 2,
+        maxTotalMs: 15_000,
+      });
       if (!response.ok) return undefined;
       return Buffer.from(await response.arrayBuffer());
     } catch (err) {

@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
+import { resilientFetch } from '../../common/http/resilient-fetch';
 import { formatMinorUnitsForEmail } from './format-money';
 
 const ADMIN_EMAIL = 'admin@elysianjewellers.com';
@@ -70,8 +71,16 @@ export class NotificationsService implements OnModuleInit {
       return;
     }
     try {
-      await fetch('https://api.resend.com/emails', {
+      // Deliberately not retried. This POST is not idempotent and carries no
+      // idempotency key, so a retry risks the customer receiving the same
+      // refund or order email twice — worse than not receiving it, since a
+      // duplicate refund notice reads as a second refund. The timeout is the
+      // part that matters here: Node's fetch has none, so a stalled Resend
+      // connection previously held this call open indefinitely.
+      const response = await resilientFetch('https://api.resend.com/emails', {
         method: 'POST',
+        retries: 0,
+        timeoutMs: 5_000,
         headers: {
           Authorization: `Bearer ${this.resendApiKey}`,
           'Content-Type': 'application/json',
@@ -86,6 +95,16 @@ export class NotificationsService implements OnModuleInit {
           text: body,
         }),
       });
+
+      // Previously unchecked: a rejected send (bad key, unverified domain,
+      // suppressed recipient) returns a 4xx that this method swallowed, so
+      // every delivery failure looked like a success in the logs.
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        this.logger.error(
+          `Resend rejected email "${subject}" to ${to}: ${response.status} ${response.statusText} ${detail}`.trim(),
+        );
+      }
     } catch (error) {
       this.logger.error(`Failed to send email "${subject}" to ${to}`, error as Error);
     }

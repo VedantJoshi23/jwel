@@ -13,9 +13,14 @@
 //   ARCHITECTURE.md (PDP variant selector) — included so Orders/Inventory have a
 //   real upstream path. Flagged here rather than silently expanded.
 
+// `metrics` exposes Prisma's own connection-pool gauges (pool size, busy and
+// idle connections, and the queue of requests waiting for one). Without them
+// pool saturation is invisible: the symptom is latency, and latency alone does
+// not distinguish a slow query from a starved pool. Required before any pool
+// size can be chosen on evidence rather than guessed (STD-PERFORMANCE r5).
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions", "fullTextSearch"]
+  previewFeatures = ["postgresqlExtensions", "fullTextSearch", "metrics"]
 }
 
 datasource db {
