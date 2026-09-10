@@ -28,6 +28,59 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Reads: long enough to survive a slow mobile connection, short enough that a
+ * stalled API surfaces as an error boundary rather than an indefinite spinner.
+ * Node's fetch and the browser's both default to no timeout at all.
+ */
+const READ_TIMEOUT_MS = 8_000;
+
+/**
+ * Mutations get longer. A checkout POST can legitimately outlast a read —
+ * it may be waiting on the payment provider — and timing out a request that
+ * the server is still processing is how a customer ends up unsure whether
+ * their order was placed.
+ */
+const MUTATION_TIMEOUT_MS = 20_000;
+
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+function timeoutFor(method: string | undefined): number {
+  return SAFE_METHODS.has((method ?? 'GET').toUpperCase())
+    ? READ_TIMEOUT_MS
+    : MUTATION_TIMEOUT_MS;
+}
+
+/**
+ * Composes the caller's signal, if any, with our timeout. A caller that aborts
+ * — a React effect cleaning up, a superseded search keystroke — must still win.
+ *
+ * `AbortSignal.any` is the obvious way to write this and cannot be used
+ * unguarded: it needs Chrome 116 / Safari 17.4 / Firefox 124, and it is absent
+ * from jsdom entirely. Calling it where it does not exist throws a TypeError
+ * *before* `fetch`, which would turn a missing convenience method into every
+ * API call failing on an older phone. The manual path below is the fallback.
+ */
+function withTimeout(method: string | undefined, signal: AbortSignal | null | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutFor(method));
+  if (!signal) return timeout;
+
+  if (typeof AbortSignal.any === 'function') {
+    return AbortSignal.any([signal, timeout]);
+  }
+
+  const controller = new AbortController();
+  const abort = (reason: unknown) => controller.abort(reason);
+  for (const source of [signal, timeout]) {
+    if (source.aborted) {
+      abort(source.reason);
+      break;
+    }
+    source.addEventListener('abort', () => abort(source.reason), { once: true });
+  }
+  return controller.signal;
+}
+
 interface ApiFetchOptions extends RequestInit {
   token?: string;
   /** Server Components can opt into Next.js's fetch cache; client-side calls should not. */
@@ -91,10 +144,11 @@ async function handleResponse<T>(response: Response, hadToken: boolean): Promise
 }
 
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
-  const { token, revalidate, headers, ...rest } = options;
+  const { token, revalidate, headers, signal, ...rest } = options;
 
   const response = await fetch(`${API_URL}${path}`, {
     ...rest,
+    signal: withTimeout(rest.method, signal),
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -116,6 +170,9 @@ export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): 
 export async function apiUpload<T>(path: string, formData: FormData, token?: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     method: 'POST',
+    // An upload is a mutation and may carry several megabytes of product
+    // imagery, so it gets the longer budget rather than the read one.
+    signal: withTimeout('POST', undefined),
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: formData,
   });
@@ -130,6 +187,9 @@ export async function apiUpload<T>(path: string, formData: FormData, token?: str
  */
 export async function apiDownload(path: string, token?: string): Promise<Blob> {
   const response = await fetch(`${API_URL}${path}`, {
+    // A catalogue export renders a PDF server-side over many products, so it
+    // is closer to a mutation in duration than to a read.
+    signal: withTimeout('POST', undefined),
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 

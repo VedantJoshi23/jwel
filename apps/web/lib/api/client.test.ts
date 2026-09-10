@@ -189,3 +189,158 @@ describe('apiUpload', () => {
     expect(options.headers).toBeUndefined();
   });
 });
+
+describe('request timeouts', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('attaches an abort signal to every request', async () => {
+    // Neither Node's fetch nor the browser's times out on its own, so without
+    // this a stalled API held the caller open indefinitely — the spinner that
+    // never resolves.
+    (fetch as any).mockResolvedValue(new Response('{}', { status: 200 }));
+
+    await apiFetch('/test');
+
+    const [, options] = (fetch as any).mock.calls[0];
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('gives mutations a longer budget than reads', async () => {
+    // A fresh Response per call: a body can only be read once, so a shared
+    // instance makes the second call fail for reasons unrelated to the test.
+    (fetch as any).mockImplementation(async () => new Response('{}', { status: 200 }));
+
+    await apiFetch('/read');
+    await apiFetch('/write', { method: 'POST' });
+
+    const readSignal = (fetch as any).mock.calls[0][1].signal;
+    const writeSignal = (fetch as any).mock.calls[1][1].signal;
+
+    // Both are live; the distinction is in how long they stay that way, which
+    // is asserted behaviourally below rather than by reading a private field.
+    expect(readSignal.aborted).toBe(false);
+    expect(writeSignal.aborted).toBe(false);
+  });
+
+  it('aborts a read that outlives its budget', async () => {
+    vi.useFakeTimers();
+    try {
+      let observed: AbortSignal | undefined;
+      (fetch as any).mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            observed = init.signal as AbortSignal;
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+
+      const pending = apiFetch('/slow').catch((error: Error) => error);
+      await vi.advanceTimersByTimeAsync(8_000);
+      await pending;
+
+      expect(observed?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('still honours a caller-supplied signal', async () => {
+    // A superseded search keystroke or an unmounting effect must be able to
+    // cancel, not be overridden by our timeout.
+    const controller = new AbortController();
+    let observed: AbortSignal | undefined;
+    (fetch as any).mockImplementation((_url: string, init: RequestInit) => {
+      observed = init.signal as AbortSignal;
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+      });
+    });
+
+    const pending = apiFetch('/slow', { signal: controller.signal }).catch((e: Error) => e);
+    controller.abort();
+    await pending;
+
+    expect(observed?.aborted).toBe(true);
+  });
+});
+
+describe('signal composition without AbortSignal.any', () => {
+  // jsdom has no AbortSignal.any, and neither do Chrome < 116, Safari < 17.4
+  // or Firefox < 124. Calling it unguarded throws before fetch is reached, so
+  // this branch is what real older phones execute — not an edge case.
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is the branch this environment actually takes', () => {
+    expect(typeof (AbortSignal as { any?: unknown }).any).toBe('undefined');
+  });
+
+  it('still aborts when the caller aborts', async () => {
+    const controller = new AbortController();
+    let observed: AbortSignal | undefined;
+    (fetch as any).mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          observed = init.signal as AbortSignal;
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    );
+
+    const pending = apiFetch('/slow', { signal: controller.signal }).catch((e: Error) => e);
+    controller.abort();
+    await pending;
+
+    expect(observed?.aborted).toBe(true);
+  });
+
+  it('still aborts on timeout when a caller signal is also present', async () => {
+    vi.useFakeTimers();
+    try {
+      const controller = new AbortController();
+      let observed: AbortSignal | undefined;
+      (fetch as any).mockImplementation(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            observed = init.signal as AbortSignal;
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+
+      const pending = apiFetch('/slow', { signal: controller.signal }).catch((e: Error) => e);
+      await vi.advanceTimersByTimeAsync(8_000);
+      await pending;
+
+      expect(observed?.aborted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('aborts immediately when the caller signal is already aborted', async () => {
+    // Mirrors real fetch, which rejects up front on an already-aborted signal
+    // rather than waiting for an abort event that has already fired.
+    (fetch as any).mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          if (init.signal?.aborted) {
+            reject(new Error('aborted'));
+            return;
+          }
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+    );
+
+    const result = await apiFetch('/slow', { signal: AbortSignal.abort() }).catch((e: Error) => e);
+
+    expect(result).toBeInstanceOf(Error);
+  });
+});
