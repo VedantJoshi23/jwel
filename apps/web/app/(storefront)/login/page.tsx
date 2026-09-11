@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { ApiError } from '@/lib/api/client';
 import { SocialLoginButtons } from '@/components/auth/social-login-buttons';
 import { brand } from '@/lib/brand';
+import { safeRedirectPath } from '@/lib/safe-redirect';
 
 export default function LoginPage() {
   return (
@@ -40,7 +41,9 @@ function LoginForm() {
     try {
       const response = await loginRequest(email, password);
       setSession(response.accessToken, response.user);
-      router.push(searchParams.get('next') ?? '/profile');
+      // Never push `next` raw: see lib/safe-redirect.ts for why that was an
+      // open redirect.
+      router.push(safeRedirectPath(searchParams.get('next')));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not log in.');
     } finally {
