@@ -234,3 +234,47 @@ test.describe.serial('Accessibility — signed-in surfaces', () => {
     await expectNoViolations(page);
   });
 });
+
+/**
+ * The admin UI on a phone. Separate from the signed-in admin block above,
+ * which scans at desktop width, because the failure it guards against only
+ * exists when the layout is narrow.
+ *
+ * Once the admin layout stopped overflowing phones (2026-09-11), each table's
+ * scroll container began to scroll for real — and a scrolling region with no
+ * focusable content is unreachable by keyboard (`scrollable-region-focusable`).
+ * At desktop width the tables fit, so nothing scrolls and nothing is flagged.
+ * The session and API are stubbed: this is about markup, not data, and it
+ * should not need an admin account or a database.
+ */
+test.describe('Accessibility — the admin UI on a phone', () => {
+  test.beforeEach(async ({ page, context }) => {
+    await context.addInitScript(() => {
+      localStorage.setItem(
+        'jwel-auth',
+        JSON.stringify({
+          state: { token: 'stub', user: { id: 'a', email: 'admin@example.com', name: 'Admin', role: 'ADMIN' } },
+          version: 0,
+        }),
+      );
+    });
+    await page.route('**/api/v1/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items: [], page: 1, pageSize: 20, total: 0 }),
+      }),
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+  });
+
+  test('a table page, with the menu closed and open', async ({ page }) => {
+    await page.goto('/admin/orders', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('region', { name: 'Orders' })).toBeVisible();
+    await expectNoViolations(page);
+
+    await page.getByRole('button', { name: 'Open admin menu' }).click();
+    await expect(page.getByRole('navigation', { name: 'Admin' })).toBeVisible();
+    await expectNoViolations(page);
+  });
+});

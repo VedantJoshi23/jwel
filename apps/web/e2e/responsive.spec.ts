@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
  * No page may overflow horizontally at any supported viewport width.
@@ -26,6 +26,36 @@ import { expect, test } from '@playwright/test';
  * survives 320 survives the rest.
  */
 
+
+/** Measures horizontal overflow and names the widest unclipped offender. */
+async function measureOverflow(page: Page) {
+  return page.evaluate(() => {
+    const de = document.documentElement;
+    // Name the widest offender that is not clipped by an ancestor —
+    // a bare "1597 > 320" tells you nothing about which element to fix.
+    const clipped = (el: Element) => {
+      let n = el.parentElement;
+      while (n && n !== document.documentElement) {
+        const o = getComputedStyle(n).overflowX;
+        if (o === 'hidden' || o === 'clip' || o === 'auto' || o === 'scroll') return true;
+        n = n.parentElement;
+      }
+      return false;
+    };
+    let widest: string | null = null;
+    let widestRight = de.clientWidth + 1;
+    document.querySelectorAll('*').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) return;
+      if (r.right > widestRight && !clipped(el)) {
+        widestRight = r.right;
+        widest = `<${el.tagName.toLowerCase()} class="${String(el.className).slice(0, 120)}"> right=${Math.round(r.right)}`;
+      }
+    });
+    return { clientWidth: de.clientWidth, scrollWidth: de.scrollWidth, widest };
+  });
+}
+
 const WIDTHS = [320, 375, 390, 768, 1024] as const;
 
 const PAGES: Array<[name: string, path: string]> = [
@@ -51,31 +81,7 @@ test.describe('Responsive — no horizontal overflow', () => {
         // layout. Same wait, same reason, as the accessibility spec's.
         await page.waitForTimeout(500);
 
-        const { clientWidth, scrollWidth, widest } = await page.evaluate(() => {
-          const de = document.documentElement;
-          // Name the widest offender that is not clipped by an ancestor —
-          // a bare "1597 > 320" tells you nothing about which element to fix.
-          const clipped = (el: Element) => {
-            let n = el.parentElement;
-            while (n && n !== document.documentElement) {
-              const o = getComputedStyle(n).overflowX;
-              if (o === 'hidden' || o === 'clip' || o === 'auto' || o === 'scroll') return true;
-              n = n.parentElement;
-            }
-            return false;
-          };
-          let widest: string | null = null;
-          let widestRight = de.clientWidth + 1;
-          document.querySelectorAll('*').forEach((el) => {
-            const r = el.getBoundingClientRect();
-            if (r.width === 0 && r.height === 0) return;
-            if (r.right > widestRight && !clipped(el)) {
-              widestRight = r.right;
-              widest = `<${el.tagName.toLowerCase()} class="${String(el.className).slice(0, 120)}"> right=${Math.round(r.right)}`;
-            }
-          });
-          return { clientWidth: de.clientWidth, scrollWidth: de.scrollWidth, widest };
-        });
+        const { clientWidth, scrollWidth, widest } = await measureOverflow(page);
 
         expect(
           scrollWidth,
@@ -84,5 +90,95 @@ test.describe('Responsive — no horizontal overflow', () => {
         ).toBeLessThanOrEqual(clientWidth + 1);
       });
     }
+  }
+});
+
+/**
+ * Admin, measured the same way.
+ *
+ * On 2026-09-11 every admin page overflowed a phone: the sidebar stayed a
+ * fixed 224px column and the content beside it would not shrink below its
+ * widest table, so /admin/orders measured 1041px at 390px — and each table's
+ * own `overflow-x-auto` never engaged, because its parent never got narrow
+ * enough to need it. Same `min-width: auto` mechanism as the storefront case
+ * above. 1024 is included because it is exactly where the sidebar returns.
+ *
+ * The session and API are stubbed. This is a layout test, so it should not
+ * depend on an admin account or touch any database, and it runs the same
+ * locally and in CI. Orders get real rows because an empty table is exactly
+ * the case that hides this bug.
+ */
+const ADMIN_WIDTHS = [320, 390, 768, 1024] as const;
+
+const ADMIN_ROUTES = [
+  '/admin',
+  '/admin/products',
+  '/admin/products/new',
+  '/admin/categories',
+  '/admin/collections',
+  '/admin/inventory',
+  '/admin/orders',
+  '/admin/returns',
+  '/admin/reviews',
+  '/admin/qna',
+  '/admin/customers',
+  '/admin/coupons',
+  '/admin/cms',
+  '/admin/settings',
+  '/admin/shipping',
+];
+
+const fixtureOrder = (i: number) => ({
+  id: `${i}a1b2c3d-0000-4000-8000-00000000000${i}`,
+  status: ['PLACED', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'PROCESSING'][i % 6],
+  subtotalMinorUnits: 280000 * (i + 1),
+  discountMinorUnits: 0,
+  shippingMinorUnits: 0,
+  totalMinorUnits: 280000 * (i + 1),
+  items: [],
+  createdAt: '2026-09-01T10:00:00Z',
+  user: { id: `u${i}`, email: `a.rather.long.customer.address${i}@example.com`, name: `Customer ${i}` },
+  partiallyReturned: i === 3,
+});
+
+test.describe('Responsive — admin never overflows', () => {
+  test.beforeEach(async ({ page, context }) => {
+    await context.addInitScript(() => {
+      localStorage.setItem(
+        'jwel-auth',
+        JSON.stringify({
+          state: { token: 'stub', user: { id: 'a', email: 'admin@example.com', name: 'Admin', role: 'ADMIN' } },
+          version: 0,
+        }),
+      );
+    });
+    await page.route('**/api/v1/**', (route) => {
+      const body = route.request().url().includes('/admin/orders')
+        ? { items: Array.from({ length: 6 }, (_, i) => fixtureOrder(i)), page: 1, pageSize: 20, total: 6 }
+        : { items: [], page: 1, pageSize: 20, total: 0 };
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    });
+  });
+
+  for (const route of ADMIN_ROUTES) {
+    test(`${route} fits every width`, async ({ page }) => {
+      for (const width of ADMIN_WIDTHS) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route, { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(500);
+
+        // Guard against a vacuous pass: a login redirect or an error screen
+        // would also "fit", while testing nothing about this page.
+        await expect(page).toHaveURL(new RegExp(`${route.replace(/\//g, '\\/')}$`));
+        await expect(page.getByRole('heading', { name: /something went wrong/i })).toHaveCount(0);
+
+        const { clientWidth, scrollWidth, widest } = await measureOverflow(page);
+        expect(
+          scrollWidth,
+          `${route} is ${scrollWidth - clientWidth}px wider than the ${clientWidth}px viewport.` +
+            (widest ? ` Widest unclipped element: ${widest}` : ''),
+        ).toBeLessThanOrEqual(clientWidth + 1);
+      }
+    });
   }
 });

@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { adjustStock, listInventory } from '@/lib/api/admin-inventory';
 import type { AdminInventoryItem } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 const PAGE_SIZE = 24;
 
@@ -117,56 +118,58 @@ function AdminInventoryPageInner() {
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">SKU</th>
-                <th className="px-4 py-3">On hand</th>
-                <th className="px-4 py-3">Reserved</th>
-                <th className="px-4 py-3">Available</th>
-                <th className="px-4 py-3">Threshold</th>
-                <th className="px-4 py-3">Adjust</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.variantId} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{item.productName}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-ink-secondary">{item.sku}</td>
-                  <td className="px-4 py-3">{item.quantityOnHand}</td>
-                  <td className="px-4 py-3">{item.quantityReserved}</td>
-                  <td className="px-4 py-3 font-medium">{item.quantityOnHand - item.quantityReserved}</td>
-                  <td className="px-4 py-3 text-ink-secondary">{item.lowStockThreshold}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        placeholder="±qty"
-                        className="h-9 w-20"
-                        aria-label={`Adjust stock for ${item.productName}, SKU ${item.sku}`}
-                        value={adjustments[item.variantId] ?? ''}
-                        onChange={(e) =>
-                          setAdjustments((prev) => ({ ...prev, [item.variantId]: e.target.value }))
-                        }
-                      />
-                      <Button size="s" variant="secondary" onClick={() => handleAdjust(item.variantId)}>
-                        Apply
-                      </Button>
-                    </div>
-                  </td>
+        <CardContent className="p-0">
+          <TableScroll label="Inventory">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3">SKU</th>
+                  <th className="px-4 py-3">On hand</th>
+                  <th className="px-4 py-3">Reserved</th>
+                  <th className="px-4 py-3">Available</th>
+                  <th className="px-4 py-3">Threshold</th>
+                  <th className="px-4 py-3">Adjust</th>
                 </tr>
-              ))}
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-ink-muted">
-                    {q || lowStockOnly ? 'No matching inventory.' : 'No inventory yet.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.variantId} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-medium">{item.productName}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-ink-secondary">{item.sku}</td>
+                    <td className="px-4 py-3">{item.quantityOnHand}</td>
+                    <td className="px-4 py-3">{item.quantityReserved}</td>
+                    <td className="px-4 py-3 font-medium">{item.quantityOnHand - item.quantityReserved}</td>
+                    <td className="px-4 py-3 text-ink-secondary">{item.lowStockThreshold}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          placeholder="±qty"
+                          className="h-9 w-20"
+                          aria-label={`Adjust stock for ${item.productName}, SKU ${item.sku}`}
+                          value={adjustments[item.variantId] ?? ''}
+                          onChange={(e) =>
+                            setAdjustments((prev) => ({ ...prev, [item.variantId]: e.target.value }))
+                          }
+                        />
+                        <Button size="s" variant="secondary" onClick={() => handleAdjust(item.variantId)}>
+                          Apply
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {items.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-ink-muted">
+                      {q || lowStockOnly ? 'No matching inventory.' : 'No inventory yet.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
 

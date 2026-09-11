@@ -17,6 +17,7 @@ import {
 import { formatMinorUnits } from '@/lib/money';
 import type { Coupon, DiscountType } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 const EMPTY_FORM = {
   code: '',
@@ -324,78 +325,80 @@ export default function AdminCouponsPage() {
       </Card>
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Code</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Value</th>
-                <th className="px-4 py-3">Limits</th>
-                <th className="px-4 py-3">Valid window</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {coupons.map((coupon) => (
-                <tr key={coupon.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-mono font-medium">{coupon.code}</td>
-                  <td className="px-4 py-3">{coupon.discountType}</td>
-                  <td className="px-4 py-3">
-                    {coupon.discountType === 'FLAT' ? formatMinorUnits(coupon.value) : `${coupon.value}%`}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink-secondary">
-                    <div>
-                      {coupon.minOrderAmountMinorUnits
-                        ? `Min order ${formatMinorUnits(coupon.minOrderAmountMinorUnits)}`
-                        : 'No minimum order'}
-                    </div>
-                    <div>
-                      {coupon.maxRedemptions ? `${coupon.maxRedemptions} uses total` : 'Unlimited total uses'} ·{' '}
-                      {coupon.maxRedemptionsPerUser}/customer
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-ink-secondary">
-                    {new Date(coupon.validFrom).toLocaleDateString()} –{' '}
-                    {new Date(coupon.validTo).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={coupon.isActive ? 'success' : 'default'}>
-                      {coupon.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {/* nowrap, not flex-wrap — three buttons wrapping onto an
-                        uneven two-line stack read as broken, not busy. Same
-                        right-aligned single-row treatment as the Products
-                        table's row actions (admin/products/page.tsx); the
-                        table's own overflow-x-auto is the width fallback. */}
-                    <div className="flex items-center justify-end gap-2">
-                      {coupon.isActive && (
-                        <Button size="s" variant="secondary" onClick={() => handleDeactivate(coupon.id)}>
-                          Deactivate
+        <CardContent className="p-0">
+          <TableScroll label="Coupons">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Code</th>
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Value</th>
+                  <th className="px-4 py-3">Limits</th>
+                  <th className="px-4 py-3">Valid window</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coupons.map((coupon) => (
+                  <tr key={coupon.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-mono font-medium">{coupon.code}</td>
+                    <td className="px-4 py-3">{coupon.discountType}</td>
+                    <td className="px-4 py-3">
+                      {coupon.discountType === 'FLAT' ? formatMinorUnits(coupon.value) : `${coupon.value}%`}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-ink-secondary">
+                      <div>
+                        {coupon.minOrderAmountMinorUnits
+                          ? `Min order ${formatMinorUnits(coupon.minOrderAmountMinorUnits)}`
+                          : 'No minimum order'}
+                      </div>
+                      <div>
+                        {coupon.maxRedemptions ? `${coupon.maxRedemptions} uses total` : 'Unlimited total uses'} ·{' '}
+                        {coupon.maxRedemptionsPerUser}/customer
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-ink-secondary">
+                      {new Date(coupon.validFrom).toLocaleDateString()} –{' '}
+                      {new Date(coupon.validTo).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={coupon.isActive ? 'success' : 'default'}>
+                        {coupon.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {/* nowrap, not flex-wrap — three buttons wrapping onto an
+                          uneven two-line stack read as broken, not busy. Same
+                          right-aligned single-row treatment as the Products
+                          table's row actions (admin/products/page.tsx); the
+                          table's own overflow-x-auto is the width fallback. */}
+                      <div className="flex items-center justify-end gap-2">
+                        {coupon.isActive && (
+                          <Button size="s" variant="secondary" onClick={() => handleDeactivate(coupon.id)}>
+                            Deactivate
+                          </Button>
+                        )}
+                        <Button size="s" variant="secondary" onClick={() => handleArchive(coupon)}>
+                          Archive
                         </Button>
-                      )}
-                      <Button size="s" variant="secondary" onClick={() => handleArchive(coupon)}>
-                        Archive
-                      </Button>
-                      <Button size="s" variant="destructive" onClick={() => handleHardDelete(coupon)}>
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {coupons.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-ink-muted">
-                    No coupons yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                        <Button size="s" variant="destructive" onClick={() => handleHardDelete(coupon)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {coupons.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-6 text-center text-ink-muted">
+                      No coupons yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
     </div>

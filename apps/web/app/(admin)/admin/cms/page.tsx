@@ -10,6 +10,7 @@ import { adminCreateBanner, adminDeleteBanner, adminListBanners, adminUpdateBann
 import { ImageUploadField } from '@/components/admin/image-upload-field';
 import type { Banner } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 const EMPTY_FORM = { title: '', imageRef: '', imageUrl: '', linkUrl: '', sortOrder: '0' };
 
@@ -195,148 +196,150 @@ export default function AdminCmsPage() {
       </Card>
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Title</th>
-                <th className="px-4 py-3">Image ref</th>
-                <th className="px-4 py-3">Sort</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {banners.map((banner) =>
-                editingId === banner.id ? (
-                  <tr key={banner.id} className="border-b border-border last:border-0">
-                    <td colSpan={5} className="px-4 py-4">
-                      <div className="space-y-3">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium" htmlFor={`banner-title-${banner.id}`}>
-                              Title
-                            </label>
-                            <Input
-                              id={`banner-title-${banner.id}`}
-                              value={editForm.title}
-                              onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium" htmlFor={`banner-link-${banner.id}`}>
-                              Link URL
-                            </label>
-                            <Input
-                              id={`banner-link-${banner.id}`}
-                              placeholder="/collections/rings or https://…"
-                              value={editForm.linkUrl}
-                              onChange={(e) => setEditForm((f) => ({ ...f, linkUrl: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium" htmlFor={`banner-sort-${banner.id}`}>
-                              Sort order
-                            </label>
-                            <Input
-                              id={`banner-sort-${banner.id}`}
-                              type="number"
-                              value={editForm.sortOrder}
-                              onChange={(e) => setEditForm((f) => ({ ...f, sortOrder: e.target.value }))}
-                            />
-                          </div>
-                          <label className="mt-6 flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={editForm.isActive}
-                              onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
-                            />
-                            Active
-                          </label>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium" htmlFor={`banner-starts-${banner.id}`}>
-                              Goes live (optional)
-                            </label>
-                            <Input
-                              id={`banner-starts-${banner.id}`}
-                              type="datetime-local"
-                              value={editForm.startsAt}
-                              onChange={(e) => setEditForm((f) => ({ ...f, startsAt: e.target.value }))}
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium" htmlFor={`banner-ends-${banner.id}`}>
-                              Ends (optional)
-                            </label>
-                            <Input
-                              id={`banner-ends-${banner.id}`}
-                              type="datetime-local"
-                              value={editForm.endsAt}
-                              onChange={(e) => setEditForm((f) => ({ ...f, endsAt: e.target.value }))}
-                            />
-                          </div>
-                        </div>
-
-                        <ImageUploadField
-                          label="Banner image"
-                          folder="banners"
-                          token={token}
-                          value={editForm.imageRef || null}
-                          previewUrl={editForm.imageUrl || null}
-                          onChange={(storageRef, previewUrl) =>
-                            setEditForm((f) => ({ ...f, imageRef: storageRef ?? '', imageUrl: previewUrl ?? '' }))
-                          }
-                          disabled={saving}
-                        />
-
-                        <div className="flex gap-2">
-                          <Button
-                            size="s"
-                            onClick={() => handleSaveEdit(banner.id)}
-                            loading={saving}
-                            disabled={!editForm.title.trim() || !editForm.imageRef}
-                          >
-                            Save
-                          </Button>
-                          <Button size="s" variant="secondary" onClick={cancelEdit}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={banner.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 font-medium">{banner.title}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-ink-secondary">{banner.imageRef}</td>
-                    <td className="px-4 py-3">{banner.sortOrder}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={banner.isActive ? 'success' : 'default'}>
-                        {banner.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <Button size="s" variant="secondary" onClick={() => startEdit(banner)}>
-                          Edit
-                        </Button>
-                        <Button size="s" variant="destructive" onClick={() => handleDelete(banner.id)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ),
-              )}
-              {banners.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-ink-muted">
-                    No banners yet.
-                  </td>
+        <CardContent className="p-0">
+          <TableScroll label="Homepage banners">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Image ref</th>
+                  <th className="px-4 py-3">Sort</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {banners.map((banner) =>
+                  editingId === banner.id ? (
+                    <tr key={banner.id} className="border-b border-border last:border-0">
+                      <td colSpan={5} className="px-4 py-4">
+                        <div className="space-y-3">
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="mb-1 block text-xs font-medium" htmlFor={`banner-title-${banner.id}`}>
+                                Title
+                              </label>
+                              <Input
+                                id={`banner-title-${banner.id}`}
+                                value={editForm.title}
+                                onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium" htmlFor={`banner-link-${banner.id}`}>
+                                Link URL
+                              </label>
+                              <Input
+                                id={`banner-link-${banner.id}`}
+                                placeholder="/collections/rings or https://…"
+                                value={editForm.linkUrl}
+                                onChange={(e) => setEditForm((f) => ({ ...f, linkUrl: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium" htmlFor={`banner-sort-${banner.id}`}>
+                                Sort order
+                              </label>
+                              <Input
+                                id={`banner-sort-${banner.id}`}
+                                type="number"
+                                value={editForm.sortOrder}
+                                onChange={(e) => setEditForm((f) => ({ ...f, sortOrder: e.target.value }))}
+                              />
+                            </div>
+                            <label className="mt-6 flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={editForm.isActive}
+                                onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
+                              />
+                              Active
+                            </label>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium" htmlFor={`banner-starts-${banner.id}`}>
+                                Goes live (optional)
+                              </label>
+                              <Input
+                                id={`banner-starts-${banner.id}`}
+                                type="datetime-local"
+                                value={editForm.startsAt}
+                                onChange={(e) => setEditForm((f) => ({ ...f, startsAt: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium" htmlFor={`banner-ends-${banner.id}`}>
+                                Ends (optional)
+                              </label>
+                              <Input
+                                id={`banner-ends-${banner.id}`}
+                                type="datetime-local"
+                                value={editForm.endsAt}
+                                onChange={(e) => setEditForm((f) => ({ ...f, endsAt: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+
+                          <ImageUploadField
+                            label="Banner image"
+                            folder="banners"
+                            token={token}
+                            value={editForm.imageRef || null}
+                            previewUrl={editForm.imageUrl || null}
+                            onChange={(storageRef, previewUrl) =>
+                              setEditForm((f) => ({ ...f, imageRef: storageRef ?? '', imageUrl: previewUrl ?? '' }))
+                            }
+                            disabled={saving}
+                          />
+
+                          <div className="flex gap-2">
+                            <Button
+                              size="s"
+                              onClick={() => handleSaveEdit(banner.id)}
+                              loading={saving}
+                              disabled={!editForm.title.trim() || !editForm.imageRef}
+                            >
+                              Save
+                            </Button>
+                            <Button size="s" variant="secondary" onClick={cancelEdit}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={banner.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3 font-medium">{banner.title}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-ink-secondary">{banner.imageRef}</td>
+                      <td className="px-4 py-3">{banner.sortOrder}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={banner.isActive ? 'success' : 'default'}>
+                          {banner.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <Button size="s" variant="secondary" onClick={() => startEdit(banner)}>
+                            Edit
+                          </Button>
+                          <Button size="s" variant="destructive" onClick={() => handleDelete(banner.id)}>
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
+                {banners.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-ink-muted">
+                      No banners yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
     </div>

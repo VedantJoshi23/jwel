@@ -11,6 +11,7 @@ import { adminListReturns, adminUpdateReturnStatus } from '@/lib/api/admin-retur
 import { formatMinorUnits } from '@/lib/money';
 import type { AdminReturn, ReturnStatus } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 // Mirrors ReturnsService's ALLOWED_TRANSITIONS (apps/api) exactly — this page
 // only ever offers a transition the backend will actually accept, so a click
@@ -125,96 +126,98 @@ export default function AdminReturnsPage() {
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Product</th>
-                <th className="px-4 py-3">Customer</th>
-                <th className="px-4 py-3">Reason</th>
-                <th className="px-4 py-3">Item price</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {returns.map((ret) => {
-                const nextOptions = TRANSITIONS[ret.status];
-                const needsAmount = nextOptions.includes('REFUNDED');
+        <CardContent className="p-0">
+          <TableScroll label="Returns">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3">Customer</th>
+                  <th className="px-4 py-3">Reason</th>
+                  <th className="px-4 py-3">Item price</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {returns.map((ret) => {
+                  const nextOptions = TRANSITIONS[ret.status];
+                  const needsAmount = nextOptions.includes('REFUNDED');
 
-                return (
-                  <tr key={ret.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3">
-                      {ret.orderItem.productNameSnapshot}
-                      <div className="text-xs text-ink-muted">Qty {ret.orderItem.quantity}</div>
-                    </td>
-                    <td className="px-4 py-3 text-xs">{ret.orderItem.order.user.email}</td>
-                    <td className="px-4 py-3">
-                      {ret.reason}
-                      {ret.notes && <div className="text-xs text-ink-muted">{ret.notes}</div>}
-                    </td>
-                    <td className="px-4 py-3">{formatMinorUnits(ret.orderItem.unitPriceMinorUnits)}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant={STATUS_VARIANT[ret.status]}>{ret.status}</Badge>
-                      {ret.status === 'REFUNDED' && ret.refundAmountMinorUnits !== null && (
-                        <div className="mt-1 text-xs text-ink-muted">
-                          {formatMinorUnits(ret.refundAmountMinorUnits)} refunded
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {nextOptions.length === 0 && <span className="text-xs text-ink-muted">final state</span>}
+                  return (
+                    <tr key={ret.id} className="border-b border-border last:border-0">
+                      <td className="px-4 py-3">
+                        {ret.orderItem.productNameSnapshot}
+                        <div className="text-xs text-ink-muted">Qty {ret.orderItem.quantity}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs">{ret.orderItem.order.user.email}</td>
+                      <td className="px-4 py-3">
+                        {ret.reason}
+                        {ret.notes && <div className="text-xs text-ink-muted">{ret.notes}</div>}
+                      </td>
+                      <td className="px-4 py-3">{formatMinorUnits(ret.orderItem.unitPriceMinorUnits)}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={STATUS_VARIANT[ret.status]}>{ret.status}</Badge>
+                        {ret.status === 'REFUNDED' && ret.refundAmountMinorUnits !== null && (
+                          <div className="mt-1 text-xs text-ink-muted">
+                            {formatMinorUnits(ret.refundAmountMinorUnits)} refunded
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {nextOptions.length === 0 && <span className="text-xs text-ink-muted">final state</span>}
 
-                      {needsAmount ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="₹ amount"
-                            className="h-9 w-28"
-                            value={refundAmountValue(ret)}
-                            onChange={(e) =>
-                              setRefundAmounts((prev) => ({ ...prev, [ret.id]: e.target.value }))
-                            }
-                          />
-                          <Button
-                            size="s"
-                            loading={busyId === ret.id}
-                            onClick={() => handleTransition(ret, 'REFUNDED')}
-                          >
-                            Refund via Razorpay
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          {nextOptions.map((next) => (
+                        {needsAmount ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="₹ amount"
+                              className="h-9 w-28"
+                              value={refundAmountValue(ret)}
+                              onChange={(e) =>
+                                setRefundAmounts((prev) => ({ ...prev, [ret.id]: e.target.value }))
+                              }
+                            />
                             <Button
-                              key={next}
-                              variant="secondary"
                               size="s"
-                              className="h-auto px-2.5 py-1 text-xs"
-                              disabled={busyId === ret.id}
-                              onClick={() => handleTransition(ret, next)}
+                              loading={busyId === ret.id}
+                              onClick={() => handleTransition(ret, 'REFUNDED')}
                             >
-                              {next}
+                              Refund via Razorpay
                             </Button>
-                          ))}
-                        </div>
-                      )}
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            {nextOptions.map((next) => (
+                              <Button
+                                key={next}
+                                variant="secondary"
+                                size="s"
+                                className="h-auto px-2.5 py-1 text-xs"
+                                disabled={busyId === ret.id}
+                                onClick={() => handleTransition(ret, next)}
+                              >
+                                {next}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {returns.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
+                      No return requests{statusFilter ? ` with status ${statusFilter}` : ''}.
                     </td>
                   </tr>
-                );
-              })}
-              {returns.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
-                    No return requests{statusFilter ? ` with status ${statusFilter}` : ''}.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
     </div>

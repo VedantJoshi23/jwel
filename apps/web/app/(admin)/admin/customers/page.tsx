@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { adminListUsers, adminSuspendUser, adminUnsuspendUser, type UserStatusFilter } from '@/lib/api/admin-users';
 import type { AdminUser } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 export default function AdminCustomersPage() {
   const token = useAuthStore((state) => state.token);
@@ -87,69 +88,71 @@ export default function AdminCustomersPage() {
       {error && <p className="mb-4 text-sm text-feedback-error">{error}</p>}
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Role</th>
-                <th className="px-4 py-3">Joined</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{user.name ?? '—'}</td>
-                  <td className="px-4 py-3">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.role === 'CUSTOMER' ? 'default' : 'accent'}>{user.role}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-ink-secondary">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={user.deletedAt ? 'error' : 'success'}>
-                      {user.deletedAt ? 'Suspended' : 'Active'}
-                    </Badge>
-                    {user.deletedAt && user.suspensionReason && (
-                      <p className="mt-1 max-w-xs text-xs text-ink-muted">{user.suspensionReason}</p>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {user.id === currentUserId ? null : user.deletedAt ? (
-                      <Button
-                        size="s"
-                        variant="secondary"
-                        loading={busyId === user.id}
-                        onClick={() => handleUnsuspend(user.id)}
-                      >
-                        Unsuspend
-                      </Button>
-                    ) : (
-                      <Button
-                        size="s"
-                        variant="destructive"
-                        loading={busyId === user.id}
-                        onClick={() => handleSuspend(user.id)}
-                      >
-                        Suspend
-                      </Button>
-                    )}
-                  </td>
+        <CardContent className="p-0">
+          <TableScroll label="Customers">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Email</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Joined</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
-              ))}
-              {users.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
-                    No customers yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-medium">{user.name ?? '—'}</td>
+                    <td className="px-4 py-3">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.role === 'CUSTOMER' ? 'default' : 'accent'}>{user.role}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-ink-secondary">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={user.deletedAt ? 'error' : 'success'}>
+                        {user.deletedAt ? 'Suspended' : 'Active'}
+                      </Badge>
+                      {user.deletedAt && user.suspensionReason && (
+                        <p className="mt-1 max-w-xs text-xs text-ink-muted">{user.suspensionReason}</p>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {user.id === currentUserId ? null : user.deletedAt ? (
+                        <Button
+                          size="s"
+                          variant="secondary"
+                          loading={busyId === user.id}
+                          onClick={() => handleUnsuspend(user.id)}
+                        >
+                          Unsuspend
+                        </Button>
+                      ) : (
+                        <Button
+                          size="s"
+                          variant="destructive"
+                          loading={busyId === user.id}
+                          onClick={() => handleSuspend(user.id)}
+                        >
+                          Suspend
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-6 text-center text-ink-muted">
+                      No customers yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
     </div>

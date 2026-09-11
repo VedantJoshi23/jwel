@@ -18,6 +18,7 @@ import {
 import { formatMinorUnits } from '@/lib/money';
 import type { BulkImportResult, Product } from '@/lib/api/types';
 import { ApiError } from '@/lib/api/client';
+import { TableScroll } from '@/components/admin/table-scroll';
 
 const STATUS_VARIANT: Record<Product['status'], 'success' | 'warning' | 'default'> = {
   PUBLISHED: 'success',
@@ -130,7 +131,7 @@ function AdminProductsPageInner() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold">Products</h1>
           {total > 0 && (
@@ -141,7 +142,7 @@ function AdminProductsPageInner() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href="/admin/products/new">
             <Button variant="secondary">New product</Button>
           </Link>
@@ -258,102 +259,104 @@ function AdminProductsPageInner() {
       )}
 
       <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Price</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-medium">{product.name}</td>
-                  <td className="px-4 py-3 text-ink-secondary">{product.category.name}</td>
-                  <td className="px-4 py-3">
-                    {product.variants.length > 0
-                      ? formatMinorUnits(Math.min(...product.variants.map((v) => v.basePriceMinorUnits)))
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-4">
-                      <div className="flex items-center gap-3">
-                        <Link
-                          href={`/admin/products/${product.id}`}
-                          className="text-sm text-ink-secondary underline-offset-2 hover:underline"
-                        >
-                          Photos ({product.media.length})
-                        </Link>
-                        <Link
-                          href={`/admin/products/${product.id}/edit`}
-                          className="text-sm text-ink-secondary underline-offset-2 hover:underline"
-                        >
-                          Edit
-                        </Link>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2 border-l border-border pl-4">
-                        {product.status === 'DRAFT' && (
-                          <Button
-                            size="s"
-                            variant="secondary"
-                            onClick={() => handleStatusChange(product, 'PUBLISHED')}
-                          >
-                            Publish
-                          </Button>
-                        )}
-                        {product.status === 'PUBLISHED' && (
-                          <Button
-                            size="s"
-                            variant="secondary"
-                            onClick={() => handleStatusChange(product, 'ARCHIVED')}
-                          >
-                            Archive
-                          </Button>
-                        )}
-                        {product.status === 'ARCHIVED' && (
-                          // Back to DRAFT, not straight to PUBLISHED — an
-                          // archived listing may be stale (price, photos), so
-                          // re-publishing goes through the same edit-then-
-                          // Publish path (and the same completeness gate,
-                          // assertPublishable) as any other draft, rather
-                          // than a second one-step "republish" transition.
-                          <Button
-                            size="s"
-                            variant="secondary"
-                            onClick={() => handleStatusChange(product, 'DRAFT')}
-                          >
-                            Unarchive
-                          </Button>
-                        )}
-                        {/* PUBLISHED keeps a single one-way action (Archive,
-                            above) — soft-delete is intentionally not exposed
-                            on a live product, only on DRAFT/ARCHIVED. */}
-                        {product.status !== 'PUBLISHED' && (
-                          <Button size="s" variant="destructive" onClick={() => handleDelete(product)}>
-                            Delete
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </td>
+        <CardContent className="p-0">
+          <TableScroll label="Products">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-ink-muted">
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-ink-muted">
-                    No products yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {products.map((product) => (
+                  <tr key={product.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 font-medium">{product.name}</td>
+                    <td className="px-4 py-3 text-ink-secondary">{product.category.name}</td>
+                    <td className="px-4 py-3">
+                      {product.variants.length > 0
+                        ? formatMinorUnits(Math.min(...product.variants.map((v) => v.basePriceMinorUnits)))
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={STATUS_VARIANT[product.status]}>{product.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-4">
+                        <div className="flex items-center gap-3">
+                          <Link
+                            href={`/admin/products/${product.id}`}
+                            className="text-sm text-ink-secondary underline-offset-2 hover:underline"
+                          >
+                            Photos ({product.media.length})
+                          </Link>
+                          <Link
+                            href={`/admin/products/${product.id}/edit`}
+                            className="text-sm text-ink-secondary underline-offset-2 hover:underline"
+                          >
+                            Edit
+                          </Link>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2 border-l border-border pl-4">
+                          {product.status === 'DRAFT' && (
+                            <Button
+                              size="s"
+                              variant="secondary"
+                              onClick={() => handleStatusChange(product, 'PUBLISHED')}
+                            >
+                              Publish
+                            </Button>
+                          )}
+                          {product.status === 'PUBLISHED' && (
+                            <Button
+                              size="s"
+                              variant="secondary"
+                              onClick={() => handleStatusChange(product, 'ARCHIVED')}
+                            >
+                              Archive
+                            </Button>
+                          )}
+                          {product.status === 'ARCHIVED' && (
+                            // Back to DRAFT, not straight to PUBLISHED — an
+                            // archived listing may be stale (price, photos), so
+                            // re-publishing goes through the same edit-then-
+                            // Publish path (and the same completeness gate,
+                            // assertPublishable) as any other draft, rather
+                            // than a second one-step "republish" transition.
+                            <Button
+                              size="s"
+                              variant="secondary"
+                              onClick={() => handleStatusChange(product, 'DRAFT')}
+                            >
+                              Unarchive
+                            </Button>
+                          )}
+                          {/* PUBLISHED keeps a single one-way action (Archive,
+                              above) — soft-delete is intentionally not exposed
+                              on a live product, only on DRAFT/ARCHIVED. */}
+                          {product.status !== 'PUBLISHED' && (
+                            <Button size="s" variant="destructive" onClick={() => handleDelete(product)}>
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {products.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-6 text-center text-ink-muted">
+                      No products yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableScroll>
         </CardContent>
       </Card>
 
