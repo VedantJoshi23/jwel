@@ -11,6 +11,7 @@ import { brand } from '@/lib/brand';
 import { RecommendedRail } from '@/components/recommendations/personalized-rail';
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
+import { BannerArt } from '@/components/motion/banner-art';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
@@ -53,12 +54,19 @@ export default async function HomePage() {
             </div>
           )}
         </div>
-        <div className="band-gradient flex flex-col justify-center gap-5 px-6 py-14 text-white lg:px-12">
-          <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
+        <div className="band-gradient relative flex flex-col justify-center gap-5 overflow-hidden px-6 py-14 text-white lg:px-12">
+          {/* Traditional-motif accent per the client's ask, replacing what
+              was a flat gradient with nothing on it. `-z-0`/`relative z-10`
+              below is what keeps this behind the heading rather than over
+              it — an absolutely positioned sibling paints after normal-flow
+              content by default, so the text needs its own stacking context
+              to stay on top. */}
+          <BannerArt side="right" />
+          <h1 className="relative z-10 whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
             {hero.headline || brand.tagline}
           </h1>
-          {hero.subtext && <p className="max-w-md text-sm leading-relaxed">{hero.subtext}</p>}
-          <div className="flex flex-wrap gap-3.5 pt-1">
+          {hero.subtext && <p className="relative z-10 max-w-md text-sm leading-relaxed">{hero.subtext}</p>}
+          <div className="relative z-10 flex flex-wrap gap-3.5 pt-1">
             <Button asChild size="l" className="bg-brand-accent text-ink-primary hover:bg-brand-accent/90">
               <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
             </Button>

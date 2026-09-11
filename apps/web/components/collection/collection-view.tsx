@@ -4,6 +4,7 @@ import { Pagination } from '@/components/common/pagination';
 import { getCategoryBannerImage } from '@/lib/jewellery-images';
 import type { CollectionWithProducts } from '@/lib/api/types';
 import { RevealSection } from '@/components/motion/reveal';
+import { BannerArt } from '@/components/motion/banner-art';
 
 interface CollectionViewProps {
   collection: CollectionWithProducts;
@@ -25,12 +26,13 @@ export function CollectionView({ collection, searchParams }: CollectionViewProps
   return (
     <div>
       <div className="grid md:grid-cols-2">
-        <div className="flex flex-col justify-center gap-4 bg-surface-band px-12 py-14">
-          <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
+        <div className="relative flex flex-col justify-center gap-4 overflow-hidden bg-surface-band px-12 py-14">
+          <BannerArt tone="light" side="right" />
+          <h1 className="relative z-10 font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
             {collection.name}
           </h1>
           {collection.description && (
-            <p className="max-w-md text-sm leading-relaxed text-ink-secondary">
+            <p className="relative z-10 max-w-md text-sm leading-relaxed text-ink-secondary">
               {collection.description}
             </p>
           )}

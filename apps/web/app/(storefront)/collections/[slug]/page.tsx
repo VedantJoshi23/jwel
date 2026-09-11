@@ -13,6 +13,7 @@ import { safeGetCollectionBySlug } from '@/lib/api/collections';
 import { safeGetSizes } from '@/lib/api/sizes';
 import { CollectionView } from '@/components/collection/collection-view';
 import { RevealSection } from '@/components/motion/reveal';
+import { BannerArt } from '@/components/motion/banner-art';
 
 // Answered by this route itself, ahead of any lookup: `all` is the whole
 // catalogue and the other two are curated sorts. The API refuses to let a
@@ -171,8 +172,9 @@ export default async function CollectionPage({ params, searchParams }: Collectio
           ~780px down an 844px screen, so tapping "Shop" showed no jewellery at
           all until the visitor scrolled. From `md` up this is unchanged. */}
       <div className="grid md:grid-cols-2">
-        <div className="flex items-center bg-surface-band px-6 py-8 md:px-12 md:py-14">
-          <h1 className="font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl lg:text-5xl">
+        <div className="relative flex items-center overflow-hidden bg-surface-band px-6 py-8 md:px-12 md:py-14">
+          <BannerArt tone="light" side="right" />
+          <h1 className="relative z-10 font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl lg:text-5xl">
             {collectionTitle}
             <br />
             <span className="font-normal">Selection</span>
