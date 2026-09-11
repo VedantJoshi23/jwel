@@ -8,11 +8,9 @@ import { ApiError } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ServiceabilityResult } from '@/lib/api/types';
-
-// Mirrors the server's own pincode DTO validation — a malformed pincode is
-// refused with a specific message before any request is sent, not treated as
-// "not deliverable" (FEAT-DELIVERY-ESTIMATE §7.4).
-const PINCODE_PATTERN = /^[1-9][0-9]{5}$/;
+// Shared with checkout and the saved-address form, so the delivery check can
+// never accept a pincode that an order would refuse (FEAT-DELIVERY-ESTIMATE §7.4).
+import { PINCODE_MESSAGE, PINCODE_PATTERN } from '@/lib/validation/address';
 
 /**
  * One component, used on both the home page and the product detail page
@@ -98,7 +96,7 @@ export function PincodeCheck({
 
     if (!PINCODE_PATTERN.test(pincode)) {
       setResult(null);
-      setError('Enter a valid 6-digit pincode.');
+      setError(PINCODE_MESSAGE);
       return;
     }
 

@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api/client';
 
 vi.mock('@/lib/api/qna', () => ({ askQuestion: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/product/diamond-halo-ring' }));
 
 const ask = vi.mocked(askQuestion);
 const toastSuccess = vi.mocked(toast.success);
@@ -39,7 +40,12 @@ describe('AskQuestionForm', () => {
 
   it('asks a logged-out visitor to log in rather than showing the form', () => {
     renderIt();
-    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login?next=/product');
+    // Regression: this was a fixed `next=/product`, which is not a page, so
+    // logging in to ask a question landed the customer on a 404.
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute(
+      'href',
+      '/login?next=%2Fproduct%2Fdiamond-halo-ring',
+    );
     expect(screen.queryByRole('button', { name: 'Post question' })).not.toBeInTheDocument();
   });
 
@@ -73,9 +79,35 @@ describe('AskQuestionForm', () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Product not found'));
   });
 
-  it('disables submit while the body is empty', () => {
+  it('explains an empty submission instead of silently refusing it', async () => {
+    // Previously the button was just disabled, which is unfocusable and gives
+    // no reason. Now it stays usable and says what is missing.
     signIn();
-    renderIt();
-    expect(screen.getByRole('button', { name: 'Post question' })).toBeDisabled();
+    const user = renderIt();
+    await user.click(screen.getByRole('button', { name: 'Post question' }));
+
+    expect(await screen.findByText('Type your question first.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your question')).toHaveAttribute('aria-invalid', 'true');
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('treats a whitespace-only question as empty', async () => {
+    signIn();
+    const user = renderIt();
+    await user.type(screen.getByLabelText('Your question'), '    ');
+    await user.click(screen.getByRole('button', { name: 'Post question' }));
+
+    expect(await screen.findByText('Type your question first.')).toBeInTheDocument();
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it('links the error to the field for screen readers', async () => {
+    signIn();
+    const user = renderIt();
+    await user.click(screen.getByRole('button', { name: 'Post question' }));
+
+    const field = screen.getByLabelText('Your question');
+    await waitFor(() => expect(field).toHaveAttribute('aria-describedby', 'qna-ask-body-error'));
+    expect(document.getElementById('qna-ask-body-error')).toHaveTextContent('Type your question first.');
   });
 });

@@ -2,24 +2,38 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Star } from 'lucide-react';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FieldError } from '@/components/common/field-error';
 import { createReview, getMyReview } from '@/lib/api/products';
 import { ApiError } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
+import { reviewSchema, type ReviewFormInput, type ReviewFormValues } from '@/lib/validation/review';
 
 export function ReviewForm({ productId }: { productId: string }) {
   const { token, isAuthenticated } = useAuth();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
-  const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<ReviewFormInput, unknown, ReviewFormValues>({
+    resolver: zodResolver(reviewSchema),
+    defaultValues: { title: '', body: '' },
+  });
+  // The raw radio value is a string (see lib/validation/review.ts).
+  const rating = Number(watch('rating')) || 0;
 
   // Same query key `MyReviewStatus` uses — react-query dedupes identical
   // keys across components, so this doesn't cost a second request, and both
@@ -37,7 +51,9 @@ export function ReviewForm({ productId }: { productId: string }) {
   if (!isAuthenticated) {
     return (
       <p className="mt-6 text-sm text-ink-secondary">
-        <Link href={`/login?next=/product`} className="font-medium underline">
+        {/* Back to *this* product after logging in — this was a fixed
+            `next=/product`, which is not a page, so it landed on a 404. */}
+        <Link href={`/login?next=${encodeURIComponent(pathname ?? '/')}`} className="font-medium underline">
           Log in
         </Link>{' '}
         to write a review.
@@ -52,13 +68,17 @@ export function ReviewForm({ productId }: { productId: string }) {
     return null;
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!token || rating === 0 || !body.trim()) return;
+  async function onValid(values: ReviewFormValues) {
+    if (!token) return;
 
-    setSubmitting(true);
     try {
-      await createReview(token, { productId, rating, title: title.trim() || undefined, body: body.trim() });
+      await createReview(token, {
+        productId,
+        rating: values.rating,
+        // An empty title is "no title", not a title that is an empty string.
+        title: values.title?.trim() || undefined,
+        body: values.body.trim(),
+      });
       await queryClient.invalidateQueries({ queryKey: ['myReview', productId] });
       toast.success('Review submitted', { description: 'It will appear once approved by our team.' });
     } catch (err) {
@@ -75,50 +95,68 @@ export function ReviewForm({ productId }: { productId: string }) {
       if (err instanceof ApiError && err.statusCode === 409) {
         await queryClient.invalidateQueries({ queryKey: ['myReview', productId] });
       }
-    } finally {
-      setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-4 border-t border-border pt-6">
+    <form
+      onSubmit={handleSubmit(onValid)}
+      noValidate
+      className="mt-6 max-w-md space-y-4 border-t border-border pt-6"
+    >
       <h3 className="font-display text-lg font-bold">Write a review</h3>
 
-      <div>
-        <p className="mb-1.5 text-sm font-medium">Your rating</p>
-        <div className="flex gap-1" role="radiogroup" aria-label="Rating">
-          {Array.from({ length: 5 }).map((_, i) => {
-            const starValue = i + 1;
-            return (
-              <button
-                key={starValue}
-                type="button"
-                role="radio"
-                aria-checked={rating === starValue}
+      {/*
+        Native radios rather than five role="radio" buttons. The buttons were
+        five separate tab stops with no arrow-key support, which is not how a
+        radio group behaves; native inputs give one tab stop, arrow keys, and
+        form semantics for free. The stars are the labels.
+      */}
+      <fieldset>
+        <legend className="mb-1.5 text-sm font-medium">Your rating</legend>
+        <div className="flex gap-1" onMouseLeave={() => setHoverRating(0)}>
+          {[1, 2, 3, 4, 5].map((starValue) => (
+            <span key={starValue}>
+              <input
+                type="radio"
+                id={`review-rating-${starValue}`}
+                value={starValue}
+                {...register('rating')}
                 aria-label={`${starValue} star${starValue > 1 ? 's' : ''}`}
+                aria-describedby={errors.rating ? 'review-rating-error' : undefined}
+                className="peer sr-only"
+              />
+              <label
+                htmlFor={`review-rating-${starValue}`}
                 onMouseEnter={() => setHoverRating(starValue)}
-                onMouseLeave={() => setHoverRating(0)}
-                onClick={() => setRating(starValue)}
+                className="block cursor-pointer rounded-sm peer-focus-visible:ring-2 peer-focus-visible:ring-brand-primary peer-focus-visible:ring-offset-2"
               >
                 <Star
+                  aria-hidden="true"
                   className={cn(
                     'h-6 w-6',
-                    starValue <= (hoverRating || rating)
-                      ? 'fill-brand-accent text-brand-accent'
-                      : 'text-border',
+                    starValue <= (hoverRating || rating) ? 'fill-brand-accent text-brand-accent' : 'text-border',
                   )}
                 />
-              </button>
-            );
-          })}
+              </label>
+            </span>
+          ))}
         </div>
-      </div>
+        <FieldError id="review-rating-error" message={errors.rating?.message} />
+      </fieldset>
 
       <div>
         <label htmlFor="review-title" className="mb-1.5 block text-sm font-medium">
           Title (optional)
         </label>
-        <Input id="review-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
+        <Input
+          id="review-title"
+          {...register('title')}
+          maxLength={120}
+          aria-invalid={errors.title ? true : undefined}
+          aria-describedby={errors.title ? 'review-title-error' : undefined}
+        />
+        <FieldError id="review-title-error" message={errors.title?.message} />
       </div>
 
       <div>
@@ -127,15 +165,18 @@ export function ReviewForm({ productId }: { productId: string }) {
         </label>
         <textarea
           id="review-body"
-          required
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
+          {...register('body')}
+          aria-invalid={errors.body ? true : undefined}
+          aria-describedby={errors.body ? 'review-body-error' : undefined}
           rows={4}
-          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
+          className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted aria-[invalid]:border-feedback-error"
         />
+        <FieldError id="review-body-error" message={errors.body?.message} />
       </div>
 
-      <Button type="submit" disabled={rating === 0 || !body.trim()} loading={submitting}>
+      {/* No longer disabled until complete: a disabled button is unfocusable
+          and says nothing about why. Submitting early now names what is missing. */}
+      <Button type="submit" loading={isSubmitting}>
         Submit review
       </Button>
     </form>

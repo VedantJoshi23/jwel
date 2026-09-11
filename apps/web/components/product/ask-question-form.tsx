@@ -1,24 +1,38 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
+import { FieldError } from '@/components/common/field-error';
 import { askQuestion } from '@/lib/api/qna';
 import { ApiError } from '@/lib/api/client';
+import { questionSchema, type QuestionFormValues } from '@/lib/validation/question';
 
 export function AskQuestionForm({ productId }: { productId: string }) {
   const { token, isAuthenticated } = useAuth();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
-  const [body, setBody] = useState('');
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<QuestionFormValues>({
+    resolver: zodResolver(questionSchema),
+    defaultValues: { body: '' },
+  });
 
   const mutation = useMutation({
-    mutationFn: () => askQuestion(token!, productId, body.trim()),
+    mutationFn: (values: QuestionFormValues) => askQuestion(token!, productId, values.body.trim()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['questions', productId] });
-      setBody('');
+      reset();
       toast.success('Question posted');
     },
     onError: (err) => {
@@ -29,7 +43,10 @@ export function AskQuestionForm({ productId }: { productId: string }) {
   if (!isAuthenticated) {
     return (
       <p className="mt-6 text-sm text-ink-secondary">
-        <Link href="/login?next=/product" className="font-medium underline">
+        {/* Back to *this* product after logging in. This used to be a fixed
+            `next=/product`, which is not a page, so logging in to ask a
+            question dropped the customer on a 404 instead. */}
+        <Link href={`/login?next=${encodeURIComponent(pathname ?? '/')}`} className="font-medium underline">
           Log in
         </Link>{' '}
         to ask a question.
@@ -37,28 +54,27 @@ export function AskQuestionForm({ productId }: { productId: string }) {
     );
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    if (!body.trim()) return;
-    mutation.mutate();
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="mt-6 max-w-md space-y-3 border-t border-border pt-6">
+    <form
+      onSubmit={handleSubmit((values) => mutation.mutate(values))}
+      noValidate
+      className="mt-6 max-w-md space-y-3 border-t border-border pt-6"
+    >
       <h3 className="font-display text-lg font-bold">Ask a question</h3>
       <label htmlFor="qna-ask-body" className="sr-only">
         Your question
       </label>
       <textarea
         id="qna-ask-body"
-        required
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
+        {...register('body')}
+        aria-invalid={errors.body ? true : undefined}
+        aria-describedby={errors.body ? 'qna-ask-body-error' : undefined}
         rows={3}
         placeholder="Ask about sizing, materials, care…"
-        className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted"
+        className="w-full rounded-sm border border-border bg-surface px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted aria-[invalid]:border-feedback-error"
       />
-      <Button type="submit" disabled={!body.trim()} loading={mutation.isPending}>
+      <FieldError id="qna-ask-body-error" message={errors.body?.message} />
+      <Button type="submit" loading={mutation.isPending}>
         Post question
       </Button>
     </form>

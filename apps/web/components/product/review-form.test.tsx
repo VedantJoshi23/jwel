@@ -10,6 +10,7 @@ import { ApiError } from '@/lib/api/client';
 
 vi.mock('@/lib/api/products', () => ({ createReview: vi.fn(), getMyReview: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/product/diamond-halo-ring' }));
 
 const create = vi.mocked(createReview);
 const getMine = vi.mocked(getMyReview);
@@ -48,7 +49,12 @@ describe('ReviewForm', () => {
 
   it('asks a logged-out visitor to log in rather than showing the form', () => {
     renderIt();
-    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute('href', '/login?next=/product');
+    // Regression: a fixed `next=/product` is not a page, so logging in to
+    // review landed on a 404 instead of back on this product.
+    expect(screen.getByRole('link', { name: 'Log in' })).toHaveAttribute(
+      'href',
+      '/login?next=%2Fproduct%2Fdiamond-halo-ring',
+    );
     expect(screen.queryByRole('button', { name: 'Submit review' })).not.toBeInTheDocument();
   });
 
@@ -114,5 +120,65 @@ describe('ReviewForm', () => {
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith('Something went wrong submitting your review.'),
     );
+  });
+
+  it('names a missing rating instead of leaving the button silently inert', async () => {
+    // The submit button used to be disabled until a star was chosen, with
+    // nothing on screen saying so.
+    signIn();
+    const user = renderIt();
+    await user.type(await screen.findByLabelText('Your review'), 'Beautiful craftsmanship.');
+    await user.click(screen.getByRole('button', { name: 'Submit review' }));
+
+    expect(await screen.findByText('Choose a star rating.')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('names a missing review body', async () => {
+    signIn();
+    const user = renderIt();
+    await user.click(await screen.findByRole('radio', { name: '4 stars' }));
+    await user.click(screen.getByRole('button', { name: 'Submit review' }));
+
+    expect(await screen.findByText('Write a few words about the piece.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Your review')).toHaveAttribute('aria-invalid', 'true');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('treats a whitespace-only review as empty', async () => {
+    signIn();
+    const user = renderIt();
+    await user.click(await screen.findByRole('radio', { name: '4 stars' }));
+    await user.type(screen.getByLabelText('Your review'), '   ');
+    await user.click(screen.getByRole('button', { name: 'Submit review' }));
+
+    expect(await screen.findByText('Write a few words about the piece.')).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('is one radio group — a single tab stop with arrow-key selection', async () => {
+    // The old stars were five role="radio" buttons: five tab stops and no
+    // arrow keys. Native radios sharing a name behave as a real group.
+    signIn();
+    const user = renderIt();
+    const radios = await screen.findAllByRole('radio');
+    expect(radios).toHaveLength(5);
+    expect(new Set(radios.map((r) => r.getAttribute('name'))).size).toBe(1);
+
+    await user.click(screen.getByRole('radio', { name: '2 stars' }));
+    await user.keyboard('{ArrowRight}');
+
+    expect(screen.getByRole('radio', { name: '3 stars' })).toBeChecked();
+  });
+
+  it('sends an empty title as no title at all', async () => {
+    signIn();
+    create.mockResolvedValue({} as never);
+    const user = renderIt();
+    await user.type(await screen.findByLabelText('Title (optional)'), '   ');
+    await fillAndSubmit(user);
+
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0][1].title).toBeUndefined();
   });
 });
