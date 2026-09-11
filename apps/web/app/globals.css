@@ -369,3 +369,21 @@
     border-color: rgb(var(--color-ink-primary));
   }
 }
+
+@layer utilities {
+  /*
+   * Horizontal padding for full-width chrome — the header row and footer —
+   * whose background and border must still span the screen while their
+   * contents line up with the 1536px storefront column (`max-w-site`).
+   *
+   * Resolves to exactly 2rem (the `lg:px-8` it replaces) at any width up to
+   * 1536px, because the calc() is then at most 2rem and max() keeps the
+   * floor; only beyond 1536px does it grow, by half the extra width per side.
+   * Percentage padding resolves against the containing block's width, which
+   * for these elements is the viewport.
+   */
+  .px-site {
+    padding-left: max(2rem, calc((100% - 96rem) / 2 + 2rem));
+    padding-right: max(2rem, calc((100% - 96rem) / 2 + 2rem));
+  }
+}

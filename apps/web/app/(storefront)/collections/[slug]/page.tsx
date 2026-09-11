@@ -137,16 +137,20 @@ export default async function CollectionPage({ params, searchParams }: Collectio
 
   return (
     <div>
-      {/* Split category hero — wireframe 03 */}
+      {/* Split category hero — wireframe 03.
+          Tighter below `md` only. On a 390px phone the hero, its image and
+          three rows of wrapped filter chips used to push the first product to
+          ~780px down an 844px screen, so tapping "Shop" showed no jewellery at
+          all until the visitor scrolled. From `md` up this is unchanged. */}
       <div className="grid md:grid-cols-2">
-        <div className="flex items-center bg-surface-band px-12 py-14">
-          <h1 className="font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
+        <div className="flex items-center bg-surface-band px-6 py-8 md:px-12 md:py-14">
+          <h1 className="font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl lg:text-5xl">
             {collectionTitle}
             <br />
             <span className="font-normal">Selection</span>
           </h1>
         </div>
-        <div className="relative min-h-[200px] md:min-h-[260px]" aria-hidden="true">
+        <div className="relative min-h-[112px] md:min-h-[260px]" aria-hidden="true">
           <Image
             src={getCategoryBannerImage(resolvedParams.slug)}
             alt=""
@@ -158,9 +162,13 @@ export default async function CollectionPage({ params, searchParams }: Collectio
       </div>
 
       <div className="px-6 py-8 lg:px-8">
-        {/* Category filter pill strip */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <span className="font-display text-xl font-bold">Filter</span>
+        {/* Category filter pill strip. One sideways-scrolling row on phones
+            instead of three wrapped rows; bleeds to the screen edges so a
+            chip cut off at the edge reads as "there is more this way". The
+            chips are links, so the row needs no tabindex of its own to be
+            keyboard-reachable. Wraps as before from `md` up. */}
+        <div className="-mx-6 mb-6 flex items-center gap-3 overflow-x-auto px-6 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
+          <span className="shrink-0 font-display text-xl font-bold">Filter</span>
           {brand.productTypes.map((type) => {
             const typeSlug = type.toLowerCase().replace(/\s+/g, '-').replace(/&/g, 'and');
             const isActive = typeSlug === resolvedParams.slug;
@@ -168,7 +176,7 @@ export default async function CollectionPage({ params, searchParams }: Collectio
               <a
                 key={type}
                 href={`/collections/${typeSlug}`}
-                className={`rounded-sm border px-5 py-2.5 text-sm font-medium transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded-sm border px-5 py-2.5 text-sm font-medium transition-colors ${
                   isActive
                     ? 'border-brand-ink bg-brand-ink/10 text-ink-primary'
                     : 'border-border-warm text-ink-primary hover:border-brand-ink'

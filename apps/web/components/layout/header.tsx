@@ -133,7 +133,7 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
         for both themes on its own.
       */}
       <header className="material-chrome">
-      <div className="flex items-center gap-4 border-b border-border px-4 py-4 md:gap-6 md:px-6 lg:gap-10 lg:px-8">
+      <div className="flex items-center gap-4 border-b border-border px-4 py-4 md:gap-6 md:px-6 lg:gap-10 lg:px-site">
         {/* Hamburger — mobile/tablet only */}
         <button
           type="button"

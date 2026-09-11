@@ -32,7 +32,7 @@ export function SiteFooter() {
       {/* `lg:grid-cols-2` since the newsletter column below is commented out.
           Restore to `lg:grid-cols-3` when re-enabling it, or the two remaining
           columns stretch across a gap where it used to be. */}
-      <div className="grid gap-10 px-6 py-11 lg:grid-cols-2 lg:px-8">
+      <div className="grid gap-10 px-6 py-11 lg:grid-cols-2 lg:px-site">
         {/* Col 1 — brand + social */}
         <div>
           {/*

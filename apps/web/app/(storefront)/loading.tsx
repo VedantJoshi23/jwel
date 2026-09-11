@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  */
 export default function StorefrontLoading() {
   return (
-    <div className="mx-auto max-w-content px-6 py-10 lg:px-8" aria-busy="true" aria-live="polite">
+    <div className="px-6 py-10 lg:px-8" aria-busy="true" aria-live="polite">
       <span className="sr-only">Loading</span>
 
       <Skeleton className="h-9 w-56" />

@@ -10,7 +10,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
           see anything that looks like a shop. Renders nothing when unset. */}
       <DemoModeBanner />
       <SiteHeader />
-      <main id="main-content" className="flex-1">
+      <main id="main-content" className="mx-auto w-full max-w-site flex-1">
         {/*
           Handing a guest bag to the account that just signed in
           (DOM-SHOPPING Invariants 6 and 17). Here rather than on the cart

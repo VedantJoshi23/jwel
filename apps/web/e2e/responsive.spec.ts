@@ -182,3 +182,48 @@ test.describe('Responsive — admin never overflows', () => {
     });
   }
 });
+
+/**
+ * Layout commitments that are not about overflow, so the sweep above cannot
+ * see them.
+ */
+test.describe('Responsive — layout commitments', () => {
+  test('a phone shows products on the first screen of a collection', async ({ page }) => {
+    // The hero, its image and three wrapped rows of filter chips used to push
+    // the first product to ~780px down an 844px screen, so "Shop" opened on no
+    // jewellery at all until the visitor scrolled.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/collections/all', { waitUntil: 'domcontentloaded' });
+    const firstProduct = page.locator('main a[href^="/product/"]').first();
+    await expect(firstProduct).toBeVisible();
+
+    const top = await firstProduct.evaluate((el) => el.getBoundingClientRect().top);
+    expect(top, `first product starts ${Math.round(top)}px down an 844px screen`).toBeLessThan(844 - 120);
+  });
+
+  test('above 1536px the storefront centres in a 1536px column', async ({ page }) => {
+    await page.setViewportSize({ width: 2560, height: 1100 });
+    await page.goto('/about', { waitUntil: 'domcontentloaded' });
+
+    const main = await page.locator('main').evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: Math.round(r.left), width: Math.round(r.width) };
+    });
+    expect(main).toEqual({ left: (2560 - 1536) / 2, width: 1536 });
+
+    // The header's background still spans the screen while its contents line
+    // up with that column.
+    const header = await page.locator('header').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+    expect(header).toBe(2560);
+  });
+
+  for (const width of [1024, 1440, 1536]) {
+    test(`at ${width}px nothing is capped — the reviewed design is untouched`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/about', { waitUntil: 'domcontentloaded' });
+
+      const mainWidth = await page.locator('main').evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      expect(mainWidth).toBe(width);
+    });
+  }
+});

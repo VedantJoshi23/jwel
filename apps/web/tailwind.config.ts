@@ -132,6 +132,11 @@ const config: Config = {
 
       maxWidth: {
         content: '1280px',
+        // The storefront's widest column. Above it, content centres instead of
+        // stretching — the "Add to bag" button ran ~900px wide at 1920px.
+        // Chosen so every width the redesign was reviewed at (≤1440) is
+        // unaffected. Pairs with the `px-site` utility in globals.css.
+        site: '1536px',
       },
 
       letterSpacing: {
