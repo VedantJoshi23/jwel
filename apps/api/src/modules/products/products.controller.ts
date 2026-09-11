@@ -81,6 +81,13 @@ export class ProductsController {
     return this.productsService.findBySlug(slug);
   }
 
+  @Public()
+  @Get('categories/:slug')
+  @ApiOperation({ summary: 'Get a category by slug — 404 if it does not exist' })
+  findCategoryBySlug(@Param('slug') slug: string) {
+    return this.productsService.findCategoryBySlug(slug);
+  }
+
   @ApiBearerAuth()
   @Get('admin/products')
   @Roles(Role.ADMIN, Role.STAFF)

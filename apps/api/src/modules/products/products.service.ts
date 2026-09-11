@@ -189,6 +189,28 @@ export class ProductsService {
     return this.withResolvedMedia(product);
   }
 
+  /**
+   * Public lookup, so the storefront can tell a category that does not exist
+   * from one that exists but has no products right now. The product listing
+   * alone cannot: it filters by `category: { slug }`, and an unknown slug and
+   * an empty category both come back as an empty page. Without this, any
+   * mistyped or stale /collections/<slug> link rendered an empty grid titled
+   * with the raw slug instead of a 404.
+   *
+   * Only fields the storefront already shows or needs: soft-deleted
+   * categories are not found, same as a deleted product.
+   */
+  async findCategoryBySlug(slug: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { slug, deletedAt: null },
+      select: { id: true, name: true, slug: true, parentId: true, sizeScheme: true },
+    });
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+    return category;
+  }
+
   // The Admin Portal's Products module (Milestone 10) needs to see drafts
   // and archived products too — `findAll` above is PUBLISHED-only by design
   // (it's the public catalog browse path). No filtering/sorting beyond

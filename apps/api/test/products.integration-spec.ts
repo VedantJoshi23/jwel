@@ -112,4 +112,25 @@ describe('Products (integration)', () => {
   it('returns 404 for a nonexistent product slug', async () => {
     await request(app.getHttpServer()).get('/api/v1/products/this-does-not-exist-at-all').expect(404);
   });
+
+  describe('GET /api/v1/categories/:slug', () => {
+    it('returns an existing category to an anonymous visitor', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/categories/integration-test-category')
+        .expect(200);
+
+      expect(res.body).toMatchObject({ name: 'Integration Test Category', slug: 'integration-test-category' });
+    });
+
+    it('404s for a slug no category has', async () => {
+      await request(app.getHttpServer()).get('/api/v1/categories/no-such-category').expect(404);
+    });
+
+    it('404s for the address the product breadcrumb used to build from a display name', async () => {
+      // `/collections/${name.toLowerCase()}` turned "Bracelets & Bangles" into
+      // "bracelets & bangles". The storefront now 404s on this instead of
+      // rendering an empty grid titled with the encoded URL.
+      await request(app.getHttpServer()).get('/api/v1/categories/bracelets%20%26%20bangles').expect(404);
+    });
+  });
 });

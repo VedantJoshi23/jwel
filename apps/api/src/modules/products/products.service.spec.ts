@@ -173,6 +173,45 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('findCategoryBySlug', () => {
+    it('returns the category when it exists', async () => {
+      const category = { id: 'c1', name: 'Bracelets & Bangles', slug: 'bracelets-and-bangles', parentId: null, sizeScheme: null };
+      prisma.category.findFirst.mockResolvedValue(category);
+
+      expect(await service.findCategoryBySlug('bracelets-and-bangles')).toEqual(category);
+    });
+
+    it('throws NotFoundException for a slug no category has', async () => {
+      // The listing endpoint cannot make this distinction — an unknown slug
+      // and an empty category both return an empty page — which is why
+      // /collections/<typo> used to render an empty grid instead of a 404.
+      prisma.category.findFirst.mockResolvedValue(null);
+      await expect(service.findCategoryBySlug('bracelets & bangles')).rejects.toThrow(NotFoundException);
+    });
+
+    it('does not find a soft-deleted category', async () => {
+      prisma.category.findFirst.mockResolvedValue(null);
+      await service.findCategoryBySlug('retired').catch(() => undefined);
+
+      expect(prisma.category.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { slug: 'retired', deletedAt: null } }),
+      );
+    });
+
+    it('returns only the fields the storefront needs', async () => {
+      prisma.category.findFirst.mockResolvedValue({ id: 'c1', name: 'Rings', slug: 'rings', parentId: null, sizeScheme: null });
+      await service.findCategoryBySlug('rings');
+
+      expect(prisma.category.findFirst.mock.calls[0][0].select).toEqual({
+        id: true,
+        name: true,
+        slug: true,
+        parentId: true,
+        sizeScheme: true,
+      });
+    });
+  });
+
   describe('adminFindOne', () => {
     it('throws NotFoundException for a nonexistent product id', async () => {
       prisma.product.findUnique.mockResolvedValue(null);
