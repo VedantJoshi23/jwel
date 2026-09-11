@@ -3,6 +3,7 @@ import { ProductCard } from '@/components/product/product-card';
 import { Pagination } from '@/components/common/pagination';
 import { getCategoryBannerImage } from '@/lib/jewellery-images';
 import type { CollectionWithProducts } from '@/lib/api/types';
+import { RevealSection } from '@/components/motion/reveal';
 
 interface CollectionViewProps {
   collection: CollectionWithProducts;
@@ -54,11 +55,11 @@ export function CollectionView({ collection, searchParams }: CollectionViewProps
             This collection is being put together — check back shortly.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4">
+          <RevealSection className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4">
             {products.items.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </div>
+          </RevealSection>
         )}
 
         <Pagination

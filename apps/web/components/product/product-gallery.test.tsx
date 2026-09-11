@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProductGallery } from './product-gallery';
 import type { ProductMedia } from '@/lib/api/types';
@@ -99,5 +99,42 @@ describe('ProductGallery', () => {
 
     rerender(<ProductGallery media={[video('v1', 0)]} productId="p1" productName="Gold Ring" />);
     expect(screen.queryByLabelText('Open full-screen view to zoom in')).not.toBeInTheDocument();
+  });
+
+  describe('the zoom viewer is not loaded until it is opened', () => {
+    // `yet-another-react-lightbox` plus its plugins and stylesheets is real
+    // weight every product-page visitor previously downloaded whether or not
+    // they ever zoomed. It's now behind `next/dynamic`, which resolves
+    // asynchronously even in this test environment — confirmed empirically
+    // before writing these assertions — so the dialog is not there
+    // immediately after the click, only once the import settles.
+
+    it('renders no dialog before the visitor asks to zoom', () => {
+      render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('loads and opens the viewer on the first click', async () => {
+      const user = userEvent.setup();
+      render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
+
+      await user.click(screen.getByLabelText('Open full-screen view to zoom in'));
+
+      await waitFor(() => expect(screen.getByRole('dialog', { name: 'Lightbox' })).toBeInTheDocument());
+    });
+
+    it('reopens instantly on a second click — the module is already loaded', async () => {
+      const user = userEvent.setup();
+      render(<ProductGallery media={[image('m1', 0)]} productId="p1" productName="Gold Ring" />);
+
+      await user.click(screen.getByLabelText('Open full-screen view to zoom in'));
+      await waitFor(() => expect(screen.getByRole('dialog', { name: 'Lightbox' })).toBeInTheDocument());
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+      await user.click(screen.getByLabelText('Open full-screen view to zoom in'));
+      expect(await screen.findByRole('dialog', { name: 'Lightbox' })).toBeInTheDocument();
+    });
   });
 });

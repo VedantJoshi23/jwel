@@ -1,11 +1,37 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import type { ProductMedia } from '@/lib/api/types';
 import { getProductStockImage } from '@/lib/jewellery-images';
-import { ProductZoomModal } from './product-zoom-modal';
+
+/**
+ * `yet-another-react-lightbox` plus its Zoom/Thumbnails/Video plugins and two
+ * stylesheets — real weight that every product-page visitor was downloading
+ * whether or not they ever opened the zoom viewer, since the static import it
+ * replaces put the whole module in this component's own chunk. `ssr: false`
+ * because a full-screen viewer has nothing to render server-side and the
+ * library reaches for browser-only APIs; the loading fallback covers the gap
+ * between the tap and the chunk arriving, rather than the tap doing nothing
+ * visible until it does.
+ */
+const ProductZoomModal = dynamic(
+  () => import('./product-zoom-modal').then((mod) => mod.ProductZoomModal),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        role="status"
+        aria-live="polite"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 text-sm text-white"
+      >
+        Loading viewer…
+      </div>
+    ),
+  },
+);
 
 interface ProductGalleryProps {
   media: ProductMedia[];
@@ -22,7 +48,17 @@ export function ProductGallery({ media, productId, productName }: ProductGallery
 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
+  // Sticky once true — the modal itself must stay mounted after the first
+  // open so its own close transition can still run and a second open is
+  // instant, not re-fetch the chunk. `zoomOpen` (below) still fully controls
+  // whether the library actually shows anything.
+  const [hasOpenedZoom, setHasOpenedZoom] = useState(false);
   const activeItem = items[selectedIndex];
+
+  function openZoom() {
+    setHasOpenedZoom(true);
+    setZoomOpen(true);
+  }
 
   return (
     <div>
@@ -39,7 +75,7 @@ export function ProductGallery({ media, productId, productName }: ProductGallery
         ) : (
           <button
             type="button"
-            onClick={() => setZoomOpen(true)}
+            onClick={openZoom}
             aria-label="Open full-screen view to zoom in"
             className="group absolute inset-0 h-full w-full cursor-zoom-in"
           >
@@ -87,14 +123,16 @@ export function ProductGallery({ media, productId, productName }: ProductGallery
         </div>
       )}
 
-      <ProductZoomModal
-        media={items}
-        productName={productName}
-        open={zoomOpen}
-        index={selectedIndex}
-        onClose={() => setZoomOpen(false)}
-        onIndexChange={setSelectedIndex}
-      />
+      {hasOpenedZoom && (
+        <ProductZoomModal
+          media={items}
+          productName={productName}
+          open={zoomOpen}
+          index={selectedIndex}
+          onClose={() => setZoomOpen(false)}
+          onIndexChange={setSelectedIndex}
+        />
+      )}
     </div>
   );
 }

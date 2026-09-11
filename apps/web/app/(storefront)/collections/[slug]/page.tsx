@@ -12,6 +12,7 @@ import { getCategoryBannerImage } from '@/lib/jewellery-images';
 import { safeGetCollectionBySlug } from '@/lib/api/collections';
 import { safeGetSizes } from '@/lib/api/sizes';
 import { CollectionView } from '@/components/collection/collection-view';
+import { RevealSection } from '@/components/motion/reveal';
 
 // Answered by this route itself, ahead of any lookup: `all` is the whole
 // catalogue and the other two are curated sorts. The API refuses to let a
@@ -259,11 +260,11 @@ export default async function CollectionPage({ params, searchParams }: Collectio
                 No products found in this collection yet.
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4">
+              <RevealSection className="grid grid-cols-2 gap-x-6 gap-y-12 sm:grid-cols-3 lg:grid-cols-4">
                 {result.items.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
-              </div>
+              </RevealSection>
             )}
 
             <Pagination

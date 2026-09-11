@@ -17,6 +17,7 @@ import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed
 import { RecordProductView } from '@/components/recommendations/record-product-view';
 import { PincodeCheck } from '@/components/shipping/pincode-check';
 import { getFrequentlyBoughtTogether } from '@/lib/api/recommendations';
+import { RevealSection } from '@/components/motion/reveal';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 
@@ -197,7 +198,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* You May Also Love */}
       {relatedProducts.length > 0 && (
-        <section className="bg-surface-alt px-6 py-12 lg:px-8">
+        <RevealSection className="bg-surface-alt px-6 py-12 lg:px-8">
           <h2 className="mb-8 text-center font-display text-3xl font-bold tracking-tight">
             {brand.pdp.relatedHeadline}
           </h2>
@@ -206,7 +207,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
-        </section>
+        </RevealSection>
       )}
 
       {/*
@@ -218,13 +219,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
         on the product, so it can render with the page. "Recently viewed"
         cannot — it needs the guest identity in this browser's localStorage.
       */}
-      <div className="px-6 lg:px-8">
+      <RevealSection className="px-6 lg:px-8">
         <ProductRail title="Frequently bought together" products={boughtTogether} />
         <RecentlyViewedRail excludeProductId={product.id} />
-      </div>
+      </RevealSection>
 
       {/* Reviews */}
-      <section aria-labelledby="reviews-heading" className="px-6 py-12 lg:px-8">
+      <RevealSection aria-labelledby="reviews-heading" className="px-6 py-12 lg:px-8">
         <h2 id="reviews-heading" className="font-display text-2xl font-bold">
           Reviews
         </h2>
@@ -258,16 +259,16 @@ export default async function ProductPage({ params }: ProductPageProps) {
         )}
 
         <ReviewForm productId={product.id} />
-      </section>
+      </RevealSection>
 
       {/* Q&A — FEAT-PRODUCT-QA. Client-fetched island, not part of this
           page's server-side Promise.all; see qna-section.tsx for why. */}
-      <section aria-labelledby="qna-heading" className="px-6 py-12 lg:px-8">
+      <RevealSection aria-labelledby="qna-heading" className="px-6 py-12 lg:px-8">
         <h2 id="qna-heading" className="font-display text-2xl font-bold">
           Questions &amp; Answers
         </h2>
         <QnaSection productId={product.id} />
-      </section>
+      </RevealSection>
 
       {/* Renders nothing; records that this product was viewed. */}
       <RecordProductView productId={product.id} />

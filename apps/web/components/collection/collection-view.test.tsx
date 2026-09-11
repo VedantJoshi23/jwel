@@ -3,6 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { CollectionView } from './collection-view';
 import type { CollectionWithProducts, Product } from '@/lib/api/types';
 
+// The product grid's RevealSection needs IntersectionObserver, which jsdom
+// does not have — stubbed globally in vitest.setup.ts (also used by
+// components/motion/reveal.tsx across the rest of the storefront), so
+// nothing file-specific is needed here.
+
 function product(overrides: Partial<Product> = {}): Product {
   return {
     id: 'p1',

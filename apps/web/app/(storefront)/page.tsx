@@ -171,10 +171,10 @@ export default async function HomePage() {
         would claim something that did not happen. Renders nothing at all when
         there is no signal yet, which on this catalogue is the common case.
       */}
-      <div className="px-6 lg:px-8">
+      <RevealSection className="px-6 lg:px-8">
         <RecommendedRail />
         <RecentlyViewedRail />
-      </div>
+      </RevealSection>
     </>
   );
 }

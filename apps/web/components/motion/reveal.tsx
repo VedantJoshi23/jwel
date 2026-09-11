@@ -3,9 +3,15 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { crossFade, springs } from '@/lib/motion';
 
-interface RevealProps {
+// `React.AriaAttributes & { id }` rather than the full `HTMLAttributes` —
+// the latter's `onDrag`/`onAnimation*` handlers collide with framer-motion's
+// own (differently-typed) versions of the same prop names on `motion.div` /
+// `motion.section`. aria-* and `id` are the only pass-through this component
+// actually needs (a landmark's `aria-labelledby`, mainly).
+interface RevealProps extends React.AriaAttributes {
   children: React.ReactNode;
   className?: string;
+  id?: string;
   /** Stagger sibling sections by a few hundred ms. Ignored under reduced motion. */
   delay?: number;
 }
@@ -62,11 +68,17 @@ function useRevealProps(delay: number) {
 }
 
 /** Reveal wrapper for arbitrary content. */
-export function Reveal({ children, className, delay = 0 }: RevealProps) {
+export function Reveal({ children, className, delay = 0, ...rest }: RevealProps) {
   const revealProps = useRevealProps(delay);
-  if (!revealProps) return <div className={className}>{children}</div>;
+  if (!revealProps) {
+    return (
+      <div className={className} {...rest}>
+        {children}
+      </div>
+    );
+  }
   return (
-    <motion.div className={className} {...revealProps}>
+    <motion.div className={className} {...rest} {...revealProps}>
       {children}
     </motion.div>
   );
@@ -78,11 +90,17 @@ export function Reveal({ children, className, delay = 0 }: RevealProps) {
  * section's own classes exactly as they were, and adds no extra box to the DOM
  * for a page that is a stack of full-bleed bands.
  */
-export function RevealSection({ children, className, delay = 0 }: RevealProps) {
+export function RevealSection({ children, className, delay = 0, ...rest }: RevealProps) {
   const revealProps = useRevealProps(delay);
-  if (!revealProps) return <section className={className}>{children}</section>;
+  if (!revealProps) {
+    return (
+      <section className={className} {...rest}>
+        {children}
+      </section>
+    );
+  }
   return (
-    <motion.section className={className} {...revealProps}>
+    <motion.section className={className} {...rest} {...revealProps}>
       {children}
     </motion.section>
   );
