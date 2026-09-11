@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -24,6 +26,20 @@ import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
 import { getProductStockImage } from '@/lib/jewellery-images';
 import type { Address } from '@/lib/api/types';
+import { FieldError } from '@/components/common/field-error';
+import { addressSchema, emptyAddress, type AddressFormValues } from '@/lib/validation/address';
+
+type ShippingAddressPayload = Parameters<typeof createOrder>[1]['shippingAddress'];
+
+// `autoComplete` tokens let a phone fill the whole address in one tap. The
+// pincode was labelled "Zip Code" in a store that ships only within India,
+// while the header and product page call the same field "Pincode".
+const NEW_ADDRESS_FIELDS = [
+  { name: 'line1', label: 'Address', autoComplete: 'address-line1' },
+  { name: 'city', label: 'City', autoComplete: 'address-level2' },
+  { name: 'state', label: 'State', autoComplete: 'address-level1' },
+  { name: 'pincode', label: 'Pincode', autoComplete: 'postal-code', inputMode: 'numeric', maxLength: 6 },
+] as const;
 
 // Controls the static "payments are mocked" hint shown under the submit button
 // on a local dev build, and nothing else. Whether payments are ACTUALLY
@@ -38,7 +54,14 @@ export default function CheckoutPage() {
   const { lines, subtotalMinorUnits, clear } = useCart();
   const { token, user, isAuthenticated } = useAuth();
 
-  const [address, setAddress] = useState({ line1: '', line2: '', city: '', state: '', pincode: '' });
+  // Only the new-address fields live in react-hook-form (ADR-0025). Choosing a
+  // saved address and placing the order stay exactly as they were: this page
+  // is the payment path, and the smallest change to it is the safest one.
+  const addressForm = useForm<AddressFormValues>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: emptyAddress,
+  });
+  const addressErrors = addressForm.formState.errors;
   const [couponCode, setCouponCode] = useState('');
   const [discountMinorUnits, setDiscountMinorUnits] = useState(0);
   const [couponMessage, setCouponMessage] = useState('');
@@ -65,7 +88,7 @@ export default function CheckoutPage() {
   }, [savedAddresses]);
 
   const selectedSavedAddress: Address | undefined = savedAddresses?.find((a) => a.id === selectedAddressId);
-  const shippingAddress = selectedSavedAddress
+  const savedShippingAddress: ShippingAddressPayload | undefined = selectedSavedAddress
     ? {
         label: selectedSavedAddress.label ?? undefined,
         line1: selectedSavedAddress.line1,
@@ -75,7 +98,7 @@ export default function CheckoutPage() {
         pincode: selectedSavedAddress.pincode,
         country: selectedSavedAddress.country,
       }
-    : address;
+    : undefined;
 
   if (!isAuthenticated) {
     return (
@@ -111,8 +134,31 @@ export default function CheckoutPage() {
     }
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (!token) return;
+
+    if (savedShippingAddress) {
+      void placeOrder(savedShippingAddress);
+      return;
+    }
+
+    // A new address is validated first, so a missing field or a malformed
+    // pincode is named beside the field instead of arriving as an API error at
+    // the top of the page after the customer pressed pay. The API still
+    // refuses a bad address on its own (ba109bc); this is for the customer.
+    void addressForm.handleSubmit((values) =>
+      placeOrder({
+        line1: values.line1,
+        line2: values.line2 || undefined,
+        city: values.city,
+        state: values.state,
+        pincode: values.pincode,
+      }),
+    )(event);
+  }
+
+  async function placeOrder(shippingAddress: ShippingAddressPayload) {
     if (!token) return;
 
     setSubmitting(true);
@@ -204,7 +250,7 @@ export default function CheckoutPage() {
         <span>‹</span> Back
       </Link>
 
-      <form onSubmit={handleSubmit} className="grid gap-12 lg:grid-cols-2">
+      <form onSubmit={handleSubmit} noValidate className="grid gap-12 lg:grid-cols-2">
 
         {/* ── Left column: Items overview ─────────────────────────────── */}
         <div>
@@ -346,28 +392,35 @@ export default function CheckoutPage() {
 
           {selectedAddressId === 'new' && (
             <div className="mt-4 flex flex-col gap-1">
-              {[
-                { id: 'line1', label: 'Address', key: 'line1' as const },
-                { id: 'city', label: 'City', key: 'city' as const },
-                { id: 'state', label: 'State', key: 'state' as const },
-                { id: 'pincode', label: 'Zip Code', key: 'pincode' as const },
-              ].map(({ id, label, key }) => (
-                <div key={id}>
-                  <label className="pt-4 block text-sm text-ink-primary" htmlFor={id}>
-                    {label}
-                  </label>
-                  <div className="border-b border-border-warm pb-2">
-                    <input
-                      id={id}
-                      type="text"
-                      required
-                      value={address[key]}
-                      className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
-                      onChange={(e) => setAddress((a) => ({ ...a, [key]: e.target.value }))}
-                    />
+              {NEW_ADDRESS_FIELDS.map((field) => {
+                const error = addressErrors[field.name]?.message;
+                const errorId = `${field.name}-error`;
+                return (
+                  <div key={field.name}>
+                    <label className="pt-4 block text-sm text-ink-primary" htmlFor={field.name}>
+                      {field.label}
+                    </label>
+                    <div
+                      className={
+                        error ? 'border-b border-feedback-error pb-2' : 'border-b border-border-warm pb-2'
+                      }
+                    >
+                      <input
+                        id={field.name}
+                        type="text"
+                        autoComplete={field.autoComplete}
+                        inputMode={'inputMode' in field ? field.inputMode : undefined}
+                        maxLength={'maxLength' in field ? field.maxLength : undefined}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={error ? errorId : undefined}
+                        {...addressForm.register(field.name)}
+                        className="w-full bg-transparent py-1 text-sm text-ink-primary outline-none placeholder:text-ink-muted"
+                      />
+                    </div>
+                    <FieldError id={errorId} message={error} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

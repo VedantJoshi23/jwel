@@ -152,3 +152,106 @@ describe('CheckoutPage — saved addresses', () => {
     });
   });
 });
+
+describe('CheckoutPage — new address validation', () => {
+  beforeEach(() => {
+    listAddressesMock.mockReset();
+    createOrderMock.mockReset();
+    mockPush.mockReset();
+    listAddressesMock.mockResolvedValue([]);
+    createOrderMock.mockResolvedValue({
+      orderId: 'order-1',
+      totalMinorUnits: 250000,
+      checkout: { simulated: true },
+    } as never);
+    useAuthStore.getState().setSession('token-1', {
+      id: 'u1',
+      email: 'customer@example.com',
+      name: null,
+      role: 'CUSTOMER',
+    });
+  });
+  afterEach(() => useAuthStore.getState().logout());
+
+  const placeOrderButton = () => screen.getByRole('button', { name: /Place|Pay|Continue/i });
+
+  async function fillAddress(user: ReturnType<typeof userEvent.setup>, values: Record<string, string>) {
+    for (const [label, value] of Object.entries(values)) {
+      if (value) await user.type(await screen.findByLabelText(label), value);
+    }
+  }
+
+  it('names every missing field instead of placing the order', async () => {
+    const user = renderPage();
+    await screen.findByLabelText('Address');
+    await user.click(placeOrderButton());
+
+    expect(await screen.findByText('Enter your street address.')).toBeInTheDocument();
+    expect(screen.getByText('Enter your city.')).toBeInTheDocument();
+    expect(screen.getByText('Enter your state.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a valid 6-digit pincode.')).toBeInTheDocument();
+    expect(createOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a malformed pincode before the customer is charged', async () => {
+    const user = renderPage();
+    await fillAddress(user, { Address: '12 Test Lane', City: 'Ahmedabad', State: 'Gujarat', Pincode: '38001' });
+    await user.click(placeOrderButton());
+
+    expect(await screen.findByText('Enter a valid 6-digit pincode.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Pincode')).toHaveAttribute('aria-invalid', 'true');
+    expect(createOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a missing state — the gap eleven historical orders fell through', async () => {
+    const user = renderPage();
+    await fillAddress(user, { Address: '12 Test Lane', City: 'Ahmedabad', Pincode: '380001' });
+    await user.click(placeOrderButton());
+
+    expect(await screen.findByText('Enter your state.')).toBeInTheDocument();
+    expect(createOrderMock).not.toHaveBeenCalled();
+  });
+
+  it('places the order with a trimmed address once it is valid', async () => {
+    const user = renderPage();
+    await fillAddress(user, {
+      Address: '  12 Test Lane  ',
+      City: 'Ahmedabad',
+      State: 'Gujarat',
+      Pincode: '380001',
+    });
+    await user.click(placeOrderButton());
+
+    await waitFor(() => expect(createOrderMock).toHaveBeenCalled());
+    expect(createOrderMock.mock.calls[0][1].shippingAddress).toEqual({
+      line1: '12 Test Lane',
+      line2: undefined,
+      city: 'Ahmedabad',
+      state: 'Gujarat',
+      pincode: '380001',
+    });
+  });
+
+  it('labels the postcode "Pincode" and offers a numeric keypad and autofill', async () => {
+    renderPage();
+    const pincode = await screen.findByLabelText('Pincode');
+
+    expect(screen.queryByLabelText('Zip Code')).not.toBeInTheDocument();
+    expect(pincode).toHaveAttribute('inputmode', 'numeric');
+    expect(pincode).toHaveAttribute('maxlength', '6');
+    expect(pincode).toHaveAttribute('autocomplete', 'postal-code');
+    expect(screen.getByLabelText('Address')).toHaveAttribute('autocomplete', 'address-line1');
+  });
+
+  it('does not validate the blank manual form when a saved address is chosen', async () => {
+    // The manual fields are hidden and empty in this case; validating them
+    // anyway would block every returning customer from paying.
+    listAddressesMock.mockResolvedValue([makeAddress({ isDefault: true })]);
+    const user = renderPage();
+    await screen.findByRole('radio', { name: /221B Baker Street/ });
+    await user.click(placeOrderButton());
+
+    await waitFor(() => expect(createOrderMock).toHaveBeenCalled());
+    expect(screen.queryByText('Enter your street address.')).not.toBeInTheDocument();
+  });
+});

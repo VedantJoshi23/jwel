@@ -184,10 +184,10 @@ describe('ProfilePage — returns', () => {
   describe('the Addresses tab', () => {
     async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
       await openTab(user, 'Addresses');
-      await user.type(await screen.findByPlaceholderText('Address line 1'), '221B Baker Street');
-      await user.type(screen.getByPlaceholderText('City'), 'Mumbai');
-      await user.type(screen.getByPlaceholderText('State'), 'Maharashtra');
-      await user.type(screen.getByPlaceholderText('Pincode'), '400001');
+      await user.type(await screen.findByLabelText('Address'), '221B Baker Street');
+      await user.type(screen.getByLabelText('City'), 'Mumbai');
+      await user.type(screen.getByLabelText('State'), 'Maharashtra');
+      await user.type(screen.getByLabelText('Pincode'), '400001');
       await user.click(screen.getByRole('button', { name: 'Save address' }));
     }
 
@@ -220,6 +220,40 @@ describe('ProfilePage — returns', () => {
       await fillAndSubmit(user);
 
       expect(await screen.findByText(/221B Baker Street/)).toBeInTheDocument();
+    });
+
+    it('labels every field — they used to be placeholder-only, which vanish once typing starts', async () => {
+      const user = renderPage();
+      await openTab(user, 'Addresses');
+
+      for (const label of ['Address', 'City', 'State', 'Pincode']) {
+        expect(await screen.findByLabelText(label)).toBeInTheDocument();
+      }
+    });
+
+    it('refuses a pincode the API would now reject, and says so beside the field', async () => {
+      // The API used to accept any 4–10 characters here but stricter rules at
+      // checkout, so an address could be saved and then refused at payment.
+      const user = renderPage();
+      await openTab(user, 'Addresses');
+      await user.type(await screen.findByLabelText('Address'), '221B Baker Street');
+      await user.type(screen.getByLabelText('City'), 'Mumbai');
+      await user.type(screen.getByLabelText('State'), 'Maharashtra');
+      await user.type(screen.getByLabelText('Pincode'), 'ABCD');
+      await user.click(screen.getByRole('button', { name: 'Save address' }));
+
+      expect(await screen.findByText('Enter a valid 6-digit pincode.')).toBeInTheDocument();
+      expect(screen.getByLabelText('Pincode')).toHaveAttribute('aria-invalid', 'true');
+      expect(addAddressMock).not.toHaveBeenCalled();
+    });
+
+    it('clears the form after a successful save', async () => {
+      addAddressMock.mockResolvedValue({} as never);
+      const user = renderPage();
+      await fillAndSubmit(user);
+
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
+      expect(screen.getByLabelText('Address')).toHaveValue('');
     });
   });
 });

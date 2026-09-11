@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { LogOut } from 'lucide-react';
@@ -10,6 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/use-auth';
 import { listAddresses, addAddress } from '@/lib/api/users';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { FieldError } from '@/components/common/field-error';
+import { addressSchema, emptyAddress, type AddressFormValues } from '@/lib/validation/address';
 import { getOrders } from '@/lib/api/orders';
 import { getReturns } from '@/lib/api/returns';
 import { RequestReturnForm } from '@/components/profile/request-return-form';
@@ -216,20 +219,41 @@ function ReturnsTab({ token }: { token: string }) {
   );
 }
 
+const PROFILE_ADDRESS_FIELDS = [
+  { name: 'line1', label: 'Address', autoComplete: 'address-line1' },
+  { name: 'city', label: 'City', autoComplete: 'address-level2' },
+  { name: 'state', label: 'State', autoComplete: 'address-level1' },
+  { name: 'pincode', label: 'Pincode', autoComplete: 'postal-code', inputMode: 'numeric', maxLength: 6 },
+] as const;
+
 function AddressesTab({ token }: { token: string }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['addresses'],
     queryFn: () => listAddresses(token),
   });
-  const [form, setForm] = useState({ line1: '', city: '', state: '', pincode: '' });
-  const [submitting, setSubmitting] = useState(false);
+  // Same schema as checkout, because a saved address is copied into an order
+  // there. The API used to accept any 4–10 characters here and a stricter rule
+  // at checkout, so an address could be saved and then refused at payment.
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AddressFormValues>({ resolver: zodResolver(addressSchema), defaultValues: emptyAddress });
 
-  async function handleAdd(event: React.FormEvent) {
-    event.preventDefault();
-    setSubmitting(true);
+  async function onValid(values: AddressFormValues) {
     try {
-      await addAddress(token, { ...form, line2: null, country: 'IN', isDefault: false, label: null });
-      setForm({ line1: '', city: '', state: '', pincode: '' });
+      await addAddress(token, {
+        line1: values.line1,
+        city: values.city,
+        state: values.state,
+        pincode: values.pincode,
+        line2: null,
+        country: 'IN',
+        isDefault: false,
+        label: null,
+      });
+      reset(emptyAddress);
       await refetch();
       toast.success('Address saved');
     } catch (err) {
@@ -240,8 +264,6 @@ function AddressesTab({ token }: { token: string }) {
       // just once the POST resolved, so "saved" only says so once it's
       // visible in the list right below it.
       toast.error(err instanceof ApiError ? err.message : 'Could not save this address. Please try again.');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -259,33 +281,32 @@ function AddressesTab({ token }: { token: string }) {
         </ul>
       )}
 
-      <form onSubmit={handleAdd} className="grid max-w-sm gap-3">
+      {/* Visible labels: these fields used to have placeholders only, which
+          disappear as soon as someone starts typing (STD-ACCESSIBILITY). */}
+      <form onSubmit={handleSubmit(onValid)} noValidate className="grid max-w-sm gap-3">
         <p className="font-medium">Add a new address</p>
-        <Input
-          placeholder="Address line 1"
-          required
-          value={form.line1}
-          onChange={(e) => setForm({ ...form, line1: e.target.value })}
-        />
-        <Input
-          placeholder="City"
-          required
-          value={form.city}
-          onChange={(e) => setForm({ ...form, city: e.target.value })}
-        />
-        <Input
-          placeholder="State"
-          required
-          value={form.state}
-          onChange={(e) => setForm({ ...form, state: e.target.value })}
-        />
-        <Input
-          placeholder="Pincode"
-          required
-          value={form.pincode}
-          onChange={(e) => setForm({ ...form, pincode: e.target.value })}
-        />
-        <Button type="submit" variant="secondary" loading={submitting}>
+        {PROFILE_ADDRESS_FIELDS.map((field) => {
+          const id = `profile-address-${field.name}`;
+          const error = errors[field.name]?.message;
+          return (
+            <div key={field.name}>
+              <label htmlFor={id} className="mb-1 block text-sm text-ink-primary">
+                {field.label}
+              </label>
+              <Input
+                id={id}
+                autoComplete={field.autoComplete}
+                inputMode={'inputMode' in field ? field.inputMode : undefined}
+                maxLength={'maxLength' in field ? field.maxLength : undefined}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${id}-error` : undefined}
+                {...register(field.name)}
+              />
+              <FieldError id={`${id}-error`} message={error} />
+            </div>
+          );
+        })}
+        <Button type="submit" variant="secondary" loading={isSubmitting}>
           Save address
         </Button>
       </form>
