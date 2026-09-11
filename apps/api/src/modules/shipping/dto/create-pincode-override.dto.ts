@@ -1,14 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { PINCODE_MESSAGE, PINCODE_PATTERN } from '../../../common/validation/address';
 
-const PINCODE_PATTERN = /^[1-9][0-9]{5}$/;
 
 export class CreatePincodeOverrideDto {
   @ApiProperty({ description: '6-digit Indian PIN code, e.g. "400001"' })
-  @Matches(PINCODE_PATTERN, {
-    message: 'pincode must be a 6-digit Indian PIN code with no leading zero',
-  })
+  @Matches(PINCODE_PATTERN, { message: PINCODE_MESSAGE })
   pincode: string;
 
   @ApiPropertyOptional({
