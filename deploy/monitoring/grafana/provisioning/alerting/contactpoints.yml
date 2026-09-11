@@ -1,0 +1,20 @@
+apiVersion: 1
+
+# The two rules in rules.yml (jwel-security-alerts) have existed since M13
+# with no contact point wired to them — they fire into Grafana's UI and
+# nowhere else. This is the fix: route them to admin@, per the owner's
+# 2026-08-27 request that admin@ hear about Grafana/Metabase alerts.
+#
+# Requires GF_SMTP_* to be set (see .env.production's monitoring section) —
+# without SMTP configured, Grafana accepts this contact point but every send
+# fails silently into its own internal alert log, the same "provisioned but
+# inert" state the rules were already in.
+contactPoints:
+  - orgId: 1
+    name: admin-email
+    receivers:
+      - uid: admin-email-receiver
+        type: email
+        settings:
+          addresses: admin@elysianjewellers.com
+          singleEmail: true

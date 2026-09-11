@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Default route for every alert in this org — both rules in rules.yml fall
+# through to this since neither defines its own route. One contact point for
+# now (admin-email, contactpoints.yml); split by severity/folder later if a
+# second recipient is ever needed.
+policies:
+  - orgId: 1
+    receiver: admin-email
+    group_by: ['grafana_folder', 'alertname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
