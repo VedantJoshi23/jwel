@@ -43,3 +43,7 @@ prisma/.env
 # Playwright scratch output — was committed by mistake; regenerated every run.
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Design reference images (mockups/AI-generated art direction, not shipped
+# assets) — kept locally for tracing into real components, never committed.
+apps/web/public/reference/

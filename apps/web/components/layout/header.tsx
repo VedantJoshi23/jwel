@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useAnimate, useReducedMotion } from 'framer-motion';
+import { motion, useAnimate, useReducedMotion } from 'framer-motion';
 import { Heart, Menu, Search, ShoppingBag, User, X } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { useAuth } from '@/hooks/use-auth';
@@ -11,6 +11,7 @@ import { brand } from '@/lib/brand';
 import { springs } from '@/lib/motion';
 import { SearchSuggestions } from '@/components/common/search-suggestions';
 import { PincodeCheck } from '@/components/shipping/pincode-check';
+import { useAutoHideHeader } from '@/hooks/use-auto-hide-header';
 import type { Announcement } from '@/lib/api/types';
 
 /**
@@ -84,6 +85,19 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const autoHideRequested = useAutoHideHeader();
+  const prefersReducedMotion = useReducedMotion();
+  // Collapses while scrolling down and returns on scroll-up, pointer-near-top
+  // or keyboard focus (see the hook) — but never while a mobile panel that
+  // lives inside this header is open (sliding the menu the visitor just
+  // opened away from under them is exactly the disorientation the client's
+  // ask should not cause), and never under reduced motion, where a header
+  // that slides in and out on every scroll direction change is the kind of
+  // motion the preference exists to remove, not a case to cross-fade instead.
+  // `null` (preference not yet known, first client render) is treated the
+  // same as "reduced" so the header cannot hide before that is settled.
+  const collapsed =
+    autoHideRequested && !mobileMenuOpen && !mobileSearchOpen && prefersReducedMotion === false;
 
   // Close any open mobile panel on navigation, rather than leaving it open
   // over the new page.
@@ -132,7 +146,17 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
         which var it resolves to. `.material-chrome` supplies the background
         for both themes on its own.
       */}
-      <header className="material-chrome">
+      {/*
+        The translate lives on the sticky element itself — `position: sticky`
+        resolves at layout time and a `transform` is a paint-time effect, so
+        the two do not fight each other; the header keeps sticking to the top
+        of its scroll container at whatever offset the transform leaves it.
+      */}
+      <motion.header
+        className="material-chrome"
+        animate={{ y: collapsed ? '-100%' : '0%' }}
+        transition={springs.ui}
+      >
       <div className="flex items-center gap-4 border-b border-border px-4 py-4 md:gap-6 md:px-6 lg:gap-10 lg:px-site">
         {/* Hamburger — mobile/tablet only */}
         <button
@@ -305,7 +329,7 @@ export function SiteHeader({ announcement = null }: SiteHeaderProps) {
           </ul>
         </nav>
       )}
-      </header>
+      </motion.header>
     </>
   );
 }
