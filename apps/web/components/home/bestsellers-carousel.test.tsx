@@ -1,8 +1,33 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BestsellersCarousel } from './bestsellers-carousel';
 import type { Product } from '@/lib/api/types';
+
+// Every slide is a ProductCard, which since the quick-add/wishlist overlay
+// work now talks to the server through react-query (`useCart`,
+// `useWishlistToggle`) — a bare `render()` throws "No QueryClient set"
+// without a provider, and without mocking these the query would attempt a
+// real, unmockable network fetch in jsdom.
+vi.mock('@/lib/api/cart', () => ({
+  addCartLine: vi.fn(),
+  getCart: vi.fn().mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] }),
+}));
+vi.mock('@/lib/api/wishlist', () => ({
+  getWishlist: vi.fn().mockResolvedValue({ id: 'w1', shareToken: 'tok', items: [] }),
+  addToWishlist: vi.fn(),
+  removeFromWishlist: vi.fn(),
+}));
+
+function renderCarousel(products: Product[]) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <BestsellersCarousel products={products} />
+    </QueryClientProvider>,
+  );
+}
 
 function fakeProduct(overrides: Partial<Product> = {}): Product {
   return {
@@ -46,30 +71,33 @@ afterEach(() => {
 describe('BestsellersCarousel', () => {
   it('renders nothing when there are no products', () => {
     stubViewport(true);
-    const { container } = render(<BestsellersCarousel products={[]} />);
+    const { container } = renderCarousel([]);
     expect(container).toBeEmptyDOMElement();
   });
 
   it('offers no way back — a "previous" control does not exist', () => {
     stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
-    render(<BestsellersCarousel products={products} />);
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    renderCarousel(products);
+    expect(screen.queryByRole('button', { name: /previous/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show the next bestseller' })).toBeInTheDocument();
   });
 
   it('hides the advance control when every product already fits on screen (desktop, 2 visible)', () => {
     stubViewport(true);
     const products = [1, 2].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
-    render(<BestsellersCarousel products={products} />);
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    renderCarousel(products);
+    // Not "no buttons at all" — each slide is a ProductCard, which carries
+    // its own quick-add button now. Only the carousel's own advance control
+    // is what this test is about.
+    expect(screen.queryByRole('button', { name: 'Show the next bestseller' })).not.toBeInTheDocument();
   });
 
   it('advancing slides the track forward by one item (desktop, 2 visible)', async () => {
     stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     const user = userEvent.setup();
-    render(<BestsellersCarousel products={products} />);
+    renderCarousel(products);
 
     const track = screen.getByRole('button', { name: 'Show the next bestseller' })
       .previousElementSibling!.firstElementChild as HTMLElement;
@@ -83,7 +111,7 @@ describe('BestsellersCarousel', () => {
     stubViewport(true);
     const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
     const user = userEvent.setup();
-    render(<BestsellersCarousel products={products} />);
+    renderCarousel(products);
 
     const button = screen.getByRole('button', { name: 'Show the next bestseller' });
     const track = button.previousElementSibling!.firstElementChild as HTMLElement;
@@ -111,7 +139,7 @@ describe('BestsellersCarousel', () => {
     it('shows one card at a time, full width — the mobile bug this guards against', () => {
       stubViewport(false);
       const products = [1, 2].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
-      render(<BestsellersCarousel products={products} />);
+      renderCarousel(products);
 
       // 2 products no longer "already fit" once only 1 is visible — unlike
       // the desktop case above, the advance control must appear.
@@ -127,7 +155,7 @@ describe('BestsellersCarousel', () => {
       stubViewport(false);
       const products = [1, 2, 3].map((n) => fakeProduct({ id: `p${n}`, name: `Ring ${n}`, slug: `ring-${n}` }));
       const user = userEvent.setup();
-      render(<BestsellersCarousel products={products} />);
+      renderCarousel(products);
 
       const button = screen.getByRole('button', { name: 'Show the next bestseller' });
       const track = button.previousElementSibling!.firstElementChild as HTMLElement;
