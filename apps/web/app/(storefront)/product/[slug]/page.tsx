@@ -86,15 +86,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
       <div className="px-6 py-6 lg:px-8">
-        {/* Breadcrumb */}
-        <nav aria-label="Breadcrumb" className="mb-5 flex gap-2 text-sm text-ink-secondary">
-          <Link href="/">Home</Link>
-          <span aria-hidden="true">›</span>
-          <Link href={`/collections/${product.category.name.toLowerCase()}`}>
-            {product.category.name}
-          </Link>
-          <span aria-hidden="true">›</span>
-          <span className="text-ink-primary underline">{product.name}</span>
+        {/*
+          Breadcrumb. Three fixes, each found on the live site:
+
+          - The category link used `category.name.toLowerCase()`, so "Bracelets
+            & Bangles" became /collections/bracelets & bangles — an empty page
+            titled with the encoded URL. It now uses the category's slug.
+          - It was one row that could not wrap, so on a narrow phone every
+            crumb shrank and broke its own words: at 320px, "Bracelets", "&"
+            and "Bangles" stacked one per line. Crumbs now stay whole and the
+            trail wraps between them, separators trailing so a line never
+            starts with one. The product name truncates rather than wrapping —
+            it is the page heading directly below.
+          - The current page was underlined like a link but was not one. It is
+            now plain text marked aria-current.
+        */}
+        <nav aria-label="Breadcrumb" className="mb-5 text-sm text-ink-secondary">
+          <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <li className="flex items-center gap-2 whitespace-nowrap">
+              <Link href="/" className="hover:underline">
+                Home
+              </Link>
+              <span aria-hidden="true">›</span>
+            </li>
+            <li className="flex items-center gap-2 whitespace-nowrap">
+              <Link href={`/collections/${product.category.slug}`} className="hover:underline">
+                {product.category.name}
+              </Link>
+              <span aria-hidden="true">›</span>
+            </li>
+            <li className="min-w-0 max-w-full">
+              <span aria-current="page" className="block truncate text-ink-primary">
+                {product.name}
+              </span>
+            </li>
+          </ol>
         </nav>
 
         {/* 2-col product layout — switches to side-by-side at `md` (768px) so a

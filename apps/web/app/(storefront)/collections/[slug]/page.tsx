@@ -1,6 +1,8 @@
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { getProducts, type ProductSort } from '@/lib/api/products';
+import { notFound } from 'next/navigation';
+import { getCategoryBySlug, getProducts, type ProductSort } from '@/lib/api/products';
+import { ApiError } from '@/lib/api/client';
 import type { SizeScheme } from '@/lib/api/types';
 import { ProductCard } from '@/components/product/product-card';
 import { FilterForm } from '@/components/common/filter-form';
@@ -36,6 +38,27 @@ function titleCase(slug: string): string {
     .join(' ');
 }
 
+/**
+ * A slug that is neither route-owned nor a curated Collection must be a real
+ * Category, or the page is a 404. Previously any slug at all rendered: a
+ * mistyped or stale link — including the one the product breadcrumb built
+ * from a category's display name — showed an empty grid titled with the raw
+ * URL ("Bracelets%20%26%20…") and returned 200.
+ *
+ * Existence, not product count, is the test. A real category that happens to
+ * be empty is not "not found", and the product listing alone cannot tell the
+ * two apart. Any failure other than a 404 is rethrown for the error boundary:
+ * a 404 served because the API blipped would be a lie, and a cacheable one.
+ */
+async function loadCategory(slug: string) {
+  try {
+    return await getCategoryBySlug(slug);
+  } catch (error) {
+    if (error instanceof ApiError && error.statusCode === 404) notFound();
+    throw error;
+  }
+}
+
 export async function generateMetadata({ params }: CollectionPageProps): Promise<Metadata> {
   const { slug } = await params;
 
@@ -55,7 +78,7 @@ export async function generateMetadata({ params }: CollectionPageProps): Promise
     }
   }
 
-  const title = titleCase(slug);
+  const title = ROUTE_OWNED_SLUGS.includes(slug) ? titleCase(slug) : (await loadCategory(slug)).name;
   return {
     title,
     description: `Shop the ${title} collection at ${brand.name} — handcrafted jewellery for every occasion.`,
@@ -91,6 +114,8 @@ export default async function CollectionPage({ params, searchParams }: Collectio
     : ((resolvedSearchParams.sort as ProductSort) ?? 'newest');
   const category =
     resolvedParams.slug === 'all' || isCuratedView ? undefined : resolvedParams.slug;
+  // Same request as generateMetadata's, so Next serves it from one fetch.
+  const categoryRecord = category ? await loadCategory(category) : undefined;
 
   const priceMin = resolvedSearchParams.priceMin ? Number(resolvedSearchParams.priceMin) * 100 : undefined;
   const priceMax = resolvedSearchParams.priceMax ? Number(resolvedSearchParams.priceMax) * 100 : undefined;
@@ -133,7 +158,9 @@ export default async function CollectionPage({ params, searchParams }: Collectio
   }
   const sizeOptions = await safeGetSizes(sizeScheme);
 
-  const collectionTitle = titleCase(resolvedParams.slug);
+  // The category's own name — "Bracelets & Bangles" — rather than one rebuilt
+  // from its slug, which turned the ampersand into "And".
+  const collectionTitle = categoryRecord?.name ?? titleCase(resolvedParams.slug);
 
   return (
     <div>

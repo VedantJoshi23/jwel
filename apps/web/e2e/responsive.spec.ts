@@ -217,6 +217,46 @@ test.describe('Responsive — layout commitments', () => {
     expect(header).toBe(2560);
   });
 
+  for (const width of [320, 390]) {
+    test(`the product breadcrumb keeps each crumb whole at ${width}px`, async ({ page }) => {
+      // It was one row that could not wrap, so each crumb shrank and broke its
+      // own words — at 320px "Bracelets", "&" and "Bangles" stacked one per line.
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto('/collections/all', { waitUntil: 'domcontentloaded' });
+      const href = await page.locator('main a[href^="/product/"]').first().getAttribute('href');
+      await page.goto(href!, { waitUntil: 'domcontentloaded' });
+
+      const breadcrumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+      await expect(breadcrumb.locator('li')).toHaveCount(3);
+
+      // Long, realistic text is set deliberately. CI's seeded product is
+      // "Diamond Halo Ring" in "Rings" — short enough to fit even the old
+      // layout, which would make this pass whatever the CSS does. The longest
+      // real category name and a long real-world product name are what broke.
+      await breadcrumb.evaluate((nav) => {
+        nav.querySelectorAll('a')[1].textContent = 'Necklaces & Pendants';
+        nav.querySelector('[aria-current="page"]')!.textContent =
+          'Heart-Shaped Silver Bracelet For Women With Cubic Zirconia Stones';
+      });
+
+      const measured = await breadcrumb.evaluate((nav) => ({
+        heights: [...nav.querySelectorAll('li')].map((li) => Math.round(li.getBoundingClientRect().height)),
+        navHeight: Math.round(nav.getBoundingClientRect().height),
+        navRight: Math.round(nav.getBoundingClientRect().right),
+      }));
+
+      // One line of 14px text is ~20px; anything taller means a crumb broke
+      // its own words.
+      for (const h of measured.heights) {
+        expect(h, `crumb heights: ${measured.heights.join(', ')}px`).toBeLessThanOrEqual(24);
+      }
+      // The trail wraps between crumbs — at most two lines — and never runs
+      // past the screen edge.
+      expect(measured.navHeight).toBeLessThanOrEqual(52);
+      expect(measured.navRight).toBeLessThanOrEqual(width);
+    });
+  }
+
   for (const width of [1024, 1440, 1536]) {
     test(`at ${width}px nothing is capped — the reviewed design is untouched`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

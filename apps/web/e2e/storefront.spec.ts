@@ -68,3 +68,61 @@ test.describe('Storefront browsing', () => {
     await expect(page.getByText('Diamond Halo Ring')).toBeVisible();
   });
 });
+
+/**
+ * The product breadcrumb. Its category link used to be built from the
+ * category's display name — "Bracelets & Bangles" became
+ * /collections/bracelets & bangles — and the collection route rendered any
+ * slug at all, so the link opened an empty grid titled with the encoded URL,
+ * with a 200. Found on the live site, 2026-09-11.
+ *
+ * The category-link test uses a seeded product in a multi-word category (see
+ * seed.ts); the others take whichever product the catalogue lists first.
+ */
+test.describe('Product breadcrumb', () => {
+  async function openAProduct(page: import('@playwright/test').Page) {
+    await page.goto('/collections/all', { waitUntil: 'domcontentloaded' });
+    const href = await page.locator('main a[href^="/product/"]').first().getAttribute('href');
+    expect(href, 'the catalogue needs at least one product').toBeTruthy();
+    await page.goto(href!, { waitUntil: 'domcontentloaded' });
+    return page.getByRole('navigation', { name: 'Breadcrumb' });
+  }
+
+  test('the category link opens that category, with products in it', async ({ page }) => {
+    // A seeded product in a multi-word category on purpose: lower-casing
+    // "Rings" happens to produce its slug, so a single-word category would
+    // pass against the very bug this guards.
+    await page.goto('/product/pearl-drop-pendant', { waitUntil: 'domcontentloaded' });
+    const categoryLink = page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', {
+      name: 'Necklaces & Pendants',
+    });
+    const href = await categoryLink.getAttribute('href');
+
+    expect(href).toBe('/collections/necklaces-and-pendants');
+
+    // The link is a client-side navigation (an RSC fetch, not a document
+    // load), so the status is checked with a direct request.
+    expect((await page.request.get(href!)).status()).toBe(200);
+
+    await categoryLink.click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Necklaces & Pendants');
+    await expect(page.locator('main a[href="/product/pearl-drop-pendant"]').first()).toBeVisible();
+  });
+
+  test('the current page is marked as such, not dressed as a link', async ({ page }) => {
+    const breadcrumb = await openAProduct(page);
+    const current = breadcrumb.locator('[aria-current="page"]');
+
+    await expect(current).toHaveCount(1);
+    expect(await current.evaluate((el) => el.closest('a'))).toBeNull();
+    expect(await current.evaluate((el) => getComputedStyle(el).textDecorationLine)).toBe('none');
+  });
+
+  test('an unknown collection address is a real 404, not an empty page', async ({ page }) => {
+    const response = await page.goto('/collections/no-such-collection-anywhere', { waitUntil: 'domcontentloaded' });
+
+    expect(response?.status()).toBe(404);
+    await expect(page.getByRole('heading', { name: /page not found/i })).toBeVisible();
+  });
+});

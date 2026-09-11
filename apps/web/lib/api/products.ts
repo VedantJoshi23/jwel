@@ -1,5 +1,5 @@
 import { apiFetch, ApiError } from './client';
-import type { PaginatedResult, Product, Review } from './types';
+import type { Category, PaginatedResult, Product, Review } from './types';
 
 export type ProductSort = 'newest' | 'price_asc' | 'price_desc' | 'popularity';
 
@@ -43,6 +43,15 @@ export function getProducts(query: ProductQuery = {}, revalidate: number | false
 
 export function getProductBySlug(slug: string, revalidate: number | false = 60) {
   return apiFetch<Product>(`/products/${slug}`, { revalidate });
+}
+
+/**
+ * 404s for a category that does not exist. The product listing cannot tell
+ * an unknown category from an empty one — both return an empty page — so the
+ * collection route asks this before deciding to render or to 404.
+ */
+export function getCategoryBySlug(slug: string, revalidate: number | false = 300) {
+  return apiFetch<Category>(`/categories/${encodeURIComponent(slug)}`, { revalidate });
 }
 
 export function getProductReviews(productId: string, page = 1, pageSize = 10) {

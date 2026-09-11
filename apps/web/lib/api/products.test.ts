@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getProducts, getProductBySlug, getProductReviews, getMyReview } from './products';
+import { getCategoryBySlug, getProducts, getProductBySlug, getProductReviews, getMyReview } from './products';
+import { ApiError } from './client';
 
 describe('getProducts query string building', () => {
   beforeEach(() => {
@@ -84,5 +85,48 @@ describe('getMyReview — FEAT-PENDING-REVIEW-VISIBILITY', () => {
       vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 })),
     );
     await expect(getMyReview('bad-token', 'p1')).rejects.toThrow('Unauthorized');
+  });
+});
+
+describe('getCategoryBySlug', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('fetches the public category endpoint', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ id: 'c1', name: 'Bracelets & Bangles', slug: 'bracelets-and-bangles' }), { status: 200 }),
+      ),
+    );
+
+    const category = await getCategoryBySlug('bracelets-and-bangles');
+
+    expect((fetch as any).mock.calls[0][0]).toMatch(/\/categories\/bracelets-and-bangles$/);
+    expect(category.name).toBe('Bracelets & Bangles');
+  });
+
+  it('encodes the slug, so a malformed one reaches the API as one path segment', async () => {
+    // The old breadcrumb produced "bracelets & bangles". Sent raw, the space
+    // and ampersand would not survive as a single path segment.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })));
+
+    await getCategoryBySlug('bracelets & bangles');
+
+    expect((fetch as any).mock.calls[0][0]).toMatch(/\/categories\/bracelets%20%26%20bangles$/);
+  });
+
+  it('surfaces a 404 as an ApiError the collection page turns into notFound()', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: 'Category not found' }), { status: 404 })),
+    );
+
+    await expect(getCategoryBySlug('no-such-category')).rejects.toMatchObject({
+      name: 'ApiError',
+      statusCode: 404,
+    });
+    await expect(getCategoryBySlug('no-such-category')).rejects.toBeInstanceOf(ApiError);
   });
 });
