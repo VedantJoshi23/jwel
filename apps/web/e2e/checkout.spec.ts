@@ -110,7 +110,7 @@ async function placeOrder(page: Page): Promise<string> {
   await page.getByLabel('Address', { exact: true }).fill('12 Test Lane');
   await page.getByLabel('City').fill('Ahmedabad');
   await page.getByLabel('State').fill('Gujarat');
-  await page.getByLabel('Pincode').fill('380001');
+  await page.getByLabel('Pincode', { exact: true }).fill('380001');
   await page.getByRole('button', { name: 'Place Order' }).click();
 
   await expect(page).toHaveURL(/\/checkout\/confirmation\?orderId=/);

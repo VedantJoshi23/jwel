@@ -19,7 +19,7 @@ const check = vi.mocked(checkServiceability);
 async function submit(pincode: string) {
   const user = userEvent.setup();
   render(<PincodeCheck />);
-  await user.type(screen.getByLabelText('Pincode'), pincode);
+  await user.type(screen.getByLabelText('Check delivery to pincode'), pincode);
   await user.click(screen.getByRole('button', { name: 'Check' }));
   return user;
 }
@@ -102,12 +102,12 @@ describe('PincodeCheck', () => {
     const user = userEvent.setup();
     render(<PincodeCheck />);
 
-    await user.type(screen.getByLabelText('Pincode'), '123');
+    await user.type(screen.getByLabelText('Check delivery to pincode'), '123');
     await user.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText(/valid 6-digit pincode/)).toBeInTheDocument();
 
-    await user.clear(screen.getByLabelText('Pincode'));
-    await user.type(screen.getByLabelText('Pincode'), '400001');
+    await user.clear(screen.getByLabelText('Check delivery to pincode'));
+    await user.type(screen.getByLabelText('Check delivery to pincode'), '400001');
     await user.click(screen.getByRole('button', { name: 'Check' }));
 
     await waitFor(() => expect(screen.queryByText(/valid 6-digit pincode/)).not.toBeInTheDocument());
@@ -143,7 +143,7 @@ describe('PincodeCheck — floating (header) variant dismissal', () => {
         <p>Elsewhere on the page</p>
       </div>,
     );
-    await user.type(screen.getByLabelText('Pincode'), '400001');
+    await user.type(screen.getByLabelText('Check delivery to pincode'), '400001');
     await user.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText(/Delivers to 400001/)).toBeInTheDocument();
     return { user, ...view };
@@ -190,7 +190,7 @@ describe('PincodeCheck — floating (header) variant dismissal', () => {
   it('stays open when pressing inside it, so the pincode can be edited and re-checked', async () => {
     await openFloating();
 
-    fireEvent.pointerDown(screen.getByLabelText('Pincode'));
+    fireEvent.pointerDown(screen.getByLabelText('Check delivery to pincode'));
     fireEvent.pointerDown(screen.getByText(/Delivers to 400001/));
 
     expect(screen.getByText(/Delivers to 400001/)).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe('PincodeCheck — floating (header) variant dismissal', () => {
   it('also dismisses an error, not only a result', async () => {
     const user = userEvent.setup();
     render(<PincodeCheck floatingStatus />);
-    await user.type(screen.getByLabelText('Pincode'), '123');
+    await user.type(screen.getByLabelText('Check delivery to pincode'), '123');
     await user.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText(/valid 6-digit pincode/)).toBeInTheDocument();
 
@@ -238,7 +238,7 @@ describe('PincodeCheck — inline (product page) variant', () => {
         <p>Elsewhere on the page</p>
       </div>,
     );
-    await user.type(screen.getByLabelText('Pincode'), '400001');
+    await user.type(screen.getByLabelText('Check delivery to pincode'), '400001');
     await user.click(screen.getByRole('button', { name: 'Check' }));
     expect(await screen.findByText(/Delivers to 400001/)).toBeInTheDocument();
 

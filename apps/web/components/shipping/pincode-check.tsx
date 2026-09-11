@@ -115,8 +115,12 @@ export function PincodeCheck({
   return (
     <div ref={rootRef} className={cn(floatingStatus && 'relative', className)}>
       <form onSubmit={handleSubmit} className="flex max-w-sm gap-2">
+        {/* Not just "Pincode": the header renders this on every page, and
+            checkout's own address form has a field called Pincode. Two
+            inputs with the same name on one page leave a screen-reader user
+            unable to tell the delivery check from the shipping address. */}
         <label htmlFor={inputId} className="sr-only">
-          Pincode
+          Check delivery to pincode
         </label>
         <input
           id={inputId}
