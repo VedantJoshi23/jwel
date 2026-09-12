@@ -12,6 +12,7 @@ import { RecommendedRail } from '@/components/recommendations/personalized-rail'
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -41,9 +42,13 @@ export default async function HomePage() {
   // ProductCard itself uses when a product has no media) rather than a
   // hardcoded image reference, so this stays correct as the catalogue changes.
   const heroProduct = bestsellers[0] ?? newIn[0] ?? null;
-  const heroImageUrl = heroProduct
-    ? (heroProduct.media[0]?.url ?? getProductStockImage(heroProduct.id))
-    : null;
+  const heroMedia = heroProduct?.media[0]?.url ?? null;
+  const heroImageUrl = heroProduct ? (heroMedia ?? getProductStockImage(heroProduct.id)) : null;
+  // Only real catalogue shots are on white, which is the whole premise of
+  // blending the hero product into the room below. The stock fallback is
+  // lifestyle photography with its own background; multiplying that would
+  // smear a dark rectangle across the wall.
+  const heroBlendsIntoRoom = heroMedia !== null;
 
   return (
     <>
@@ -59,6 +64,17 @@ export default async function HomePage() {
         could not survive. The two columns swap sides as well — the painted
         niche sits on the right of the photograph, so the product goes there
         and the type takes the empty, evenly-lit wall on the left.
+
+        The painted arch is a right-edge accent, not a niche to stand
+        something in: measured on the source, its frame begins at 78.8% of
+        the image width and the dark opening at 82.2%, and the arch is cut
+        off by the right edge, so nothing can be centred inside it. A first
+        pass tried anyway and the product landed straddling the arch's gold
+        edge, sliced in half by it. Hence `lg:pr-[24%]` below — the content
+        column ends before 78.8% at every width, which holds because
+        `object-cover` on a container wider than the image's own 16:9
+        preserves horizontal fractions exactly (it crops top and bottom,
+        never the sides).
 
         No `BannerArt` here any more. That component exists to put a motif
         on a panel that would otherwise be flat colour; this photograph
@@ -76,7 +92,7 @@ export default async function HomePage() {
           aria-hidden="true"
           className="-z-10 object-cover object-[72%_center] lg:object-center"
         />
-        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1.1fr_minmax(0,0.9fr)] lg:gap-12 lg:px-12 lg:py-20">
+        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1.1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-12 lg:pr-[24%]">
           {/* Dark type on the room's pale wall, where it used to be white on
               a saturated gradient. The wall is the emptiest, most evenly lit
               part of the photograph, which is what lets this stay legible
@@ -98,23 +114,31 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Arch-topped so the product reads as standing in the niche
-              painted behind it rather than as a rectangle pasted over it. */}
+          {/* No frame around this. An arch-shaped border here competed with
+              the painted one a few percent to its right and read as a stray
+              rounded rectangle; the piece standing on the room's own floor
+              is what the reference photography actually does. */}
           {heroImageUrl ? (
             <div
-              className="relative mx-auto aspect-[4/5] w-full max-w-[300px] overflow-hidden rounded-t-full border border-white/70 lg:max-w-[340px]"
+              className={cn(
+                'relative mx-auto aspect-square w-full max-w-[280px] lg:max-w-[320px]',
+                // A lifestyle fallback keeps a frame, since it cannot blend
+                // away its own background the way a white studio shot can.
+                !heroBlendsIntoRoom && 'overflow-hidden rounded-m border border-white/70',
+              )}
               aria-hidden="true"
             >
               <Image
                 src={heroImageUrl}
                 alt=""
                 fill
-                sizes="(min-width: 1024px) 340px, 300px"
-                // Catalogue photography is shot on white. Multiplying drops
-                // that white into the room behind it so the piece stands in
-                // the niche instead of on a white card pasted over it; the
-                // border is what keeps the arch legible once the fill goes.
-                className="object-cover mix-blend-multiply"
+                sizes="(min-width: 1024px) 320px, 280px"
+                // Multiplying drops the studio white into the room behind it,
+                // so the piece stands in the room rather than on a white card
+                // pasted over it.
+                className={cn(
+                  heroBlendsIntoRoom ? 'object-contain mix-blend-multiply' : 'object-cover',
+                )}
               />
             </div>
           ) : (
