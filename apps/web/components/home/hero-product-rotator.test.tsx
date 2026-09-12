@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { HeroProductRotator } from './hero-product-rotator';
 
 // Motion allowed for this whole file. The reduced-motion case lives in
@@ -74,10 +75,14 @@ describe('HeroProductRotator', () => {
     expect(srcsOnScreen().length).toBe(1);
   });
 
-  it('renders the server order on first paint, so hydration matches', () => {
-    // The shuffle is deliberately deferred to an effect; asserting the very
-    // first commit here is what guards that it stays deferred.
-    render(<HeroProductRotator images={IMAGES} />);
-    expect(visibleSrc()).toContain('a.jpg');
+  it('renders the server order in its SSR output, so hydration matches', () => {
+    // The shuffle must stay in an effect: server-rendering a random order
+    // either mismatches hydration or, the page being cached, freezes one
+    // order into the cache for every visitor. Asserted against real server
+    // output rather than `render()`, which flushes effects and would have
+    // the shuffle already applied.
+    const html = renderToStaticMarkup(<HeroProductRotator images={IMAGES} />);
+    const firstSrc = html.match(/src="([^"]*)"/)?.[1] ?? '';
+    expect(firstSrc).toContain('a.jpg');
   });
 });

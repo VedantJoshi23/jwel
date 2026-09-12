@@ -80,13 +80,12 @@ export default async function HomePage() {
         and the type takes the empty, evenly-lit wall on the left.
 
         Measured on the source image, the painted arch's pale frame begins
-        at 78.8% of the width and its dark opening at 82.2%. `lg:pr-[18%]`
-        below lands the glass pane's right edge on that pale frame — close
-        enough that the arch's gold line reads *through* the glass, which is
-        the point — while the product inside, inset by the pane's padding,
-        stays over pale wall. That last part is a hard constraint, not
-        taste: the product is multiplied, and multiplying over the dark
-        opening would crush a silver ring to near-black.
+        at 78.8% of the width and its dark opening at 82.2%. `lg:pr-[8%]`
+        puts the glass pane over both, which only works because the pane
+        now carries its own ground — see the fill comment in
+        `HeroProductRotator`. At the earlier low fill the product multiplied
+        straight into the room and crossing that 82.2% boundary drew a seam
+        through the piece.
 
         A fraction rather than a max-width because the constraint is a
         fraction of the *image*: `object-cover` on a container wider than
@@ -115,7 +114,7 @@ export default async function HomePage() {
             ornaments end at 10.8% of the image width across the whole
             vertical band the text occupies — measured, and a fraction for
             the same reason `pr` is one: it holds at every width. */}
-        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-[13%] lg:pr-[18%]">
+        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-[13%] lg:pr-[8%]">
           {/* Dark type on the room's pale wall, where it used to be white on
               a saturated gradient. The wall is the emptiest, most evenly lit
               part of the photograph, which is what lets this stay legible

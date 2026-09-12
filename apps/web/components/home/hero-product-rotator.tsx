@@ -76,11 +76,15 @@ export function HeroProductRotator({ images, blend = true }: { images: string[];
         around it. `backdrop-filter` creates an isolated blend group, so a
         multiplying child inside this element would have nothing to blend
         against and the studio white would stay a solid white block.
+
+        Its fill is what lets the window sit anywhere along the wall. At a
+        low fill the product multiplied straight into the room, so crossing
+        the painted arch's dark opening put a seam through the piece and
+        crushed the half over the mauve. At 0.60 the pane is its own ground:
+        the room still reads through it, but the product no longer depends
+        on what happens to be behind that part of the photograph.
       */}
-      <div className="absolute inset-0 rounded-m border border-white/50 bg-white/25 shadow-card backdrop-blur-md" />
-      {/* The lighter top edge is the one cue that says the surface has a
-          thickness catching the light, not a flat wash of colour. */}
-      <div className="absolute inset-x-0 top-0 h-px rounded-t-m bg-white/70" />
+      <div className="absolute inset-0 rounded-m border border-white/50 bg-white/60 shadow-card backdrop-blur-md" />
 
       <div className="relative aspect-[4/5] p-4" aria-hidden="true">
         <div className="relative h-full w-full">

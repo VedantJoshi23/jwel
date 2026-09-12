@@ -35,6 +35,16 @@ import { cn } from '@/lib/utils';
 
 const MASK_SRC = '/images/motifs/mandala.webp';
 
+/**
+ * Seconds per revolution. This was 220s, which turned out to read as a still
+ * image: the motif has sixteen-fold symmetry, so it looks identical every
+ * 22.5° and the *apparent* cycle is a sixteenth of this number, not all of
+ * it. At 220s that apparent repeat was nearly fourteen seconds apart — too
+ * slow to register as motion at all. At 60s it is under four, which is
+ * visibly turning while still calm enough to sit behind heading text.
+ */
+const SPIN_SECONDS = 60;
+
 /** Warm gold, brighter toward the upper-left — the reference's own linework
  *  catches light unevenly rather than reading as a flat stencil colour. */
 const GOLD = 'linear-gradient(135deg, #f3d9a0 0%, #d9b766 45%, #a97f3f 100%)';
@@ -71,7 +81,7 @@ export function Mandala({ className, spin = true }: { className?: string; spin?:
     >
       {animate && (
         <style>{`
-          .${cls} { animation: mandala-spin 220s linear infinite; }
+          .${cls} { animation: mandala-spin ${SPIN_SECONDS}s linear infinite; }
           @keyframes mandala-spin { to { transform: rotate(360deg); } }
         `}</style>
       )}
