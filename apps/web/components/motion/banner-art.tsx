@@ -51,10 +51,22 @@ export function BannerArt({
               : 'linear-gradient(115deg, transparent 25%, rgba(31,20,32,0.05) 45%, transparent 62%)',
         }}
       />
+      {/*
+        ── Mandala strength lives here ──────────────────────────────────
+        These two `opacity-[…]` values are the dial for how strongly the
+        motif reads; raise them to make it more visible, lower them to push
+        it back. They are deliberately separate per tone because the blend
+        modes are not equally strong: `overlay` on the dark panel carries
+        further at the same opacity than `multiply` does on a pale one, so
+        the light panel needs the larger number to match it by eye.
+
+        The ceiling is contrast, not taste: heading text sits over this, so
+        anything high enough to compete with the type is too high.
+      */}
       <Mandala
         className={cn(
           'absolute top-1/2 h-[140%] w-[140%] -translate-y-1/2',
-          tone === 'dark' ? 'opacity-[0.16] mix-blend-overlay' : 'opacity-[0.22] mix-blend-multiply',
+          tone === 'dark' ? 'opacity-[0.28] mix-blend-overlay' : 'opacity-[0.38] mix-blend-multiply',
           side === 'right' ? 'right-[-30%]' : 'left-[-30%]',
         )}
       />

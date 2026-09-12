@@ -65,16 +65,19 @@ export default async function HomePage() {
         niche sits on the right of the photograph, so the product goes there
         and the type takes the empty, evenly-lit wall on the left.
 
-        The painted arch is a right-edge accent, not a niche to stand
-        something in: measured on the source, its frame begins at 78.8% of
-        the image width and the dark opening at 82.2%, and the arch is cut
-        off by the right edge, so nothing can be centred inside it. A first
-        pass tried anyway and the product landed straddling the arch's gold
-        edge, sliced in half by it. Hence `lg:pr-[24%]` below — the content
-        column ends before 78.8% at every width, which holds because
-        `object-cover` on a container wider than the image's own 16:9
-        preserves horizontal fractions exactly (it crops top and bottom,
-        never the sides).
+        Measured on the source image, the painted arch's pale frame begins
+        at 78.8% of the width and its dark opening at 82.2%. `lg:pr-[18%]`
+        below lands the glass pane's right edge on that pale frame — close
+        enough that the arch's gold line reads *through* the glass, which is
+        the point — while the product inside, inset by the pane's padding,
+        stays over pale wall. That last part is a hard constraint, not
+        taste: the product is multiplied, and multiplying over the dark
+        opening would crush a silver ring to near-black.
+
+        A fraction rather than a max-width because the constraint is a
+        fraction of the *image*: `object-cover` on a container wider than
+        the source's own 16:9 preserves horizontal fractions exactly (it
+        crops top and bottom, never the sides), so this holds at any width.
 
         No `BannerArt` here any more. That component exists to put a motif
         on a panel that would otherwise be flat colour; this photograph
@@ -92,7 +95,13 @@ export default async function HomePage() {
           aria-hidden="true"
           className="-z-10 object-cover object-[72%_center] lg:object-center"
         />
-        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1.1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-12 lg:pr-[24%]">
+        {/* `lg:pl-[13%]` keeps the heading clear of the hanging gold
+            ornaments painted down the left of the room, which ran straight
+            through "Elegance" when the text started at a fixed 48px. Those
+            ornaments end at 10.8% of the image width across the whole
+            vertical band the text occupies — measured, and a fraction for
+            the same reason `pr` is one: it holds at every width. */}
+        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-[13%] lg:pr-[18%]">
           {/* Dark type on the room's pale wall, where it used to be white on
               a saturated gradient. The wall is the emptiest, most evenly lit
               part of the photograph, which is what lets this stay legible
@@ -114,32 +123,50 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* No frame around this. An arch-shaped border here competed with
-              the painted one a few percent to its right and read as a stray
-              rounded rectangle; the piece standing on the room's own floor
-              is what the reference photography actually does. */}
+          {/*
+            A tinted glass window onto the piece, rather than the product
+            floating loose on the wall. Rectangular deliberately: the
+            arch-shaped frame tried earlier competed with the painted arch
+            a few percent to its right and read as a stray rounded shape,
+            where a plain upright window reads as a vitrine set into the
+            room. Same glass language as the rest of the chrome (ADR-0019),
+            but at a much lower fill than `--glass-panel-bg`'s 0.78 — this
+            one has a photograph behind it that is worth still seeing.
+          */}
           {heroImageUrl ? (
-            <div
-              className={cn(
-                'relative mx-auto aspect-square w-full max-w-[280px] lg:max-w-[320px]',
-                // A lifestyle fallback keeps a frame, since it cannot blend
-                // away its own background the way a white studio shot can.
-                !heroBlendsIntoRoom && 'overflow-hidden rounded-m border border-white/70',
-              )}
-              aria-hidden="true"
-            >
-              <Image
-                src={heroImageUrl}
-                alt=""
-                fill
-                sizes="(min-width: 1024px) 320px, 280px"
-                // Multiplying drops the studio white into the room behind it,
-                // so the piece stands in the room rather than on a white card
-                // pasted over it.
-                className={cn(
-                  heroBlendsIntoRoom ? 'object-contain mix-blend-multiply' : 'object-cover',
-                )}
-              />
+            <div className="relative mx-auto w-full max-w-[280px] lg:max-w-[320px]" aria-hidden="true">
+              {/*
+                The pane is a sibling *behind* the product, not a wrapper
+                around it. `backdrop-filter` creates an isolated blend group,
+                so a multiplying child inside this element would have had
+                nothing to blend against and the studio white stayed a solid
+                white block. Painted underneath instead, it is part of the
+                product's backdrop and the blend works.
+              */}
+              <div className="absolute inset-0 rounded-m border border-white/50 bg-white/25 shadow-card backdrop-blur-md" />
+              {/* The lighter top edge is the one cue that says the surface
+                  has a thickness catching the light, rather than being a
+                  flat wash of translucent colour. */}
+              <div className="absolute inset-x-0 top-0 h-px rounded-t-m bg-white/70" />
+              <div className="relative aspect-[4/5] p-4">
+                <div className="relative h-full w-full">
+                  <Image
+                    src={heroImageUrl}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 320px, 280px"
+                    // Multiplying drops the studio white into the glass, so
+                    // the piece sits behind the pane rather than on a white
+                    // card laid over it. A lifestyle fallback carries its own
+                    // background and cannot blend away, so it fills instead.
+                    className={cn(
+                      heroBlendsIntoRoom
+                        ? 'object-contain mix-blend-multiply'
+                        : 'rounded-s object-cover',
+                    )}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
             <span
