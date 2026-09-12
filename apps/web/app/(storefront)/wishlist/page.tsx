@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useCart } from '@/hooks/use-cart';
-import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 import { getWishlist, removeFromWishlist } from '@/lib/api/wishlist';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
@@ -40,7 +40,7 @@ export default function WishlistPage() {
   const { token, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { addLine } = useCart();
-  const addedToBag = useAddedToBagToast();
+  const openBag = useCartDrawer((s) => s.open);
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -75,7 +75,7 @@ export default function WishlistPage() {
     // Previously fire-and-forget with no feedback at all — the one surface on
     // this page with nothing telling the visitor their click did anything.
     void addLine({ variantId: item.variantId, quantity: 1 });
-    addedToBag(item.variant.product.name);
+    openBag();
   }
 
   return (

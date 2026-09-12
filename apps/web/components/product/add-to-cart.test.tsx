@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AddToCart } from './add-to-cart';
 import { addCartLine } from '@/lib/api/cart';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 
 // The bag is on the server now, so adding is an API call rather than a store
 // write. Mocked here because this file is about the control, not the cart.
@@ -91,18 +92,16 @@ describe('AddToCart', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
-  it('shows a toast naming the product and variant — the confirmation a visitor actually notices', async () => {
+  it('opens the bag drawer — the confirmation a visitor actually notices', async () => {
+    // Replaced the "Added to bag" toast: a toast cannot show what is now in
+    // the bag or offer both routes onward. What the drawer then renders is
+    // its own spec's concern; this asserts only that adding opens it.
+    useCartDrawer.setState({ isOpen: false });
     renderWithQuery(<AddToCart product={fakeProduct()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
     await act(async () => {});
 
-    // `objectContaining`, not an exact match: the toast also carries the
-    // "View bag" action and its longer duration, which are
-    // `useAddedToBagToast`'s concern and are asserted in its own spec.
-    expect(toastSuccess).toHaveBeenCalledWith(
-      'Added to bag',
-      expect.objectContaining({ description: 'Gold Ring — GOLD · 18K' }),
-    );
+    expect(useCartDrawer.getState().isOpen).toBe(true);
   });
 
   it('multiplies price by the selected quantity', () => {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
-import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/api/types';
@@ -28,7 +28,7 @@ export function CardQuickAdd({ product }: { product: Product }) {
   const [variantId, setVariantId] = useState(product.variants[0]?.id ?? '');
   const [confirmed, setConfirmed] = useState(false);
   const { addLine, isMutating } = useCart();
-  const addedToBag = useAddedToBagToast();
+  const openBag = useCartDrawer((s) => s.open);
 
   if (product.variants.length === 0) return null;
   const singleVariant = product.variants.length === 1 ? product.variants[0] : null;
@@ -39,11 +39,9 @@ export function CardQuickAdd({ product }: { product: Product }) {
     setPicking(false);
     setTimeout(() => setConfirmed(false), 2000);
 
-    const variant = product.variants.find((v) => v.id === id);
-    const descriptor = variant
-      ? [variant.metal.replace('_', ' '), variant.purity, variant.size].filter(Boolean).join(' · ')
-      : undefined;
-    addedToBag(descriptor ? `${product.name} — ${descriptor}` : product.name);
+    // The drawer lists what is in the bag, so the piece needs no describing
+    // from here.
+    openBag();
   }
 
   const barClassName = cn(

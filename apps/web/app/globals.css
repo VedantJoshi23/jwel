@@ -401,3 +401,22 @@
     padding-right: max(2rem, calc((100% - 96rem) / 2 + 2rem));
   }
 }
+
+/* ===========================================================================
+   Cart drawer motion
+   ---------------------------------------------------------------------------
+   Plain keyframes rather than Tailwind `theme.extend.keyframes`, because the
+   drawer is the only thing using them and the config has no animation block
+   to join. Applied through `motion-safe:` at the call site, so a visitor who
+   asked for reduced motion gets the drawer in place with no slide at all —
+   the panel still appears, it just does not travel.
+   =========================================================================== */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}

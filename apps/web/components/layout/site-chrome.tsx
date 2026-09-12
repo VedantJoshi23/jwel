@@ -2,6 +2,7 @@ import { SiteHeader } from './header';
 import { SiteFooter } from './footer';
 import { DemoModeBanner } from './demo-mode-banner';
 import { ClaimGuestCart } from '@/components/cart/claim-guest-cart';
+import { CartDrawer } from '@/components/cart/cart-drawer';
 
 export function SiteChrome({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +26,10 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <SiteFooter />
+      {/* Mounted once here, opened from wherever a line is added — see
+          `lib/cart-drawer-store.ts` for why that is a store and not props.
+          Renders only a closed Radix portal until then. */}
+      <CartDrawer />
     </>
   );
 }

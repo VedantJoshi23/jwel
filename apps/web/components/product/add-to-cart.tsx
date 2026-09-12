@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 import { VariantSelector } from './variant-selector';
 import { QuantityStepper } from './quantity-stepper';
 import { PriceTag } from './price-tag';
@@ -15,7 +15,7 @@ export function AddToCart({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const { addLine } = useCart();
-  const addedToBag = useAddedToBagToast();
+  const openBag = useCartDrawer((s) => s.open);
 
   const variant = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
   if (!variant) {
@@ -30,15 +30,12 @@ export function AddToCart({ product }: { product: Product }) {
     setConfirmed(true);
     setTimeout(() => setConfirmed(false), 3000);
 
-    // The inline `role="status"` line below is the accessible announcement
-    // and stays for that; this toast is the thing a sighted visitor actually
-    // notices — the line alone measured as easy to miss in practice. The
-    // header's cart-icon pop (components/layout/header.tsx) is the third leg,
-    // reacting to `itemCount` on its own rather than being triggered from here.
-    const descriptor = [variant.metal.replace('_', ' '), variant.purity, variant.size]
-      .filter(Boolean)
-      .join(' · ');
-    addedToBag(`${product.name} — ${descriptor}`);
+    // The inline `role="status"` line below stays as the quiet announcement
+    // for anyone who does not get the drawer's focus move. The header's
+    // cart-icon pop (components/layout/header.tsx) is the third leg,
+    // reacting to `itemCount` on its own rather than being triggered here.
+    // The drawer names the piece itself, so nothing is passed to it.
+    openBag();
   }
 
   return (

@@ -10,6 +10,8 @@ vi.mock('./footer', () => ({ SiteFooter: () => <footer>site footer</footer> }));
 // SiteChrome now mounts ClaimGuestCart, which hands a guest bag to the account
 // that just signed in. Stubbed: this file is about the chrome's structure.
 vi.mock('@/components/cart/claim-guest-cart', () => ({ ClaimGuestCart: () => null }));
+// Same reasoning: the bag drawer has its own spec and opens a cart query.
+vi.mock('@/components/cart/cart-drawer', () => ({ CartDrawer: () => null }));
 vi.mock('./demo-mode-banner', () => ({
   DemoModeBanner: () => <div data-testid="demo-banner">demo banner</div>,
 }));

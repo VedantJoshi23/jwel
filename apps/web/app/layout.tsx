@@ -53,21 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <QueryProvider>{children}</QueryProvider>
-        {/* sonner's default action button is near-black, which reads as a
-            foreign control on a brand-coloured toast — most visible on
-            "Added to bag", whose whole point is that the action gets
-            noticed and used. `!` because sonner ships its own styles for
-            this element at equal specificity. */}
-        <Toaster
-          position="top-center"
-          richColors
-          closeButton
-          toastOptions={{
-            classNames: {
-              actionButton: '!bg-brand-primary !text-white hover:!bg-brand-primary/90',
-            },
-          }}
-        />
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );

@@ -7,6 +7,7 @@ import WishlistPage from './page';
 import { useAuthStore } from '@/lib/auth-store';
 import { addCartLine } from '@/lib/api/cart';
 import { getWishlist, removeFromWishlist } from '@/lib/api/wishlist';
+import { useCartDrawer } from '@/lib/cart-drawer-store';
 
 vi.mock('@/lib/api/cart', () => ({
   getCart: vi.fn().mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] }),
@@ -94,13 +95,11 @@ describe('WishlistPage', () => {
     );
   });
 
-  it('confirms the move with a toast — previously this click gave no feedback at all', async () => {
+  it('opens the bag drawer — previously this click gave no feedback at all', async () => {
+    useCartDrawer.setState({ isOpen: false });
     const user = renderPage();
     await user.click(await screen.findByRole('button', { name: 'Add to bag' }));
-    expect(toastSuccess).toHaveBeenCalledWith(
-      'Added to bag',
-      expect.objectContaining({ description: 'Gold Ring' }),
-    );
+    expect(useCartDrawer.getState().isOpen).toBe(true);
   });
 
   it('removes a saved piece', async () => {
