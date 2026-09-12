@@ -21,6 +21,10 @@ vi.mock('@/lib/api/wishlist', () => ({
   removeFromWishlist: vi.fn(),
   addToWishlist: vi.fn(),
 }));
+// `useAddedToBagToast` (reached via the add-to-bag path) calls `useRouter`
+// to offer "View bag", and the app router is not mounted under jsdom.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const get = vi.mocked(getWishlist);
@@ -93,7 +97,10 @@ describe('WishlistPage', () => {
   it('confirms the move with a toast — previously this click gave no feedback at all', async () => {
     const user = renderPage();
     await user.click(await screen.findByRole('button', { name: 'Add to bag' }));
-    expect(toastSuccess).toHaveBeenCalledWith('Added to bag', { description: 'Gold Ring' });
+    expect(toastSuccess).toHaveBeenCalledWith(
+      'Added to bag',
+      expect.objectContaining({ description: 'Gold Ring' }),
+    );
   });
 
   it('removes a saved piece', async () => {

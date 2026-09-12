@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { useCart } from '@/hooks/use-cart';
+import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
 import { VariantSelector } from './variant-selector';
 import { QuantityStepper } from './quantity-stepper';
 import { PriceTag } from './price-tag';
@@ -15,6 +15,7 @@ export function AddToCart({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const { addLine } = useCart();
+  const addedToBag = useAddedToBagToast();
 
   const variant = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
   if (!variant) {
@@ -37,7 +38,7 @@ export function AddToCart({ product }: { product: Product }) {
     const descriptor = [variant.metal.replace('_', ' '), variant.purity, variant.size]
       .filter(Boolean)
       .join(' · ');
-    toast.success('Added to bag', { description: `${product.name} — ${descriptor}` });
+    addedToBag(`${product.name} — ${descriptor}`);
   }
 
   return (

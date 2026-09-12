@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { Check } from 'lucide-react';
-import { toast } from 'sonner';
 import { useCart } from '@/hooks/use-cart';
+import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/api/types';
@@ -28,6 +28,7 @@ export function CardQuickAdd({ product }: { product: Product }) {
   const [variantId, setVariantId] = useState(product.variants[0]?.id ?? '');
   const [confirmed, setConfirmed] = useState(false);
   const { addLine, isMutating } = useCart();
+  const addedToBag = useAddedToBagToast();
 
   if (product.variants.length === 0) return null;
   const singleVariant = product.variants.length === 1 ? product.variants[0] : null;
@@ -42,9 +43,7 @@ export function CardQuickAdd({ product }: { product: Product }) {
     const descriptor = variant
       ? [variant.metal.replace('_', ' '), variant.purity, variant.size].filter(Boolean).join(' · ')
       : undefined;
-    toast.success('Added to bag', {
-      description: descriptor ? `${product.name} — ${descriptor}` : product.name,
-    });
+    addedToBag(descriptor ? `${product.name} — ${descriptor}` : product.name);
   }
 
   const barClassName = cn(

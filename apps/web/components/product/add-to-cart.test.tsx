@@ -16,6 +16,10 @@ vi.mock('@/lib/api/cart', () => ({
   claimGuestCart: vi.fn(),
 }));
 
+// `useAddedToBagToast` (reached via the add-to-bag path) calls `useRouter`
+// to offer "View bag", and the app router is not mounted under jsdom.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const add = vi.mocked(addCartLine);
@@ -92,9 +96,13 @@ describe('AddToCart', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add to bag' }));
     await act(async () => {});
 
-    expect(toastSuccess).toHaveBeenCalledWith('Added to bag', {
-      description: 'Gold Ring — GOLD · 18K',
-    });
+    // `objectContaining`, not an exact match: the toast also carries the
+    // "View bag" action and its longer duration, which are
+    // `useAddedToBagToast`'s concern and are asserted in its own spec.
+    expect(toastSuccess).toHaveBeenCalledWith(
+      'Added to bag',
+      expect.objectContaining({ description: 'Gold Ring — GOLD · 18K' }),
+    );
   });
 
   it('multiplies price by the selected quantity', () => {

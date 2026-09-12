@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
 import { PageHeader } from '@/components/common/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useCart } from '@/hooks/use-cart';
+import { useAddedToBagToast } from '@/hooks/use-added-to-bag-toast';
 import { getWishlist, removeFromWishlist } from '@/lib/api/wishlist';
 import { formatMinorUnits } from '@/lib/money';
 import { brand } from '@/lib/brand';
@@ -40,6 +40,7 @@ export default function WishlistPage() {
   const { token, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const { addLine } = useCart();
+  const addedToBag = useAddedToBagToast();
   const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -74,7 +75,7 @@ export default function WishlistPage() {
     // Previously fire-and-forget with no feedback at all — the one surface on
     // this page with nothing telling the visitor their click did anything.
     void addLine({ variantId: item.variantId, quantity: 1 });
-    toast.success('Added to bag', { description: item.variant.product.name });
+    addedToBag(item.variant.product.name);
   }
 
   return (

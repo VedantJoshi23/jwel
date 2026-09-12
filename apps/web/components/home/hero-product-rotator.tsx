@@ -70,7 +70,7 @@ export function HeroProductRotator({ images, blend = true }: { images: string[];
   }, [rotating, order.length]);
 
   return (
-    <div className="relative mx-auto w-full max-w-[280px] lg:max-w-[320px]">
+    <div className="group relative mx-auto w-full max-w-[280px] lg:max-w-[320px]">
       {/*
         The pane is a sibling painted *behind* the product, not a wrapper
         around it. `backdrop-filter` creates an isolated blend group, so a
@@ -121,7 +121,14 @@ export function HeroProductRotator({ images, blend = true }: { images: string[];
           onClick={() => setPaused((p) => !p)}
           aria-pressed={paused}
           aria-label={paused ? 'Resume the product slideshow' : 'Pause the product slideshow'}
-          className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface/70 text-ink-secondary backdrop-blur transition-colors hover:bg-surface hover:text-ink-primary"
+          // Out of sight until the window is hovered or the control itself
+          // takes keyboard focus — the default view is meant to be nothing
+          // but the piece. It cannot be removed outright: WCAG 2.2.2 is
+          // Level A and requires *a* mechanism to stop content that
+          // animates automatically past five seconds. Revealing on
+          // hover/focus keeps that mechanism reachable by both pointer and
+          // keyboard while leaving the resting state clean.
+          className="absolute bottom-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface/70 text-ink-secondary opacity-0 backdrop-blur transition-opacity hover:bg-surface hover:text-ink-primary focus-visible:opacity-100 group-hover:opacity-100"
         >
           {paused ? (
             <Play className="h-3.5 w-3.5" aria-hidden="true" />

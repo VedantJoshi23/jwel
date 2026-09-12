@@ -143,9 +143,23 @@
     outline-offset: 2px;
   }
 
+  /* Hidden until focused (WCAG 2.4.1, Bypass Blocks). It has to overlap the
+     sticky header — that is what being the first focusable thing on the page
+     means — so the job is to make the overlap read as a deliberate floating
+     control rather than a rendering fault. Two changes do that: it is
+     centred, so it covers the header's neutral middle instead of clipping
+     the wordmark and leaving the logo's gold border poking out beneath it;
+     and it carries a shadow and a ring, so it reads as sitting *above* the
+     bar rather than tangled in it.
+
+     `fixed`, not `absolute`: this element lives at the top of `<body>`, so
+     when the page is scrolled an absolutely-positioned skip link appears at
+     the top of the *document* — off screen, focused, and invisible. */
   .skip-link {
-    @apply sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-4 focus:left-4
-      focus:rounded-sm focus:bg-brand-primary focus:px-4 focus:py-2 focus:text-white;
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-1/2 focus:top-3 focus:z-[60]
+      focus:-translate-x-1/2 focus:whitespace-nowrap focus:rounded-sm focus:bg-brand-primary
+      focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white
+      focus:shadow-glass focus:ring-2 focus:ring-white/80;
   }
 }
 

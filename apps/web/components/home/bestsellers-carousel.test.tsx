@@ -14,6 +14,10 @@ vi.mock('@/lib/api/cart', () => ({
   addCartLine: vi.fn(),
   getCart: vi.fn().mockResolvedValue({ id: 'c1', userId: null, guestToken: 'g', items: [] }),
 }));
+// `useAddedToBagToast` (reached via the add-to-bag path) calls `useRouter`
+// to offer "View bag", and the app router is not mounted under jsdom.
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock('@/lib/api/wishlist', () => ({
   getWishlist: vi.fn().mockResolvedValue({ id: 'w1', shareToken: 'tok', items: [] }),
   addToWishlist: vi.fn(),
