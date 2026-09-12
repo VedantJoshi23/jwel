@@ -72,16 +72,21 @@ export function getProductStockImage(seed: string): string {
  * (the composite's own baked-in "Rings"/"Earrings"/… title text is
  * discarded; the tile renders the real category name as ordinary HTML
  * beside the crop, same relationship the removed placeholder comment
- * describes). A fourth crop, `bracelets-and-bangles.webp`, is exported
- * alongside these three for the same source/settings consistency, but is
- * deliberately not listed below — `brand.homeCategories` has only three
- * entries today, and adding a featured category is a catalogue decision,
- * not an imagery one (see `ADR-0026`'s Revisit Criteria).
+ * describes). All four of the composite's tiles are mapped, matching
+ * `brand.homeCategories` — the fourth was held back on the first pass while
+ * featuring a fourth category was still an open catalogue question, and was
+ * added when that resolved (`ADR-0026`, amended 2026-09-12).
  * `getHomeCategoryTileImage` returns `null` for anything not mapped here
- * rather than silently reusing one of these three for an unrelated
+ * rather than silently reusing one of these four for an unrelated
  * category, which would be its own small Law 1 problem.
  *
- * Revisit per `ADR-0026`: delete this block and its three files under
+ * Each crop is the interior of one tile of the source composite, taken
+ * inside its rounded corners (the first pass sliced the composite into
+ * plain quadrants, which left a wedge of the page background and a rounded
+ * corner baked into the right-hand crops) and squared, which is the framing
+ * that keeps the piece itself large in a four-across row.
+ *
+ * Revisit per `ADR-0026`: delete this block and its four files under
  * `public/images/categories/` once real category photography exists —
  * do not keep it as a fallback layered under real photos.
  */
@@ -89,6 +94,7 @@ const homeCategoryTileImages: Record<string, string> = {
   rings: '/images/categories/rings.webp',
   earrings: '/images/categories/earrings.webp',
   'necklaces-and-pendants': '/images/categories/necklaces-and-pendants.webp',
+  'bracelets-and-bangles': '/images/categories/bracelets-and-bangles.webp',
 };
 
 export function getHomeCategoryTileImage(slug: string): string | null {

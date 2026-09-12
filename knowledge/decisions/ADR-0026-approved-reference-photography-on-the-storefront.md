@@ -8,6 +8,7 @@ reviewers:
   - Vedant
 created: 2026-09-12
 updated: 2026-09-12
+amended: 2026-09-12
 milestone: M6
 category: Decisions
 priority: Medium
@@ -15,7 +16,8 @@ depends_on: []
 required_by: []
 related_documents:
   - FEAT-CLAIMS-GATE
-related_decisions: []
+related_decisions:
+  - ADR-0027
 tags:
   - decision
   - frontend
@@ -32,8 +34,8 @@ complexity: Low
 The client supplied six AI-generated reference images for the storefront
 polish pass covering header behaviour, lazy loading, card animation and
 "traditional Indian artistic design" banners (that last item's own decision
-is `ADR-0025`'s sibling work, not this one — the mandala and banner-art
-components it produced are unaffected by this ADR). Three of the six show
+is `ADR-0027`, not this one — the mandala and banner-art components it
+produced are unaffected by this ADR). Three of the six show
 staged jewellery photography that does not correspond to any real product in
 the catalogue: a four-tile category composite (rings, earrings, bracelets and
 bangles, necklaces and pendants), a grouped product display on stone
@@ -67,8 +69,8 @@ model shot, the one closest to a direct product claim.
 
 ## Decision
 
-**Approved for use:** the mandala (already built, `ADR-0025`'s companion
-work), the empty arched-room set shot, the four-tile category composite, and
+**Approved for use:** the mandala (already built, `ADR-0027`), the empty
+arched-room set shot, the four-tile category composite, and
 the product-grouping display.
 
 **Withheld:** the model wearing the full set. Not used anywhere.
@@ -101,15 +103,61 @@ is out of scope here. The fourth crop is exported to
 settings — but `getHomeCategoryTileImage` deliberately does not map it, so
 it ships in the repo without being reachable from any page today.
 
+## Amendment — 2026-09-12
+
+Recorded as an amendment rather than an edit to the Decision above, so the
+original scope stays readable (Law 2).
+
+**The fourth category tile is now in scope, and shipped.** The Decision
+above held `Bracelets & Bangles` back on the grounds that featuring a fourth
+category was "a catalogue-curation decision, not an imagery one". The owner
+made that catalogue decision: all four of `brand.productTypes` are now
+featured, and `homeCategoryTileImages` maps all four crops. This is the
+Revisit Criterion below firing as written, not a reversal.
+
+The reason given for it was that three-of-four made the omitted category
+look discontinued rather than merely unfeatured — a Law 1 flavour of the
+same concern this ADR is about, pointing the other way: the omission was
+itself saying something untrue about the catalogue.
+
+**The crops were re-cut.** The first export sliced the source composite into
+plain quadrants, which is not where the tile boundaries are: the right-hand
+crops carried a wedge of the composite's page background and one rounded
+tile corner into the tile, visible on the live page as a pale border down
+the right edge of the Earrings and Necklaces tiles. They are now cut from
+the measured tile interiors, inside the corner radius, and **squared** —
+square is the framing in which the piece itself is largest, where the
+previous letterboxed tile spent most of its height on backdrop.
+
+**A known gap this makes more visible, unchanged by it.** Every category
+tile links to `/collections/<slug>`, and against the deployed API all four
+of those slugs 404 today — the deployed catalogue has the curated
+collections (`all`, `new-arrivals`, `bestsellers`) but not the top-level
+categories. This predates this ADR and already affected the original three
+tiles; it resolves correctly against a properly seeded stack, so it is a
+data gap in the deployed environment rather than a defect in this work. It
+is recorded here because giving those four tiles prominent photography makes
+a dead link more inviting to click, not less.
+
+**Related drift, not fixed here.** `apps/api/src/prisma/seed-demo.ts`
+declares this category as `Bracelets & Anklets` / `bracelets-and-anklets`,
+while `brand.productTypes` and the seeded database both say
+`Bracelets & Bangles` / `bracelets-and-bangles` — despite that file's own
+comment claiming it mirrors `brand.ts` exactly. Left alone deliberately:
+which name is correct is the client's call, not ours to pick by fiat.
+
+
 ## Consequences
 
 **Positive**
 
 - Fills a real, previously-acknowledged gap (the category section, blank
   since the comment above was written) without waiting on a real photoshoot.
-- Costs almost nothing: six WEBP exports, 196KB combined (measured), against
-  six source PNGs at 1.2–1.9MB each that never ship to a browser at all —
-  they stay local reference material.
+- Costs almost nothing: seven WEBP exports, 220KB combined (measured, after
+  the amendment's re-cut and including the mandala mask of `ADR-0027`),
+  against six source PNGs at 1.2–1.9MB each that never ship to a browser at
+  all — they stay local reference material. The mandala mask is the largest
+  single item at 38KB; no page loads all seven.
 - The client's own approval is the record that resolves the Law 1 tension,
   rather than a unilateral call either way.
 
@@ -142,10 +190,14 @@ it ships in the repo without being reachable from any page today.
 - **When real category photography exists**, the tiles in
   `app/(storefront)/page.tsx` swap to it and these crops are deleted from
   `public/images/categories/`, not kept as a secondary fallback.
-- **If a "Bracelets & Bangles" category is ever added to `homeCategories`**,
-  add its slug to `homeCategoryTileImages` in `lib/jewellery-images.ts` — the
-  exported WEBP already sits alongside the other three, only the mapping is
-  missing.
+- ~~**If a "Bracelets & Bangles" category is ever added to
+  `homeCategories`**, add its slug to `homeCategoryTileImages`.~~ Fired
+  2026-09-12 — see the Amendment above.
+- **If a fifth category is ever added**, it has no approved crop: the source
+  composite has exactly four. `getHomeCategoryTileImage` returns `null` and
+  the tile falls back to plain colour, which is one blank tile in an
+  otherwise photographic row — visible, and deliberately not papered over by
+  reusing one of the four.
 - **If the model shot is ever separately approved**, it needs its own
   decision, not an amendment to this one — the client withheld it
   specifically, and a future approval should be able to point at that fact
@@ -153,9 +205,10 @@ it ships in the repo without being reachable from any page today.
 
 ## Cross References
 
-- `ADR-0025` — the mandala and banner-art work from the same reference set;
+- `ADR-0027` — the mandala and banner-art work from the same reference set;
   unaffected by this decision, which concerns only the jewellery/lifestyle
-  images.
+  images. (First written here as `ADR-0025`, which is a different decision
+  entirely — a wrong number, corrected rather than left to mislead.)
 - `FEAT-CLAIMS-GATE` — the copy-side version of the same Law 1 concern this
   ADR addresses for imagery.
 - The category-section code comment in `app/(storefront)/page.tsx`, quoted

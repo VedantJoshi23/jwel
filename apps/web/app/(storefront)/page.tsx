@@ -11,7 +11,6 @@ import { brand } from '@/lib/brand';
 import { RecommendedRail } from '@/components/recommendations/personalized-rail';
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
-import { BannerArt } from '@/components/motion/banner-art';
 import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
@@ -23,6 +22,11 @@ export const metadata: Metadata = {
 // section is a curated highlight strip, not a full listing, so this bounds
 // it even if the fetch below is ever changed to ask for more.
 const MAX_BESTSELLERS = 10;
+
+// Client-approved reference photography per ADR-0026 — the empty arched
+// room. Shared with the About page hero, which is the same shot; it carries
+// no jewellery, so it makes no claim about the catalogue.
+const HERO_BACKDROP = '/images/banners/arched-room.webp';
 
 export default async function HomePage() {
   const [newIn, bestsellers, banners] = await Promise.all([
@@ -43,37 +47,84 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ── Hero — Lavender Rose: gradient type panel + real product photo ── */}
-      <section className="grid bg-surface-alt lg:grid-cols-2">
-        <div className="relative min-h-[280px] bg-surface-band lg:min-h-[380px]" aria-hidden="true">
-          {heroImageUrl ? (
-            <Image src={heroImageUrl} alt="" fill sizes="(min-width: 1024px) 50vw, 100vw" className="object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <span className="font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl">{brand.name}</span>
+      {/*
+        ── Hero ──────────────────────────────────────────────────────────
+        The client's arched-room set photograph (ADR-0026), spanning the
+        whole section with the type and the product both stacked on top of
+        it, replacing the split white-panel / gradient-panel pair.
+
+        Spanning rather than filling one half is the point: the reference is
+        a single continuous room with its light falling across the whole
+        frame, so cutting it at the column boundary was the one thing it
+        could not survive. The two columns swap sides as well — the painted
+        niche sits on the right of the photograph, so the product goes there
+        and the type takes the empty, evenly-lit wall on the left.
+
+        No `BannerArt` here any more. That component exists to put a motif
+        on a panel that would otherwise be flat colour; this photograph
+        brings its own gold linework in the arch, and a second, rotating
+        mandala on top of it read as clutter. The animated one stays on the
+        collection banners, which are still flat panels.
+      */}
+      <section className="relative isolate overflow-hidden bg-surface-alt">
+        <Image
+          src={HERO_BACKDROP}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          aria-hidden="true"
+          className="-z-10 object-cover object-[72%_center] lg:object-center"
+        />
+        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1.1fr_minmax(0,0.9fr)] lg:gap-12 lg:px-12 lg:py-20">
+          {/* Dark type on the room's pale wall, where it used to be white on
+              a saturated gradient. The wall is the emptiest, most evenly lit
+              part of the photograph, which is what lets this stay legible
+              without laying a scrim over the image. */}
+          <div className="flex flex-col gap-5">
+            <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary lg:text-5xl">
+              {hero.headline || brand.tagline}
+            </h1>
+            {hero.subtext && (
+              <p className="max-w-md text-sm leading-relaxed text-ink-secondary">{hero.subtext}</p>
+            )}
+            <div className="flex flex-wrap gap-3.5 pt-1">
+              <Button asChild size="l">
+                <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
+              </Button>
+              <Button asChild size="l" variant="secondary" className="bg-surface/70 backdrop-blur">
+                <Link href={hero.secondaryCtaHref}>{hero.secondaryCta}</Link>
+              </Button>
             </div>
-          )}
-        </div>
-        <div className="band-gradient relative flex flex-col justify-center gap-5 overflow-hidden px-6 py-14 text-white lg:px-12">
-          {/* Traditional-motif accent per the client's ask, replacing what
-              was a flat gradient with nothing on it. `-z-0`/`relative z-10`
-              below is what keeps this behind the heading rather than over
-              it — an absolutely positioned sibling paints after normal-flow
-              content by default, so the text needs its own stacking context
-              to stay on top. */}
-          <BannerArt side="right" />
-          <h1 className="relative z-10 whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight lg:text-5xl">
-            {hero.headline || brand.tagline}
-          </h1>
-          {hero.subtext && <p className="relative z-10 max-w-md text-sm leading-relaxed">{hero.subtext}</p>}
-          <div className="relative z-10 flex flex-wrap gap-3.5 pt-1">
-            <Button asChild size="l" className="bg-brand-accent text-ink-primary hover:bg-brand-accent/90">
-              <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
-            </Button>
-            <Button asChild size="l" variant="secondary" className="border-white text-white hover:bg-white/10">
-              <Link href={hero.secondaryCtaHref}>{hero.secondaryCta}</Link>
-            </Button>
           </div>
+
+          {/* Arch-topped so the product reads as standing in the niche
+              painted behind it rather than as a rectangle pasted over it. */}
+          {heroImageUrl ? (
+            <div
+              className="relative mx-auto aspect-[4/5] w-full max-w-[300px] overflow-hidden rounded-t-full border border-white/70 lg:max-w-[340px]"
+              aria-hidden="true"
+            >
+              <Image
+                src={heroImageUrl}
+                alt=""
+                fill
+                sizes="(min-width: 1024px) 340px, 300px"
+                // Catalogue photography is shot on white. Multiplying drops
+                // that white into the room behind it so the piece stands in
+                // the niche instead of on a white card pasted over it; the
+                // border is what keeps the arch legible once the fill goes.
+                className="object-cover mix-blend-multiply"
+              />
+            </div>
+          ) : (
+            <span
+              className="text-center font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl"
+              aria-hidden="true"
+            >
+              {brand.name}
+            </span>
+          )}
         </div>
       </section>
 
@@ -91,7 +142,11 @@ export default async function HomePage() {
           removed from here rather than duplicated. */}
 
       {/* ── Category trio ─────────────────────────────────────────────────── */}
-      <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
+      {/* Two-up on a phone, four-up from `sm` — every category the catalogue
+          has, not a curated three. Showing three of four made the omitted
+          one read as discontinued rather than merely unfeatured, and the
+          row divides evenly either way. */}
+      <RevealSection className="grid grid-cols-2 gap-5 px-6 py-11 sm:grid-cols-4 sm:gap-6 lg:px-8">
         {brand.homeCategories.map((category) => {
           const tileImage = getHomeCategoryTileImage(category.slug);
           return (
@@ -100,11 +155,13 @@ export default async function HomePage() {
                   to exclude its own baked-in title text — the real category
                   name below is what a screen reader and search engine see,
                   same navigational role (not product-card imagery, DESIGN.md
-                  §2.4) the removed placeholder tile had. Falls back to the
-                  plain tile for any category this specific set of three
-                  doesn't cover, rather than reusing an unrelated photo. */}
+                  §2.4) the removed placeholder tile had. Square, because the
+                  crop is squarest at the point where the piece itself is
+                  largest; a letterboxed tile spent its height on backdrop.
+                  Falls back to the plain tile for any category the approved
+                  set doesn't cover, rather than reusing an unrelated photo. */}
               <div
-                className="relative h-[200px] overflow-hidden rounded-m border border-border bg-surface-band transition-colors group-hover:bg-price-bg"
+                className="relative aspect-square overflow-hidden rounded-m border border-border bg-surface-band transition-colors group-hover:bg-price-bg"
                 aria-hidden="true"
               >
                 {tileImage && (
@@ -112,7 +169,7 @@ export default async function HomePage() {
                     src={tileImage}
                     alt=""
                     fill
-                    sizes="(min-width: 1024px) 33vw, 100vw"
+                    sizes="(min-width: 640px) 25vw, 50vw"
                     className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                   />
                 )}

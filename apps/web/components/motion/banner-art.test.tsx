@@ -27,8 +27,8 @@ describe('BannerArt', () => {
     const dark = render(<BannerArt tone="dark" />);
     const light = render(<BannerArt tone="light" />);
 
-    expect(dark.container.querySelector('svg')?.getAttribute('class')).toContain('mix-blend-overlay');
-    expect(light.container.querySelector('svg')?.getAttribute('class')).toContain('mix-blend-multiply');
+    expect(dark.container.querySelector('[role="img"]')?.getAttribute('class')).toContain('mix-blend-overlay');
+    expect(light.container.querySelector('[role="img"]')?.getAttribute('class')).toContain('mix-blend-multiply');
   });
 
   it('bleeds off the requested edge', () => {
@@ -36,7 +36,7 @@ describe('BannerArt', () => {
     const right = render(<BannerArt side="right" />);
     const left = render(<BannerArt side="left" />);
 
-    expect(right.container.querySelector('svg')?.getAttribute('class')).toContain('right-[-30%]');
-    expect(left.container.querySelector('svg')?.getAttribute('class')).toContain('left-[-30%]');
+    expect(right.container.querySelector('[role="img"]')?.getAttribute('class')).toContain('right-[-30%]');
+    expect(left.container.querySelector('[role="img"]')?.getAttribute('class')).toContain('left-[-30%]');
   });
 });

@@ -92,10 +92,14 @@ export const brand = {
   // filter-pill strip already derives from `productTypes` below
   // (`.toLowerCase().replace(/\s+/g,'-').replace(/&/g,'and')`) — kept in
   // sync by hand since that derivation isn't a shared helper today.
+  // All four of `productTypes` below, not a subset: showing three of four
+  // made the omitted one look discontinued rather than merely unfeatured,
+  // and there is no editorial reason to rank them (ADR-0026 amendment).
   homeCategories: [
     { slug: 'rings', name: 'Rings' },
     { slug: 'earrings', name: 'Earrings' },
     { slug: 'necklaces-and-pendants', name: 'Necklaces & Pendants' },
+    { slug: 'bracelets-and-bangles', name: 'Bracelets & Bangles' },
   ],
 
   newArrivals: {
