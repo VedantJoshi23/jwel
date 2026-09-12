@@ -12,7 +12,7 @@ import { RecommendedRail } from '@/components/recommendations/personalized-rail'
 import { RecentlyViewedRail } from '@/components/recommendations/recently-viewed-rail';
 import { RevealSection } from '@/components/motion/reveal';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { HeroProductRotator } from '@/components/home/hero-product-rotator';
 
 export const metadata: Metadata = {
   title: brand.seo.defaultTitle,
@@ -23,6 +23,10 @@ export const metadata: Metadata = {
 // section is a curated highlight strip, not a full listing, so this bounds
 // it even if the fetch below is ever changed to ask for more.
 const MAX_BESTSELLERS = 10;
+
+// Upper bound on the hero window's crossfade set, independent of how many
+// products the fetches above happen to return.
+const HERO_ROTATION_MAX = 6;
 
 // Client-approved reference photography per ADR-0026 — the empty arched
 // room. Shared with the About page hero, which is the same shot; it carries
@@ -37,18 +41,28 @@ export default async function HomePage() {
   ]);
 
   const hero = brand.hero;
-  // Real catalogue photography, not stock/invented imagery — the first
-  // bestseller (falling back to the deterministic per-product stock image
-  // ProductCard itself uses when a product has no media) rather than a
-  // hardcoded image reference, so this stays correct as the catalogue changes.
-  const heroProduct = bestsellers[0] ?? newIn[0] ?? null;
-  const heroMedia = heroProduct?.media[0]?.url ?? null;
-  const heroImageUrl = heroProduct ? (heroMedia ?? getProductStockImage(heroProduct.id)) : null;
-  // Only real catalogue shots are on white, which is the whole premise of
-  // blending the hero product into the room below. The stock fallback is
-  // lifestyle photography with its own background; multiplying that would
-  // smear a dark rectangle across the wall.
-  const heroBlendsIntoRoom = heroMedia !== null;
+  // Real catalogue photography only, de-duplicated and bounded: the window
+  // crossfades through these, and the rotation must not become a reason to
+  // load the whole catalogue into the hero. Products with no media of their
+  // own are excluded rather than filled in with `getProductStockImage` —
+  // the stock images are lifestyle shots that cannot blend into the glass
+  // the way a studio shot can, and a rotation that visibly switched
+  // treatment mid-cycle would look broken rather than varied.
+  const heroRotation = [...bestsellers, ...newIn]
+    .map((product) => product.media[0]?.url)
+    .filter((url): url is string => Boolean(url))
+    .filter((url, i, all) => all.indexOf(url) === i)
+    .slice(0, HERO_ROTATION_MAX);
+
+  // Nothing in the catalogue has its own photography yet: fall back to the
+  // deterministic per-product stock image ProductCard already uses, as a
+  // single still frame. `blend` goes off with it, for the reason above.
+  const heroFallback = bestsellers[0] ?? newIn[0] ?? null;
+  const heroImages = heroRotation.length > 0
+    ? heroRotation
+    : heroFallback
+      ? [getProductStockImage(heroFallback.id)]
+      : [];
 
   return (
     <>
@@ -133,41 +147,8 @@ export default async function HomePage() {
             but at a much lower fill than `--glass-panel-bg`'s 0.78 — this
             one has a photograph behind it that is worth still seeing.
           */}
-          {heroImageUrl ? (
-            <div className="relative mx-auto w-full max-w-[280px] lg:max-w-[320px]" aria-hidden="true">
-              {/*
-                The pane is a sibling *behind* the product, not a wrapper
-                around it. `backdrop-filter` creates an isolated blend group,
-                so a multiplying child inside this element would have had
-                nothing to blend against and the studio white stayed a solid
-                white block. Painted underneath instead, it is part of the
-                product's backdrop and the blend works.
-              */}
-              <div className="absolute inset-0 rounded-m border border-white/50 bg-white/25 shadow-card backdrop-blur-md" />
-              {/* The lighter top edge is the one cue that says the surface
-                  has a thickness catching the light, rather than being a
-                  flat wash of translucent colour. */}
-              <div className="absolute inset-x-0 top-0 h-px rounded-t-m bg-white/70" />
-              <div className="relative aspect-[4/5] p-4">
-                <div className="relative h-full w-full">
-                  <Image
-                    src={heroImageUrl}
-                    alt=""
-                    fill
-                    sizes="(min-width: 1024px) 320px, 280px"
-                    // Multiplying drops the studio white into the glass, so
-                    // the piece sits behind the pane rather than on a white
-                    // card laid over it. A lifestyle fallback carries its own
-                    // background and cannot blend away, so it fills instead.
-                    className={cn(
-                      heroBlendsIntoRoom
-                        ? 'object-contain mix-blend-multiply'
-                        : 'rounded-s object-cover',
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
+          {heroImages.length > 0 ? (
+            <HeroProductRotator images={heroImages} blend={heroRotation.length > 0} />
           ) : (
             <span
               className="text-center font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl"
