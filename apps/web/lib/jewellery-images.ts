@@ -59,3 +59,38 @@ export function getProductStockImage(seed: string): string {
   }
   return productImagePool[hash % productImagePool.length];
 }
+
+/**
+ * Home page category-trio tile photography — a *different* stopgap from the
+ * Pexels stock above, not an extension of it. The trio's tiles were
+ * deliberately left as plain colour ("Stock lifestyle photography removed —
+ * a plain tile until real category photography exists", still the comment
+ * at that call site) rather than backed by this file's stock pool at all.
+ *
+ * These three are client-supplied AI-generated reference images, approved
+ * for this specific use per `ADR-0026` — cropped to the photography only
+ * (the composite's own baked-in "Rings"/"Earrings"/… title text is
+ * discarded; the tile renders the real category name as ordinary HTML
+ * beside the crop, same relationship the removed placeholder comment
+ * describes). A fourth crop, `bracelets-and-bangles.webp`, is exported
+ * alongside these three for the same source/settings consistency, but is
+ * deliberately not listed below — `brand.homeCategories` has only three
+ * entries today, and adding a featured category is a catalogue decision,
+ * not an imagery one (see `ADR-0026`'s Revisit Criteria).
+ * `getHomeCategoryTileImage` returns `null` for anything not mapped here
+ * rather than silently reusing one of these three for an unrelated
+ * category, which would be its own small Law 1 problem.
+ *
+ * Revisit per `ADR-0026`: delete this block and its three files under
+ * `public/images/categories/` once real category photography exists —
+ * do not keep it as a fallback layered under real photos.
+ */
+const homeCategoryTileImages: Record<string, string> = {
+  rings: '/images/categories/rings.webp',
+  earrings: '/images/categories/earrings.webp',
+  'necklaces-and-pendants': '/images/categories/necklaces-and-pendants.webp',
+};
+
+export function getHomeCategoryTileImage(slug: string): string | null {
+  return homeCategoryTileImages[slug] ?? null;
+}

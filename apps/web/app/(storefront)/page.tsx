@@ -3,7 +3,7 @@ import Image from 'next/image';
 import type { Metadata } from 'next';
 import { safeGetProducts } from '@/lib/api/safe-get-products';
 import { safeGetActiveBanners } from '@/lib/api/cms';
-import { getProductStockImage } from '@/lib/jewellery-images';
+import { getHomeCategoryTileImage, getProductStockImage } from '@/lib/jewellery-images';
 import { ProductCard } from '@/components/product/product-card';
 import { PromoBanners } from '@/components/home/promo-banners';
 import { BestsellersCarousel } from '@/components/home/bestsellers-carousel';
@@ -92,34 +92,66 @@ export default async function HomePage() {
 
       {/* ── Category trio ─────────────────────────────────────────────────── */}
       <RevealSection className="grid gap-7 px-6 py-11 sm:grid-cols-3 lg:px-8">
-        {brand.homeCategories.map((category) => (
-          <Link key={category.slug} href={`/collections/${category.slug}`} className="group">
-            {/* Stock lifestyle photography removed — a plain tile until real
-                category photography exists. `rounded-m` stays: this is still
-                navigational imagery, not the product-card imagery DESIGN.md
-                §2.4 keeps sharp-framed. */}
-            <div
-              className="h-[200px] rounded-m border border-border bg-surface-band transition-colors group-hover:bg-price-bg"
-              aria-hidden="true"
-            />
-            <p className="mt-3.5 text-center font-medium">{category.name}</p>
-          </Link>
-        ))}
+        {brand.homeCategories.map((category) => {
+          const tileImage = getHomeCategoryTileImage(category.slug);
+          return (
+            <Link key={category.slug} href={`/collections/${category.slug}`} className="group">
+              {/* Client-approved reference photography per ADR-0026, cropped
+                  to exclude its own baked-in title text — the real category
+                  name below is what a screen reader and search engine see,
+                  same navigational role (not product-card imagery, DESIGN.md
+                  §2.4) the removed placeholder tile had. Falls back to the
+                  plain tile for any category this specific set of three
+                  doesn't cover, rather than reusing an unrelated photo. */}
+              <div
+                className="relative h-[200px] overflow-hidden rounded-m border border-border bg-surface-band transition-colors group-hover:bg-price-bg"
+                aria-hidden="true"
+              >
+                {tileImage && (
+                  <Image
+                    src={tileImage}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 33vw, 100vw"
+                    className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  />
+                )}
+              </div>
+              <p className="mt-3.5 text-center font-medium">{category.name}</p>
+            </Link>
+          );
+        })}
       </RevealSection>
 
       {/* ── New Arrivals ───────────────────────────────────────────────────── */}
       <RevealSection className="bg-surface-warm px-6 py-12 lg:px-8">
-        <div className="text-center">
-          <h2 className="font-display text-3xl font-bold tracking-tight">
-            {brand.newArrivals.headline}
-          </h2>
-          <div className="mt-2 flex items-center justify-center gap-2.5">
-            <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
-              {brand.newArrivals.saleBadge}
-            </span>
-            <span className="text-sm text-ink-secondary">{brand.newArrivals.saleSubtext}</span>
+        {/* Client-approved reference photography per ADR-0026, kept strictly
+            behind the headline only — never extending down to the product
+            grid, so it never sits adjacent to a real price or "Add to bag".
+            Low opacity and edge-faded (the mask) rather than a hard-edged
+            photo panel, so it reads as atmosphere, not a product shot. */}
+        <div className="relative isolate mx-auto max-w-2xl overflow-hidden">
+          <Image
+            src="/images/banners/jewellery-grouping.webp"
+            alt=""
+            fill
+            aria-hidden="true"
+            sizes="(min-width: 1024px) 42rem, 100vw"
+            className="-z-10 object-cover opacity-[0.14]"
+            style={{ maskImage: 'radial-gradient(closest-side, black 40%, transparent 100%)' }}
+          />
+          <div className="text-center">
+            <h2 className="font-display text-3xl font-bold tracking-tight">
+              {brand.newArrivals.headline}
+            </h2>
+            <div className="mt-2 flex items-center justify-center gap-2.5">
+              <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
+                {brand.newArrivals.saleBadge}
+              </span>
+              <span className="text-sm text-ink-secondary">{brand.newArrivals.saleSubtext}</span>
+            </div>
+            <p className="mt-2 text-sm text-ink-secondary">{brand.newArrivals.subtext}</p>
           </div>
-          <p className="mt-2 text-sm text-ink-secondary">{brand.newArrivals.subtext}</p>
         </div>
 
         {newIn.length > 0 ? (

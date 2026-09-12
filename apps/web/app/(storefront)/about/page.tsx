@@ -2,6 +2,11 @@ import type { Metadata } from 'next';
 import { PageHeader } from '@/components/common/page-header';
 import { brand } from '@/lib/brand';
 
+// Client-approved reference photography per ADR-0026 — the empty arched-room
+// shot, which carries no jewellery, so unlike the other two approved images
+// it raises no "is this a real product" question at all.
+const ABOUT_HERO_IMAGE = '/images/banners/arched-room.webp';
+
 export const metadata: Metadata = {
   title: 'About Us',
   description: `${brand.name} — ${brand.tagline}.`,
@@ -18,7 +23,7 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div>
-      <PageHeader title="Our Story" subtitle={brand.tagline} />
+      <PageHeader title="Our Story" subtitle={brand.tagline} image={ABOUT_HERO_IMAGE} />
       <div className="mx-auto max-w-3xl px-6 py-12 lg:px-8">
         <p className="text-ink-secondary leading-relaxed">This page is being finalized.</p>
       </div>

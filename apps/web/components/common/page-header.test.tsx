@@ -24,4 +24,33 @@ describe('PageHeader', () => {
     const { container } = render(<PageHeader title="About us" subtitle="" />);
     expect(container.querySelector('p')).toBeNull();
   });
+
+  describe('image (opt-in, ADR-0026)', () => {
+    it('renders no background image by default — every page but About', () => {
+      const { container } = render(<PageHeader title="Shipping" />);
+      expect(container.querySelector('img')).toBeNull();
+    });
+
+    it('renders the background image and its dark wash when one is given', () => {
+      const { container } = render(<PageHeader title="Our Story" image="/images/banners/arched-room.webp" />);
+      const img = container.querySelector('img');
+      expect(img).toHaveAttribute(
+        'src',
+        expect.stringContaining(encodeURIComponent('/images/banners/arched-room.webp')),
+      );
+      // Decorative — the heading itself carries the page's meaning, and this
+      // is reference photography of an empty room, nothing needing a name.
+      expect(img).toHaveAttribute('alt', '');
+    });
+
+    it('switches the whole header to white text over the photo, not the default dark-on-light', () => {
+      const { container: withImage } = render(
+        <PageHeader title="Our Story" image="/images/banners/arched-room.webp" />,
+      );
+      const { container: plain } = render(<PageHeader title="Shipping" />);
+
+      expect(withImage.firstElementChild).toHaveClass('text-white');
+      expect(plain.firstElementChild).not.toHaveClass('text-white');
+    });
+  });
 });
