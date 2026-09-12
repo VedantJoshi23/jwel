@@ -233,33 +233,23 @@ export default async function HomePage() {
 
       {/* ── New Arrivals ───────────────────────────────────────────────────── */}
       <RevealSection className="bg-surface-warm px-6 py-12 lg:px-8">
-        {/* Client-approved reference photography per ADR-0026, kept strictly
-            behind the headline only — never extending down to the product
-            grid, so it never sits adjacent to a real price or "Add to bag".
-            Low opacity and edge-faded (the mask) rather than a hard-edged
-            photo panel, so it reads as atmosphere, not a product shot. */}
-        <div className="relative isolate mx-auto max-w-2xl overflow-hidden">
-          <Image
-            src="/images/banners/jewellery-grouping.webp"
-            alt=""
-            fill
-            aria-hidden="true"
-            sizes="(min-width: 1024px) 42rem, 100vw"
-            className="-z-10 object-cover opacity-[0.14]"
-            style={{ maskImage: 'radial-gradient(closest-side, black 40%, transparent 100%)' }}
-          />
-          <div className="text-center">
-            <h2 className="font-display text-3xl font-bold tracking-tight">
-              {brand.newArrivals.headline}
-            </h2>
-            <div className="mt-2 flex items-center justify-center gap-2.5">
-              <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
-                {brand.newArrivals.saleBadge}
-              </span>
-              <span className="text-sm text-ink-secondary">{brand.newArrivals.saleSubtext}</span>
-            </div>
-            <p className="mt-2 text-sm text-ink-secondary">{brand.newArrivals.subtext}</p>
+        {/* The product-grouping photograph that sat behind this headline is
+            removed, not just faded further: even at 0.14 with a radial mask
+            it read as a smudge behind the type rather than as atmosphere,
+            and a heading on plain `surface-warm` is cleaner than one on a
+            texture nobody can identify. The image stays in the repo and in
+            ADR-0026's approved set; it is simply not used here. */}
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="font-display text-3xl font-bold tracking-tight">
+            {brand.newArrivals.headline}
+          </h2>
+          <div className="mt-2 flex items-center justify-center gap-2.5">
+            <span className="bg-brand-primary px-3 py-1 text-xs font-bold tracking-wide text-white">
+              {brand.newArrivals.saleBadge}
+            </span>
+            <span className="text-sm text-ink-secondary">{brand.newArrivals.saleSubtext}</span>
           </div>
+          <p className="mt-2 text-sm text-ink-secondary">{brand.newArrivals.subtext}</p>
         </div>
 
         {newIn.length > 0 ? (
