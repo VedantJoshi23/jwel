@@ -22,3 +22,11 @@ coverage
 *.log
 .DS_Store
 apps/api/uploads
+
+# The client's original reference images. Gitignored, but .dockerignore is a
+# separate list — Docker never reads .gitignore — so without this line they
+# are copied into `public/` and served publicly by the web image. That
+# includes the model shot the client explicitly withheld (ADR-0026), which
+# would be reachable at /reference/... on the live site. Everything derived
+# from these ships as the cropped WEBPs under public/images/ instead.
+apps/web/public/reference
