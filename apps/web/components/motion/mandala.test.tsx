@@ -30,16 +30,15 @@ describe('Mandala', () => {
     expect(container.querySelector('style')).toBeNull();
   });
 
-  it('renders a closed ring of large petals and their diamond accents — the structure traced from the reference', () => {
+  it('renders real path-drawn geometry — the ring of large petals, the core, and their diamond accents', () => {
     stubReducedMotion(false);
     const { container } = render(<Mandala />);
-    // 8 large petals + 8 in-petal diamonds + 8 between-petal diamonds + 8
-    // echo-ring petals + 4 finial diamonds = 36 diamond/petal paths, plus
-    // the 32 inner-lotus petals (16 + 16) = 68 <path> elements in total.
-    // Not asserted as an exact count here (that would just re-encode the
-    // component's own geometry into the test); the structural claim this
-    // guards is that the SVG has real path-drawn geometry, not an empty or
-    // broken shell.
+    // 8 large onion-dome petals + 8 in-petal diamonds + 8 between-petal
+    // diamonds + 8 cardinal-finial diamonds + 4 diagonal diamonds + 28
+    // core-rosette petals (14 + 14) = 64 <path> elements. Not asserted as an
+    // exact count (that would just re-encode the component's own geometry
+    // into the test); the structural claim this guards is that the SVG has
+    // real drawn shapes, not an empty or broken shell.
     expect(container.querySelectorAll('path').length).toBeGreaterThan(30);
     expect(container.querySelectorAll('circle').length).toBeGreaterThan(3);
   });
