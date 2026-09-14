@@ -1,3 +1,4 @@
+import { addToBag } from './helpers';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
@@ -80,18 +81,7 @@ async function addProductToBag(page: Page): Promise<void> {
   await page.goto(`/product/${PRODUCT_SLUG}`, { waitUntil: 'domcontentloaded' });
   await waitForHydration(page);
 
-  const bag = page.locator('a[href="/cart"]').first();
-  const addButton = page.getByRole('button', { name: 'Add to bag' });
-
-  // Retried rather than slept on, and guarded by the bag's own count so a
-  // retry cannot add a second line: it clicks again only while the bag is
-  // still empty.
-  await expect(async () => {
-    if ((await bag.getAttribute('aria-label'))?.includes('0 items')) {
-      await addButton.click();
-    }
-    await expect(bag).toHaveAttribute('aria-label', /Shopping bag, 1 item/, { timeout: 1_000 });
-  }).toPass({ timeout: 20_000 });
+  await addToBag(page);
 }
 
 async function emptyTheBag(page: Page): Promise<void> {

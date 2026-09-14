@@ -1,4 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
+import { addToBag } from './helpers';
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 /**
@@ -83,13 +84,7 @@ test.describe('Accessibility — WCAG 2.1 AA', () => {
     await page.goto('/product/diamond-halo-ring', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
 
-    const bag = page.locator('a[href="/cart"]').first();
-    await expect(async () => {
-      if ((await bag.getAttribute('aria-label'))?.includes('0 items')) {
-        await page.getByRole('button', { name: 'Add to bag' }).click();
-      }
-      await expect(bag).toHaveAttribute('aria-label', /Shopping bag, 1 item/, { timeout: 1_000 });
-    }).toPass({ timeout: 20_000 });
+    await addToBag(page);
 
     await page.goto('/cart', { waitUntil: 'domcontentloaded' });
     await expectNoViolations(page);
@@ -219,13 +214,7 @@ test.describe.serial('Accessibility — signed-in surfaces', () => {
     await page.goto('/product/diamond-halo-ring', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => {});
 
-    const bag = page.locator('a[href="/cart"]').first();
-    await expect(async () => {
-      if ((await bag.getAttribute('aria-label'))?.includes('0 items')) {
-        await page.getByRole('button', { name: 'Add to bag' }).click();
-      }
-      await expect(bag).toHaveAttribute('aria-label', /Shopping bag, 1 item/, { timeout: 1_000 });
-    }).toPass({ timeout: 20_000 });
+    await addToBag(page);
 
     await page.goto('/checkout', { waitUntil: 'domcontentloaded' });
     // The real form, not the "please log in" placeholder — that is the

@@ -57,7 +57,18 @@ test.describe('Storefront browsing', () => {
   // Same reason as above — this test is about the cart, not the image pipeline.
   test('adding a product to the bag updates the cart and the header badge', async ({ page }) => {
     await page.goto('/product/diamond-halo-ring', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: 'Add to bag' }).click();
+    await page.getByRole('button', { name: 'Add to bag' }).first().click();
+
+    // The drawer is now the visible confirmation (ADR-0028), and it names
+    // the piece it just took. Asserted before closing, because while it is
+    // open the rest of the document is `aria-hidden` and neither of the
+    // assertions below can see anything.
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByText('Diamond Halo Ring')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+
     // Scoped: the demo-mode banner (NEXT_PUBLIC_DEMO_MODE=true) also carries
     // role="status", so a bare getByRole('status') is a strict-mode
     // violation against a demo deployment.
