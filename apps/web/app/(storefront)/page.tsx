@@ -33,6 +33,10 @@ const HERO_ROTATION_MAX = 6;
 // no jewellery, so it makes no claim about the catalogue.
 const HERO_BACKDROP = '/images/banners/arched-room.webp';
 
+// The same room, cropped tall for phones rather than letting `object-cover`
+// slice a third out of the wide one. See the `<picture>` below.
+const HERO_BACKDROP_PORTRAIT = '/images/banners/arched-room-portrait.webp';
+
 export default async function HomePage() {
   const [newIn, bestsellers, banners] = await Promise.all([
     safeGetProducts({ sort: 'newest', pageSize: 3 }),
@@ -99,15 +103,33 @@ export default async function HomePage() {
         collection banners, which are still flat panels.
       */}
       <section className="relative isolate overflow-hidden bg-surface-alt">
-        <Image
-          src={HERO_BACKDROP}
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          aria-hidden="true"
-          className="-z-10 object-cover object-[72%_center] lg:object-center"
-        />
+        {/*
+          Art direction, not a responsive resize: the phone gets a different
+          *crop* of the room, not a smaller copy of the wide one. Cropping a
+          16:9 photograph into a tall viewport with `object-cover` keeps a
+          vertical sliver — about a third of the frame — so the arch and the
+          lotus, the two things that make the shot, were both mostly off
+          screen on a phone.
+
+          A `<picture>` rather than `next/image`, which renders a single
+          `<img>` and resizes one source instead of choosing between two.
+          Both files are already hand-cropped WEBP at the sizes they render
+          at, so the optimizer had nothing left to do; this also means one
+          request rather than a `/_next/image` round trip. `display:contents`
+          keeps the wrapper from creating a box of its own, so the `<img>`
+          positions against the section exactly as `fill` did.
+        */}
+        <picture className="contents">
+          <source media="(min-width: 768px)" srcSet={HERO_BACKDROP} />
+          <img
+            src={HERO_BACKDROP_PORTRAIT}
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            decoding="async"
+            className="absolute inset-0 -z-10 h-full w-full object-cover object-center"
+          />
+        </picture>
         {/* `lg:pl-[13%]` keeps the heading clear of the hanging gold
             ornaments painted down the left of the room, which ran straight
             through "Elegance" when the text started at a fixed 48px. Those
