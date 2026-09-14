@@ -9,7 +9,7 @@
 // Idempotent — re-running promotes an existing account and resets its password,
 // so it doubles as the recovery path if the client is locked out.
 //
-//   ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm admin:create
+//   ADMIN_EMAIL=… ADMIN_PASSWORD=… npm run admin:create -w @jwel/api
 import { PrismaClient, Role } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 

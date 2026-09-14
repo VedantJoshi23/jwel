@@ -6,8 +6,8 @@
  * live on "every customer-facing claim is true", and until now the only way
  * to check was to read a prose table that had already gone stale.
  *
- *   pnpm claims:audit            # report
- *   pnpm claims:audit --strict   # gate: exit 1 while anything is outstanding
+ *   npm run claims:audit -w @jwel/web            # report
+ *   npm run claims:audit -w @jwel/web -- --strict # gate: exit 1 while anything is outstanding
  *
  * The demo banner is what makes outstanding claims tolerable — it tells
  * customers nothing here is real. Run this with `--strict` before the change

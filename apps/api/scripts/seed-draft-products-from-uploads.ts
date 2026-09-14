@@ -13,7 +13,7 @@
 // Idempotent: any image whose `local:products/<file>` ref already has a
 // product_media row is skipped, so re-running only fills in what's missing.
 //
-//   pnpm ts-node --transpile-only scripts/seed-draft-products-from-uploads.ts
+//   npx ts-node --transpile-only scripts/seed-draft-products-from-uploads.ts
 //
 // Env knobs (all optional):
 //   UPLOADS_DIR       (default ./uploads)      — matches the API's own default

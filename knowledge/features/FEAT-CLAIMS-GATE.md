@@ -84,7 +84,7 @@ registry that only ever grows is a registry nobody trusts.
 
 ## 4. API Surface
 
-**None.** `pnpm claims:audit [--strict]`. Not an endpoint, and deliberately not
+**None.** `npm run claims:audit -w @jwel/web [-- --strict]`. Not an endpoint, and deliberately not
 readable at runtime — see §2.
 
 ## 5. Events / 6. Data Changes

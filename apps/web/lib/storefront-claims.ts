@@ -19,7 +19,7 @@
  *   test fails.
  *
  * So the registry cannot drift from the copy in either direction, and
- * `pnpm claims:audit --strict` turns it into the launch gate the RUNBOOK step
+ * `npm run claims:audit -w @jwel/web -- --strict` turns it into the launch gate the RUNBOOK step
  * always meant to be.
  *
  * **The demo banner is what makes the outstanding entries tolerable.** It tells

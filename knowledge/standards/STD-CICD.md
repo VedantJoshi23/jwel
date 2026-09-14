@@ -59,6 +59,13 @@ What continuous integration must verify, and how deployment proceeds.
    *Rationale:* KC-063 — `package-lock.json` and `pnpm-lock.yaml` are both
    committed while `package.json` declares pnpm and CI installs with npm. The
    tree CI validates is not necessarily the one a `pnpm install` produces.
+   **Satisfied 2026-09-14.** `pnpm-lock.yaml` and the `packageManager` field
+   are removed; npm and `package-lock.json` are the only path, matching what
+   CI and both Dockerfiles already ran. The risk this rule names stopped
+   being hypothetical first: a dependency added with `pnpm add` updated only
+   the pnpm side, and the production web build failed on `npm ci` while every
+   local check stayed green, because the checks and the release used
+   different lockfiles.
 
 5. **CI failures are diagnosable from artifacts.** Playwright reports, traces
    and the API log upload on failure.

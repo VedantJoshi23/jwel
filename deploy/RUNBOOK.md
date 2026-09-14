@@ -1069,7 +1069,7 @@ it takes real card details while still displaying the demo banner.
    later one.
 
    ```bash
-   cd apps/web && pnpm claims:audit --strict
+   npm run claims:audit -w @jwel/web -- --strict
    ```
 
    It exits non-zero while any claim is unbacked, and prints each one with

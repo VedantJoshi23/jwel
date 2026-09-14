@@ -3,13 +3,14 @@
 # Build context = monorepo root (npm workspaces; the lockfile lives there).
 #   docker build -f apps/api/Dockerfile -t jwel-api:<git-sha> .
 #
-# npm, not pnpm: the project's package.json still says
-# `"packageManager": "pnpm@9.0.0"` and there is a pnpm-lock.yaml on disk, but
-# every install that has actually been run against this repo — locally and
-# in CI — uses `npm install` against package-lock.json (see ci.yml's own
-# comment on this). The pnpm lockfile is stale. Building against it here
-# would resolve a different dependency tree than the one every test in this
-# repo has ever run against.
+# npm, against package-lock.json — the only lockfile this repo has. It used
+# to carry a second, stale pnpm-lock.yaml alongside a `packageManager: pnpm`
+# field while every install that actually ran (locally, in CI, and here) used
+# npm. That split bit exactly once: a dependency added with `pnpm add` updated
+# only the pnpm side, package.json then listed a package package-lock.json had
+# never heard of, and this stage failed on `npm ci` while every local check
+# stayed green. The pnpm lockfile and the field are gone; there is now one
+# lockfile and no way for the two to disagree.
 
 # ---------- deps ----------
 FROM node:22-bookworm-slim AS deps

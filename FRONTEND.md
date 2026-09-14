@@ -154,12 +154,12 @@ integration is open work for a future milestone, not a stylistic choice.
 
 ## 5. Not Yet Done (Operational)
 
-- **This code has never been run against the live backend.** No `pnpm install`
+- **This code has never been run against the live backend.** No install
   has been executed, no dev server has been started, and no page has been
   visually verified in a browser. Every data-fetching path has a fallback for
   "API unreachable" (empty state, not a crash), but that fallback path is the
   only one that has effectively been exercised so far.
-- Before claiming this is "working," it needs: `pnpm install` in `apps/web`,
+- Before claiming this is "working," it needs: `npm install` at the repo root,
   a running `apps/api` with a migrated database and seeded products, then a
   manual walk of Homepage → Collections → PDP → add to bag → Checkout →
   Confirmation, plus Login/Register/Profile, in an actual browser.
@@ -171,8 +171,7 @@ integration is open work for a future milestone, not a stylistic choice.
 ```bash
 cd apps/web
 cp .env.example .env.local   # NEXT_PUBLIC_API_URL should point at a running apps/api
-npm install                  # root package.json declares pnpm, but every install this
-                              # project has actually run has used npm — see BACKEND.md
+npm install                  # run at the repo root — npm workspaces, one lockfile
 npm run dev                   # http://localhost:3000 — Admin Portal at /admin
 
 # Tests (see §8):

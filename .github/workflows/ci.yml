@@ -1,10 +1,10 @@
 name: CI
 
-# Root package.json declares pnpm as the package manager, but every install
-# this project has actually run (every milestone since 5) has used npm — see
-# BACKEND.md's "How to Run" sections. CI uses npm for the same reason: it's
-# the only path that's actually been validated, not because pnpm wouldn't
-# also work.
+# npm throughout, matching the Dockerfiles and local development. The repo
+# used to declare `packageManager: pnpm` and keep a stale pnpm-lock.yaml
+# beside package-lock.json while every install that actually ran used npm;
+# that second lockfile is gone, so there is one dependency tree and `npm ci`
+# here resolves exactly what the release images resolve.
 
 on:
   push:

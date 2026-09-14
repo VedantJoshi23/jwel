@@ -2,7 +2,7 @@
   "name": "jwel",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "npm@10.9.8",
   "workspaces": [
     "apps/*"
   ],
