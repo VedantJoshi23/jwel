@@ -142,7 +142,15 @@ export default async function HomePage() {
               part of the photograph, which is what lets this stay legible
               without laying a scrim over the image. */}
           <div className="flex flex-col gap-5">
-            <h1 className="whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary lg:text-5xl">
+            {/* `max-w-[72%]` on phones only. The portrait crop puts the
+                arch's dark opening at 75% of the width across the whole
+                band this heading occupies (measured), and the heading set
+                on one line overruns that by a few pixels — enough to drop
+                its last word onto dark mauve in dark ink. Capping the
+                measure wraps it to two lines well inside the lit wall
+                instead. The wide image has no such edge, so the cap is
+                lifted from `md` up. */}
+            <h1 className="max-w-[72%] whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary md:max-w-none lg:text-5xl">
               {hero.headline || brand.tagline}
             </h1>
             {hero.subtext && (
