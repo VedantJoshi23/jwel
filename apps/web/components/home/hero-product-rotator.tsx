@@ -29,10 +29,12 @@ import { cn } from '@/lib/utils';
  *    either mismatch hydration or — worse, since the page is cached — freeze
  *    one "random" order into the cache for every visitor until it
  *    revalidates.
- * 3. **Load two images, not six.** Only the current frame and the one after
- *    it are mounted, so the rotation costs one extra request up front rather
- *    than the whole set. The first frame is the LCP candidate and is the only
- *    one marked `priority`.
+ * 3. **Load two images, not six** — and none at all on a phone. Only the
+ *    current frame and the one after it are mounted, so the rotation costs
+ *    one extra request rather than the whole set. Below `md` the caller hides
+ *    this window entirely, and the frames are `loading="lazy"` so that
+ *    hiding actually saves the bytes: a lazy image inside a `display:none`
+ *    box never enters the viewport and is never fetched.
  */
 
 const ROTATE_MS = 5000;
@@ -98,7 +100,14 @@ export function HeroProductRotator({ images, blend = true }: { images: string[];
                 src={src}
                 alt=""
                 fill
-                priority={i === 0}
+                // Lazy, not `priority`: the wrapper hides this whole window
+                // below `md`, and a lazy image in a `display:none` box is
+                // never fetched — which is the point, since a phone would
+                // otherwise download frames for a window it does not show.
+                // In view on desktop, lazy loads immediately anyway. The
+                // section's own backdrop carries `fetchPriority="high"` and
+                // is the real LCP candidate here.
+                loading="lazy"
                 sizes="(min-width: 1024px) 320px, 280px"
                 className={cn(
                   'transition-opacity duration-1000 ease-in-out',

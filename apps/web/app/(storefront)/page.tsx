@@ -136,27 +136,33 @@ export default async function HomePage() {
             ornaments end at 10.8% of the image width across the whole
             vertical band the text occupies — measured, and a fraction for
             the same reason `pr` is one: it holds at every width. */}
-        <div className="grid items-center gap-9 px-6 py-14 lg:grid-cols-[1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-[13%] lg:pr-[8%]">
+        {/* The phone hero is given a minimum height and its content centred:
+            with the product window gone below `md` (see below) the type is
+            the only thing in the section, and left-aligned at the top it sat
+            on a tall photograph like a caption rather than a banner. */}
+        <div className="grid min-h-[64vh] items-center gap-9 px-6 py-14 md:min-h-0 lg:grid-cols-[1fr_minmax(0,0.9fr)] lg:gap-12 lg:py-16 lg:pl-[13%] lg:pr-[8%]">
           {/* Dark type on the room's pale wall, where it used to be white on
               a saturated gradient. The wall is the emptiest, most evenly lit
               part of the photograph, which is what lets this stay legible
               without laying a scrim over the image. */}
-          <div className="flex flex-col gap-5">
-            {/* `max-w-[72%]` on phones only. The portrait crop puts the
-                arch's dark opening at 75% of the width across the whole
-                band this heading occupies (measured), and the heading set
-                on one line overruns that by a few pixels — enough to drop
-                its last word onto dark mauve in dark ink. Capping the
-                measure wraps it to two lines well inside the lit wall
-                instead. The wide image has no such edge, so the cap is
-                lifted from `md` up. */}
+          <div className="flex flex-col items-center gap-5 text-center md:items-start md:text-left">
+            {/* `max-w-[72%]` on phones only, and it is load-bearing even now
+                the type is centred. The portrait image puts the arch's dark
+                opening at 75% of the width across the whole band this
+                heading occupies (measured), and the heading set on one line
+                is 305px on a 390px screen — centred, that would run from 11%
+                to 89% and put its last word on dark mauve in dark ink. The
+                cap forces the wrap; the longest resulting line is
+                "Redefined", which centres to roughly 30%–70% and stays on
+                lit wall. The wide image has no such edge, so the cap lifts
+                from `md` up. */}
             <h1 className="max-w-[72%] whitespace-pre-line font-display text-4xl font-bold leading-[1.05] tracking-tight text-ink-primary md:max-w-none lg:text-5xl">
               {hero.headline || brand.tagline}
             </h1>
             {hero.subtext && (
               <p className="max-w-md text-sm leading-relaxed text-ink-secondary">{hero.subtext}</p>
             )}
-            <div className="flex flex-wrap gap-3.5 pt-1">
+            <div className="flex flex-wrap justify-center gap-3.5 pt-1 md:justify-start">
               <Button asChild size="l">
                 <Link href={hero.primaryCtaHref}>{hero.primaryCta}</Link>
               </Button>
@@ -176,8 +182,18 @@ export default async function HomePage() {
             but at a much lower fill than `--glass-panel-bg`'s 0.78 — this
             one has a photograph behind it that is worth still seeing.
           */}
+          {/* Hidden below `md`. On a phone the portrait photograph is the
+              hero — the window sat over the arch and the lotus, the two
+              things that crop was chosen to keep. The frames inside are
+              `loading="lazy"`, which is what stops a phone downloading
+              product images for a window it never shows: a lazy image inside
+              a `display:none` box never enters the viewport, so it is never
+              fetched. On desktop it is in view immediately and lazy costs
+              nothing. */}
           {heroImages.length > 0 ? (
-            <HeroProductRotator images={heroImages} blend={heroRotation.length > 0} />
+            <div className="hidden md:block">
+              <HeroProductRotator images={heroImages} blend={heroRotation.length > 0} />
+            </div>
           ) : (
             <span
               className="text-center font-display text-3xl tracking-[0.2em] text-brand-ink lg:text-4xl"
