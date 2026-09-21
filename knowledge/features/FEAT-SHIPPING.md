@@ -103,11 +103,13 @@ as an outbound call (see `DOM-SHIPPING` §7's note on this same point).
       insurance selected~~ — **not built now** (`ADR-0029` decision 2):
       no product can reach the threshold; re-armed by its Revisit
       Criteria.
-- [ ] The webhook at `POST /api/v1/shipping/webhooks/carrier` rejects a
+- [x] The webhook at `POST /api/v1/shipping/webhooks/carrier` rejects a
       missing or wrong `x-api-key` with 401, acknowledges an unknown AWB
       with 200, and updates shipment status idempotently — a duplicated
       or out-of-order webhook does not regress a shipment's recorded
-      status (Edge Case 2).
+      status (Edge Case 2). *Deployed 2026-09-21 (`eae42cc`); 401/200
+      verified over public HTTPS, and Shiprocket's "Test Webhook" passed
+      and the webhook was saved.*
 - [ ] A shipment not in a terminal state is reconciled by polling, so a
       lost webhook delays a status change rather than losing it.
 - [ ] A customer can view an order's live shipment status and AWB
@@ -197,10 +199,11 @@ the M8 audit) — jwel does not yet have these formalized in its own
       implemented, unit-tested against a mocked Shiprocket client
       (mirrors `payment-provider.port.ts`'s test pattern).
       *Serviceability done 2026-09-21; create/cancel/track pending.*
-- [ ] Prisma migration for `shipments`, `shipment_status_history`.
+- [x] Prisma migration for `shipments`, `shipment_status_history`.
+      *Applied to production 2026-09-21.*
 - [ ] Serviceability check wired into the checkout flow, with the
       documented degrade-on-failure behavior tested explicitly.
-- [ ] Webhook endpoint token-authenticated, idempotent, covered by a
+- [x] Webhook endpoint token-authenticated, idempotent, covered by a
       duplicate-delivery test case and a wrong-token test case;
       registered in Shiprocket and passing its "Test Webhook".
 - [ ] Tracking reconciliation job for non-terminal shipments.
