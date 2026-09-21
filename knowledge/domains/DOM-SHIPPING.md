@@ -1,12 +1,12 @@
 ---
 id: DOM-SHIPPING
 title: Jwel — Domain: Shipping
-version: 0.1.0
+version: 0.2.0
 status: Proposal
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-09-21
 milestone: M5
 category: Domains
 priority: High
@@ -19,6 +19,8 @@ related_domains: []
 related_features: []
 related_decisions:
   - ADR-0001
+  - ADR-0024
+  - ADR-0029
 tags:
   - domain
   - shipping
@@ -28,49 +30,34 @@ complexity: High
 
 # Domain: Shipping
 
-> **PARTIALLY IMPLEMENTED — an interim estimator only, not this domain's
-> design.** Annotated 2026-08-06 per `ADR-0009` (KC-162), corrected
-> 2026-08-28 per `ADR-0024`. Everything below this banner — shipment
-> creation, AWB tracking, checkout-time COD eligibility, NDR handling, COD
-> remittance — **still does not exist anywhere in `apps/api` or `apps/web`**,
-> for the same reason recorded on 2026-08-06: the client's Shiprocket account
-> is suspended, restoration still pending (KC-101). `ADR-0001` (Shiprocket)
-> still stands as the chosen provider for that real work, still committed,
-> still blocked.
+> **IN PROGRESS — revised 2026-09-21 per `ADR-0029`.** The Shiprocket account
+> is restored and API access exists (KC-101 resolved). This body is now the
+> design being built, not a parked one, so it has been revised in place rather
+> than only annotated. Items `ADR-0029` withdraws — everything COD-related —
+> are marked **withdrawn** where they stand and kept for the record, not
+> deleted.
 >
-> **What does now exist:** `FEAT-DELIVERY-ESTIMATE`, an honestly-scoped,
-> non-Shiprocket pincode deliverability/estimated-window widget on the home
-> page and product detail page, built behind this domain's own
-> `ShippingProviderPort` (`ADR-0001`) so the adapter — not the surface — is
-> what changes when Shiprocket is restored. It has no COD-eligibility check,
-> is not gated into checkout, and is not `FEAT-SHIPPING`'s serviceability
-> Acceptance Criterion — see `ADR-0024` for why this is a separate, narrower
-> capability rather than a partial build of the one described below.
+> **Built so far:** `ShiprocketShippingProvider.checkServiceability` — a live
+> carrier lookup behind `ShippingProviderPort`, degrading to `ADR-0024`'s
+> static estimator on any failure. **Not yet built:** shipment tables,
+> shipment creation and cancellation, the webhook, tracking, NDR/RTO handling.
+> `FEAT-SHIPPING` tracks which acceptance criteria have landed.
 >
-> Consequences while the real integration remains unbuilt:
-> - FR-10 order tracking is structurally incomplete — a status timeline with no
->   shipment reference (`DISC-003`).
-> - The storefront's free-shipping and 24-hour-dispatch promises have no
->   backing rule (KC-012, KC-013).
-> - Checkout still has no serviceability or COD-eligibility gate (Invariants
->   2 and 4 below remain undelivered) — the pincode widget above is
->   informational only, on two storefront surfaces, not a checkout control.
->
-> This document describes the intended real-integration design, not the
-> running system. Per `ADR-0007` its body is left unrewritten.
+> History: annotated as not implemented 2026-08-06 (`ADR-0009`, KC-162);
+> interim estimator added 2026-08-28 (`ADR-0024`).
 
-**Tier:** Full — owns real data (shipments, tracking events, COD ledger)
-and several invariants of its own; not a derived projection of another
-domain.
+**Tier:** Full — owns real data (shipments, tracking events) and several
+invariants of its own; not a derived projection of another domain.
 
 ## 1. Overview
 
 Owns the lifecycle of a physical shipment from creation through delivery
-(or return-to-origin): checkout-time serviceability/COD-eligibility
-checks, shipment/AWB creation with the carrier aggregator (Shiprocket,
-per `ADR-0001`), consuming carrier webhook events, non-delivery (NDR) and
-return-to-origin (RTO) handling, and COD remittance reconciliation. It
-requests Order status transitions rather than performing them.
+(or return-to-origin): checkout-time serviceability checks, shipment/AWB
+creation with the carrier aggregator (Shiprocket, per `ADR-0001`),
+consuming carrier webhook events, and non-delivery (NDR) and
+return-to-origin (RTO) handling. It requests Order status transitions
+rather than performing them. The store is prepaid-only (KC-109,
+`ADR-0029`), so there is no COD eligibility or remittance to own.
 
 ## 2. Ownership
 
@@ -79,12 +66,11 @@ requests Order status transitions rather than performing them.
 - Shipment records (carrier, AWB number, status, tracking URL, estimated
   delivery) — one per Order, created once the order enters fulfillment.
 - Shipment status history (mirrors `OrderStatusHistory`'s pattern).
-- Serviceability results (per-pincode COD eligibility, estimated
-  delivery window) — read-through cache of Shiprocket's own lookup, not
-  a permanent system of record.
-- COD remittance ledger entries (Shiprocket remits COD cash on a delay;
-  this is not the same as `Payment.status`, since COD isn't "paid" from
-  jwel's perspective until remitted).
+- Serviceability results (per-pincode deliverability, estimated delivery
+  window) — a live read of Shiprocket's own lookup, not a permanent
+  system of record.
+- ~~COD remittance ledger entries~~ — **withdrawn** (`ADR-0029`): the store
+  is prepaid-only (KC-109), so there is no remittance to reconcile.
 
 ### Explicitly Does NOT Own
 
@@ -92,8 +78,9 @@ requests Order status transitions rather than performing them.
 
 - Order lifecycle/status itself — Shipping only ever requests a
   transition via an event Order listens for and applies (see §5, §7).
-- Payment status — COD remittance affects bookkeeping, not
-  `Payment.status`, which Payments alone owns.
+- Payment status — which Payments alone owns. An RTO on a (prepaid)
+  order surfaces a refund decision to the admin; Shipping never issues
+  or records a refund.
 - Inventory stock levels — an RTO triggers a restock request to
   Inventory, the same way Returns already does; Shipping doesn't touch
   `inventory_items` directly.
@@ -114,14 +101,15 @@ domain from the start, not after a bug is found this time.
 
 ### Invariant 2
 
-> A serviceability check (pincode + COD eligibility) happens before
-> payment method is offered at checkout — COD must not be presented as an
-> option for an unserviceable or COD-ineligible pincode.
+> A deliverability check on the delivery pincode happens at checkout
+> before payment. A **carrier-verified** "not deliverable" blocks the
+> order; an unavailable or failed check does not (see §8, first edge case).
 
-**Source:** `PRODUCT.md` FR-9 (Checkout: "shipping method selection")
-combined with the COD-fraud reasoning already raised for this domain
-(new decision, this spec) — presenting an option that will fail at
-fulfillment time is worse than not offering it.
+**Source:** `PRODUCT.md` FR-9 (Checkout: "shipping method selection") —
+taking payment for an order no courier can deliver is worse than refusing
+it up front. *Narrowed 2026-09-21 by `ADR-0029`:* the original text also
+gated COD here; with the store prepaid-only (KC-109) only deliverability
+remains.
 
 ### Invariant 3
 
@@ -135,7 +123,15 @@ unbounded loss exposure; a flat threshold (revisit once real claims data
 exists) is simpler to reason about and audit than a percentage-of-order
 rule.
 
-### Invariant 4
+**Status (2026-09-21, `ADR-0029`):** the rule stands, but no code path
+enforces it yet — every product is priced ₹1,850–₹5,500, so no shipment
+can reach the threshold. `ADR-0029`'s Revisit Criteria re-arm it before
+any product priced at or above ₹25,000 can ship.
+
+### Invariant 4 — WITHDRAWN
+
+**Withdrawn 2026-09-21 by `ADR-0029`:** the store is prepaid-only (KC-109).
+Retained below for the record.
 
 > COD is disabled for orders above ₹25,000, and for any customer account
 > with no previously delivered order (COD is available only to
@@ -162,17 +158,24 @@ which doesn't exist yet.
 
 ## 4. API Surface
 
-- `GET /api/v1/shipping/serviceability?pincode=...&codRequested=...` —
-  public, used at checkout before payment method selection.
+- `GET /api/v1/shipping/serviceability?pincode=...` — public, used by
+  the storefront pincode widget and at checkout before payment.
+  (`codRequested` is still accepted for backward compatibility and
+  ignored — `ADR-0029`.)
 - `GET /api/v1/orders/:id/tracking` — customer-facing tracking detail
   (carrier, AWB, status timeline, estimated delivery); a thin read over
   Shipping's own data, exposed through Order's existing
   `GET /api/v1/orders/:id` surface or as its own endpoint (implementation
   choice for `FEAT-SHIPPING` §4, not fixed here).
-- `POST /api/v1/shipping/webhooks/shiprocket` — signed server-to-server
-  callback (same pattern as the payments webhook, `POST
-  /api/v1/payments/webhook/:provider`), not
-  part of the public API surface.
+- `POST /api/v1/shipping/webhooks/carrier` — server-to-server callback on
+  the API origin, not part of the public API surface. Authenticated by a
+  constant-time comparison of the `x-api-key` header against
+  `SHIPROCKET_WEBHOOK_SECRET`: Shiprocket sends a fixed token, not a body
+  signature, and rejects URLs containing `shiprocket`/`sr`/`kr`
+  (`ADR-0029`). An unrecognised AWB is acknowledged with 200 and logged.
+- `POST /api/v1/admin/orders/:id/shipment` — admin/staff creates the
+  shipment for a packed `PROCESSING` order (`ADR-0029`: admin-triggered,
+  Shiprocket's recommended courier).
 - `GET /api/v1/admin/shipments` / `GET /api/v1/admin/shipments/:id` —
   admin shipment list/detail, including NDR queue.
 - `POST /api/v1/admin/shipments/:id/ndr-decision` — admin resolves an NDR
@@ -184,13 +187,14 @@ which doesn't exist yet.
 
 `ShipmentCreated`, `ShipmentPickedUp`, `ShipmentInTransit`,
 `ShipmentOutForDelivery`, `ShipmentDelivered`, `ShipmentNdrRaised`,
-`ShipmentRtoInitiated`, `CodRemittanceReceived` — per
-`ARCHITECTURE.md` §5.4's Domain Events Catalog.
+`ShipmentRtoInitiated` — per `ARCHITECTURE.md` §5.4's Domain Events
+Catalog. (`CodRemittanceReceived` — **withdrawn**, `ADR-0029`.)
 
 ### Consumes
 
-None inbound — Shipping is triggered by a direct call (Order calling
-`createShipment`), not by listening for an Order event. (This asymmetry —
+None inbound — Shipping is triggered by direct calls (Order calling
+`createShipment` and, on cancellation, `cancelShipment`), not by
+listening for an Order event. (This asymmetry —
 Shipping is called by Order but talks back only via events, never a
 direct call into Order — is deliberate: it's the same one-way event
 discipline Payments now follows after the M8 audit fix, applied here from
@@ -207,8 +211,12 @@ New tables (all new, no existing table's ownership changes):
   (boolean), `estimatedDelivery`, `trackingUrl`, `createdAt`, `updatedAt`.
 - `shipment_status_history` — mirrors `order_status_history`'s shape:
   `id`, `shipmentId`, `status`, `note`, `occurredAt`.
-- `cod_remittances` — `id`, `shipmentId`, `amountMinorUnits`,
-  `remittedAt`, `providerRef`.
+- ~~`cod_remittances`~~ — **withdrawn** (`ADR-0029`); not created.
+
+`shipments` additionally carries the provider's own identifiers
+(Shiprocket order id and shipment id), needed to assign an AWB and to
+cancel — an implementation detail of the one adapter, recorded here so
+the schema is not a surprise.
 
 `shipments.orderId` is a cross-context foreign key to `orders` (read
 reference only) — per the M8 audit's correction to `STD-DATABASE`, this
@@ -219,7 +227,8 @@ which Invariant 1 already covers.
 
 ### Allowed
 
-- **Order** — Shipping is called *by* Order (`createShipment`); Shipping
+- **Order** — Shipping is called *by* Order (`createShipment`,
+  `cancelShipment`); Shipping
   never calls back into Order directly, only via events the event bus
   delivers to Order's own listener (`ShipmentDelivered`, etc. — see §5).
   This requires Order's own dependency list to include Shipping — jwel
@@ -253,22 +262,26 @@ event source in its own (Notification's, Payment's) domain spec instead.
 ## 8. Edge Cases & Validations
 
 - **Shiprocket serviceability check fails/times out at checkout.**
-  Degrade to "COD unavailable, pincode delivery window unconfirmed" and
-  let checkout proceed prepaid-only — never block checkout entirely on a
-  third-party API being down (same posture Payments already takes toward
-  Razorpay being an inactive stub: a provider outage is handled, not
-  fatal).
+  Degrade to `ADR-0024`'s static estimate (`source: 'ESTIMATED'`) and let
+  checkout proceed — never block checkout on a third-party API being
+  down; a provider outage is handled, not fatal.
 - **Webhook delivered out of order or duplicated.** Shipment status
   transitions must be idempotent and monotonic (e.g. a `PICKED_UP`
   webhook arriving after `DELIVERED` was already recorded is a no-op, not
   a regression) — same idempotency discipline `PaymentsService.markSucceeded`
   already uses for payment-webhook replay.
-- **NDR raised on a COD order vs. a prepaid order.** A COD NDR
-  (customer refused/unavailable) has no refund implication; a prepaid NDR
-  resolving to RTO requires Order to eventually cancel and Returns/Payment
-  to consider a refund path — this is a genuinely different downstream
-  flow the admin NDR-decision endpoint must distinguish, not treat
-  uniformly.
+- **NDR resolving to RTO.** Every order is prepaid (KC-109), so an RTO
+  always means money was taken for goods that came back: Inventory
+  restocks, and the order surfaces for an admin refund decision. *(The
+  original COD-vs-prepaid distinction here is withdrawn with COD —
+  `ADR-0029`.)*
+- **Webhook never arrives.** A scheduled reconciliation polls tracking
+  for every shipment not yet in a terminal state, so a lost webhook
+  delays a status change rather than losing it (Constitution Law 6,
+  `ADR-0029`).
+- **Shiprocket wallet empty at shipment creation.** AWB assignment fails;
+  the admin action must report that cause plainly, and the order stays
+  `PROCESSING` with no shipment recorded.
 - **Order cancelled after a shipment was already created but before
   pickup.** Shipping must attempt to cancel the Shiprocket-side
   shipment/AWB, not just stop tracking it locally — an uncancelled AWB on
@@ -287,11 +300,13 @@ event source in its own (Notification's, Payment's) domain spec instead.
   the M8-audit-corrected Order domain content already validated in
   Oriveda's `examples/m5-domains-jwel-walkthrough.md`) should happen
   before or alongside `FEAT-SHIPPING`'s implementation, not indefinitely
-  deferred.
-- **The 48h NDR SLA window (Invariant 5) and the ₹25,000/₹50,000
-  thresholds (Invariants 3, 4) are starting heuristics**, not derived
-  from jwel's own operational data (none exists pre-launch) — revisit
-  once real order/NDR volume exists.
-- **Whether Shipping needs its own admin UI or extends the existing
-  Admin Orders page** with a shipment/tracking panel — a UI-layer
-  decision for `FEAT-SHIPPING` to make, not this domain spec's concern.
+  deferred. **Resolved 2026-09-21 as an explicit deferral (`ADR-0029`
+  decision 9):** §7 stays authoritative for this dependency; `DOM-ORDER.md`
+  is not a prerequisite for building this feature.
+- **The 48h NDR SLA window (Invariant 5) and the ₹50,000 threshold
+  (Invariant 3) are starting heuristics**, not derived from jwel's own
+  operational data (none exists pre-launch) — revisit once real
+  order/NDR volume exists.
+- ~~Whether Shipping needs its own admin UI or extends the existing
+  Admin Orders page~~ — **resolved** (`ADR-0029`): shipment actions and
+  tracking extend the Admin Orders page.
