@@ -2,6 +2,8 @@ import { Logger, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ShippingService } from './shipping.service';
 import { ShippingController } from './shipping.controller';
+import { ShippingWebhookController } from './shipping-webhook.controller';
+import { ShipmentTrackingService } from './shipment-tracking.service';
 import { StaticZoneShippingProvider } from './providers/static-zone-shipping.provider';
 import { ShiprocketShippingProvider } from './providers/shiprocket-shipping.provider';
 import { SHIPPING_PROVIDER } from './ports/shipping-provider.port';
@@ -15,9 +17,10 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 @Module({
   imports: [SettingsModule, AuditLogModule],
-  controllers: [ShippingController],
+  controllers: [ShippingController, ShippingWebhookController],
   providers: [
     ShippingService,
+    ShipmentTrackingService,
     StaticZoneShippingProvider,
     // Selected through a factory, not `useExisting`, so `ShiprocketShippingProvider`
     // is CONSTRUCTED only when credentials exist — its constructor calls

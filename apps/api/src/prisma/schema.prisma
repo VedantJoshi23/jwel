@@ -649,6 +649,9 @@ model Order {
   statusHistory    OrderStatusHistory[]
   payment          Payment?
   couponRedemption CouponRedemption?
+  // Back-relation only (no column on `orders`) — Prisma requires both sides.
+  // Shipping owns the row; Order never writes it (DOM-SHIPPING Invariant 1).
+  shipment         Shipment?
 
   // Reporting/analytics (Analytics module, read-replica target): date-range sales
   // queries and per-customer order history are the two dominant access patterns.
@@ -1014,10 +1017,9 @@ model AuditLog {
 // ──────────────────────────────────────────────────────────────────────────
 
 // Deliberately NOT `DOM-SHIPPING` §6's `shipments` / `shipment_status_history`
-// / `cod_remittances` tables — those belong to the real Shiprocket-backed
-// `FEAT-SHIPPING`, which remains unbuilt and blocked on the client's
-// suspended Shiprocket account (see that domain doc's status banner). This
-// table backs a narrower, interim capability only: an admin-maintained
+// tables — those belong to the real Shiprocket-backed `FEAT-SHIPPING` and
+// are defined in the SHIPPING section below. This table backs a narrower
+// capability that outlives the interim: an admin-maintained
 // exception list layered under a pan-India "deliverable unless flagged"
 // default (the site-wide default window lives in `Setting`, not here — see
 // `shipping.default_min_days`/`shipping.default_max_days` in
@@ -1038,4 +1040,79 @@ model PincodeServiceabilityOverride {
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("pincode_serviceability_overrides")
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// SHIPPING — FEAT-SHIPPING, DOM-SHIPPING §6, ADR-0029
+// ──────────────────────────────────────────────────────────────────────────
+
+// DOM-SHIPPING §6's lifecycle, plus CANCELLED for an AWB cancelled before
+// pickup (Edge Case 4). Terminal: DELIVERED, RTO_DELIVERED, CANCELLED.
+enum ShipmentStatus {
+  CREATED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  NDR
+  DELIVERED
+  RTO_INITIATED
+  RTO_DELIVERED
+  CANCELLED
+
+  @@map("shipment_status")
+}
+
+enum ShippingProviderName {
+  SHIPROCKET
+
+  @@map("shipping_provider")
+}
+
+// One per Order. `orderId` is a cross-context read reference only — Shipping
+// never writes `orders` (DOM-SHIPPING Invariant 1); Order moves itself on the
+// events Shipping publishes.
+model Shipment {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId            String               @unique @map("order_id") @db.Uuid
+  provider           ShippingProviderName @default(SHIPROCKET)
+  // The provider's own ids — Shiprocket needs its shipment id to assign an
+  // AWB and its order id to cancel. Nullable only so a creation that failed
+  // part-way can never be mistaken for a complete one; see the service.
+  providerOrderId    String?              @map("provider_order_id")
+  providerShipmentId String?              @map("provider_shipment_id")
+  // Unique: the webhook's only handle on a shipment is its AWB.
+  awbCode            String?              @unique @map("awb_code")
+  courierName        String?              @map("courier_name")
+  status             ShipmentStatus       @default(CREATED)
+  trackingUrl        String?              @map("tracking_url")
+  estimatedDelivery  DateTime?            @map("estimated_delivery")
+  // Carrier-reported time of the last status we applied. An incoming event
+  // at or before this is a duplicate or arrived out of order and is ignored
+  // (DOM-SHIPPING Edge Case 2) — ordering by event time rather than by a
+  // status rank, because NDR → OUT_FOR_DELIVERY is a legitimate re-attempt.
+  lastEventAt        DateTime?            @map("last_event_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  order         Order                   @relation(fields: [orderId], references: [id])
+  statusHistory ShipmentStatusHistory[]
+
+  // Reconciliation scans non-terminal shipments; NDR queue filters on NDR.
+  @@index([status])
+  @@map("shipments")
+}
+
+// Mirrors `order_status_history`. `note` carries the carrier's own raw
+// status text, which is finer-grained than ShipmentStatus.
+model ShipmentStatusHistory {
+  id         String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  shipmentId String         @map("shipment_id") @db.Uuid
+  status     ShipmentStatus
+  note       String?
+  occurredAt DateTime       @default(now()) @map("occurred_at")
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId, occurredAt])
+  @@map("shipment_status_history")
 }

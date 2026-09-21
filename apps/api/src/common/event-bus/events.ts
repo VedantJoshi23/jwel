@@ -43,6 +43,16 @@ export interface ProductDeletedEvent {
   productId: string;
 }
 
+// DOM-SHIPPING §5. Shipping never writes `orders` (Invariant 1) — Order moves
+// itself on these. One payload shape for every carrier-driven status, since
+// listeners key off the event name, not the payload.
+export interface ShipmentStatusEvent {
+  shipmentId: string;
+  orderId: string;
+  awbCode: string;
+  occurredAt: Date;
+}
+
 export interface DomainEvents {
   'order.confirmed': OrderConfirmedEvent;
   'payment.succeeded': PaymentSucceededEvent;
@@ -50,6 +60,12 @@ export interface DomainEvents {
   'return.refunded': ReturnRefundedEvent;
   'product.upserted': ProductUpsertedEvent;
   'product.deleted': ProductDeletedEvent;
+  'shipment.picked_up': ShipmentStatusEvent;
+  'shipment.in_transit': ShipmentStatusEvent;
+  'shipment.out_for_delivery': ShipmentStatusEvent;
+  'shipment.delivered': ShipmentStatusEvent;
+  'shipment.ndr_raised': ShipmentStatusEvent;
+  'shipment.rto_initiated': ShipmentStatusEvent;
 }
 
 export type DomainEventName = keyof DomainEvents;
