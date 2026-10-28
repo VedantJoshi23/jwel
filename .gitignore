@@ -47,3 +47,8 @@ apps/web/playwright-report/
 # Design reference images (mockups/AI-generated art direction, not shipped
 # assets) — kept locally for tracing into real components, never committed.
 apps/web/public/reference/
+
+# Graphify's code graph and cache, built fresh by the CI boundaries job
+# (ADR-0034) and by anyone running `oriveda check boundaries` locally.
+# Derived from the source, so it never belongs in git.
+graphify-out/
