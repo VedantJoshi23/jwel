@@ -19,6 +19,8 @@ related_documents:
   - DISC-006
 related_decisions:
   - ADR-0016
+related_domains: []
+related_features: []
 tags:
   - domain
   - search

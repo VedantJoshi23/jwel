@@ -1,6 +1,6 @@
 ---
 id: DOM-NOTIFICATION
-title: Jwel — Domain: Notification
+title: 'Jwel — Domain: Notification'
 version: 1.0.0
 status: Frozen
 owner: Architecture

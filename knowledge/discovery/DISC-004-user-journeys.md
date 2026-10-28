@@ -22,6 +22,8 @@ related_documents:
 related_decisions:
   - ADR-0005
   - ADR-0007
+related_domains: []
+related_features: []
 tags:
   - discovery
   - investigation

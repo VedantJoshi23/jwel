@@ -1,6 +1,6 @@
 ---
 id: STD-SEO
-title: Jwel / ELYSIAN — Standard: SEO
+title: 'Jwel / ELYSIAN — Standard: SEO'
 version: 1.0.0
 status: Frozen
 owner: Architecture
@@ -17,6 +17,9 @@ depends_on:
 required_by: []
 related_decisions:
   - ADR-0013
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - seo

@@ -2,14 +2,13 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OAuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
-import { RecommendationsService } from '../recommendations/recommendations.service';
+import { EventBusService } from '../../common/event-bus/event-bus.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Role } from '../../common/enums/role.enum';
 
@@ -24,7 +23,7 @@ describe('AuthService', () => {
   let prisma: MockPrisma;
   let jwt: { sign: jest.Mock };
   let metrics: { authFailuresTotal: { inc: jest.Mock } };
-  let recommendations: { claimGuestViews: jest.Mock };
+  let eventBus: { emit: jest.Mock };
   let service: AuthService;
 
   beforeEach(() => {
@@ -34,12 +33,12 @@ describe('AuthService', () => {
     };
     jwt = { sign: jest.fn().mockReturnValue('signed-jwt-token') };
     metrics = { authFailuresTotal: { inc: jest.fn() } };
-    recommendations = { claimGuestViews: jest.fn().mockResolvedValue(0) };
+    eventBus = { emit: jest.fn() };
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt as unknown as JwtService,
       metrics as any,
-      recommendations as unknown as RecommendationsService,
+      eventBus as unknown as EventBusService,
     );
     jest.clearAllMocks();
     jwt.sign.mockReturnValue('signed-jwt-token');
@@ -96,40 +95,28 @@ describe('AuthService', () => {
       });
     });
 
-    it('commands Recommendation to claim the views, rather than writing them itself', async () => {
-      // Law 5 — Identity does not write another context's table.
+    it('announces the registration with the guest id, and depends on no other context to act on it', async () => {
+      // DOM-IDENTITY §7 / ADR-0030 — Identity publishes; Recommendation
+      // reacts. Identity neither writes product_views nor calls into
+      // Recommendation.
       await service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never);
 
-      expect(recommendations.claimGuestViews).toHaveBeenCalledWith('u-new', 'anon-1');
+      expect(eventBus.emit).toHaveBeenCalledWith('user.registered', { userId: 'u-new', anonymousId: 'anon-1' });
     });
 
-    it('claims nothing when the client sent no anonymous id', async () => {
+    it('announces the registration without a guest id when the client sent none', async () => {
       await service.register({ email: 'a@b.c', password: 'a-strong-password' } as never);
-      expect(recommendations.claimGuestViews).not.toHaveBeenCalled();
+      expect(eventBus.emit).toHaveBeenCalledWith('user.registered', { userId: 'u-new', anonymousId: undefined });
     });
 
-    it('still registers the account when the claim fails', async () => {
-      // A failure here costs a little personalisation. Letting it propagate
-      // would cost the account someone just created.
-      const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-      recommendations.claimGuestViews.mockRejectedValue(new Error('database is having a day'));
-
-      await expect(
-        service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never),
-      ).resolves.toMatchObject({ user: expect.objectContaining({ email: 'a@b.c' }) });
-
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Could not claim guest views'));
-      warn.mockRestore();
-    });
-
-    it('does not claim for a registration that was refused', async () => {
+    it('announces nothing for a registration that was refused', async () => {
       prisma.user.findUnique.mockResolvedValue({ id: 'existing' });
 
       await expect(
         service.register({ email: 'a@b.c', password: 'a-strong-password', anonymousId: 'anon-1' } as never),
       ).rejects.toThrow(ConflictException);
 
-      expect(recommendations.claimGuestViews).not.toHaveBeenCalled();
+      expect(eventBus.emit).not.toHaveBeenCalled();
     });
   });
 
@@ -254,6 +241,8 @@ describe('AuthService', () => {
       expect(prisma.oAuthAccount.create).toHaveBeenCalledWith({
         data: { userId: 'u1', provider: OAuthProvider.GOOGLE, providerAccountId: 'g-123' },
       });
+      // Linking is not registering — no user row was created.
+      expect(eventBus.emit).not.toHaveBeenCalled();
     });
 
     it('creates a brand-new customer when no account exists for this email', async () => {
@@ -270,6 +259,9 @@ describe('AuthService', () => {
         data: { userId: 'u2', provider: OAuthProvider.GOOGLE, providerAccountId: 'g-123' },
       });
       expect(result.accessToken).toBe('signed-jwt-token');
+      // A user row exists now, so the event is true — but no guest id travels
+      // on this path (FEAT-GUEST-VIEW-CLAIM §8).
+      expect(eventBus.emit).toHaveBeenCalledWith('user.registered', { userId: 'u2' });
     });
 
     it('throws BadRequestException when the provider gave no email and no account is already linked', async () => {

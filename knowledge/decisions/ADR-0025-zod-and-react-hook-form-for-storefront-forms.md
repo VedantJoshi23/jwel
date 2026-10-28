@@ -19,6 +19,8 @@ related_documents:
   - STD-TESTING
 related_decisions:
   - ADR-0013
+related_domains: []
+related_features: []
 tags:
   - decision
   - frontend

@@ -14,6 +14,7 @@ import { SettingsService } from '../settings/settings.service';
  */
 describe('RecommendationsService — claiming guest views', () => {
   let prisma: any;
+  let bus: { on: jest.Mock; emit: jest.Mock };
   let service: RecommendationsService;
 
   beforeEach(() => {
@@ -21,7 +22,7 @@ describe('RecommendationsService — claiming guest views', () => {
     const storage = { resolveUrl: (ref: string) => `https://cdn.test/${ref}` };
     service = new RecommendationsService(
       prisma as unknown as PrismaService,
-      { on: jest.fn(), emit: jest.fn() } as unknown as EventBusService,
+      (bus = { on: jest.fn(), emit: jest.fn() }) as unknown as EventBusService,
       { get: jest.fn() } as unknown as SettingsService,
       storage as unknown as StorageProviderPort,
     );
@@ -70,5 +71,24 @@ describe('RecommendationsService — claiming guest views', () => {
   it('reports zero when there was nothing to claim', async () => {
     prisma.productView.updateMany.mockResolvedValue({ count: 0 });
     expect(await service.claimGuestViews('u1', 'never-browsed')).toBe(0);
+  });
+
+  describe('reacting to user.registered (ADR-0030)', () => {
+    it('subscribes on init — Identity announces, Recommendation claims', () => {
+      service.onModuleInit();
+      expect(bus.on).toHaveBeenCalledWith('user.registered', expect.any(Function));
+    });
+
+    it('claims the guest views the registration carried', async () => {
+      await service.onUserRegistered({ userId: 'u1', anonymousId: 'anon-1' });
+      expect(prisma.productView.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { userId: 'u1', anonymousId: null } }),
+      );
+    });
+
+    it('does nothing for a registration with no guest id (OAuth, or a client that never browsed)', async () => {
+      await service.onUserRegistered({ userId: 'u1' });
+      expect(prisma.productView.updateMany).not.toHaveBeenCalled();
+    });
   });
 });

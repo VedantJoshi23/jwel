@@ -13,6 +13,10 @@ priority: High
 depends_on:
   - ADR-0002
 required_by: []
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - admin
   - decision

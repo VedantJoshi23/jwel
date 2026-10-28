@@ -1,6 +1,6 @@
 ---
 id: STD-ACCESSIBILITY
-title: Jwel / ELYSIAN — Standard: Accessibility
+title: 'Jwel / ELYSIAN — Standard: Accessibility'
 version: 1.3.1
 status: Frozen
 owner: Architecture
@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0013
   - ADR-0018
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - accessibility

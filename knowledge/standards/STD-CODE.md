@@ -1,6 +1,6 @@
 ---
 id: STD-CODE
-title: Jwel / ELYSIAN — Standard: Code
+title: 'Jwel / ELYSIAN — Standard: Code'
 version: 1.1.0
 status: Frozen
 owner: Architecture
@@ -17,6 +17,9 @@ depends_on:
 required_by: []
 related_decisions:
   - ADR-0012
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - code

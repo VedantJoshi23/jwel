@@ -1,6 +1,6 @@
 ---
 id: STD-DATABASE
-title: Jwel / ELYSIAN — Standard: Database
+title: 'Jwel / ELYSIAN — Standard: Database'
 version: 1.0.0
 status: Frozen
 owner: Architecture
@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0014
   - ADR-0015
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - database

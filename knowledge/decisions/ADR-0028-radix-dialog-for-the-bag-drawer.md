@@ -19,6 +19,8 @@ related_documents:
 related_decisions:
   - ADR-0019
   - ADR-0025
+related_domains: []
+related_features: []
 tags:
   - decision
   - frontend

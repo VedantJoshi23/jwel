@@ -1,13 +1,13 @@
 ---
 id: DOM-RECOMMENDATION
 title: 'Jwel / ELYSIAN — Domain: Recommendation'
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-14
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Medium
@@ -20,6 +20,9 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0010
+  - ADR-0030
+related_domains: []
+related_features: []
 tags:
   - domain
   - recommendation
@@ -59,7 +62,7 @@ the storefront surfaces that would display recommendations.
 | 6 | Co-occurrence must be **recomputable in bulk** from order history, because the event bus is at-most-once. | `ARCH-001` §3.1, `ADR-0010` |
 | 7 | Recommendations never write to Catalog or Ordering. | Law 5 |
 | 8 | A product pair is only recommendable at **co-occurrence count >= 5**. Below that threshold the pair is treated as noise and not surfaced. The value is a starting heuristic to be tuned against real data, not a tuned figure. **Built 2026-08-09** (`FEAT-RECOMMENDATION-RAILS`) as the setting `recommendations.min_co_occurrence` — a heuristic meant to be tuned should not need a deploy to change. | Owner decision, 2026-08-07 |
-| 9 | A guest's `anonymousId` view history **transfers to the user on registration when it is the same session**, so first-session personalisation survives sign-up. **Built 2026-08-09** (`FEAT-GUEST-VIEW-CLAIM`). Identity commands Recommendation; "same session" is expressed as a 24-hour recency bound, since the server has no session for a guest. | Owner decision, 2026-08-07 |
+| 9 | A guest's `anonymousId` view history **transfers to the user on registration when it is the same session**, so first-session personalisation survives sign-up. **Built 2026-08-09** (`FEAT-GUEST-VIEW-CLAIM`). Recommendation claims on Identity's `user.registered` event (`ADR-0030`; v1.2.0 said "Identity commands Recommendation"); "same session" is expressed as a 24-hour recency bound, since the server has no session for a guest. | Owner decision, 2026-08-07 |
 
 **Invariant 8 is a minimum-support rule, deliberately not a confidence rule.**
 The problem it solves is sparse-data noise: with two published products, a
@@ -90,7 +93,12 @@ for it. Surfacing them is agreed (KC-123).
 ## 5. Events
 
 **Publishes** — none.
-**Consumes** — `order.confirmed`, from Ordering.
+**Consumes** — `order.confirmed`, from Ordering; `user.registered`, from
+Identity (Invariant 9, `ADR-0030`). Both handlers are best-effort and
+re-derivable or absorbable, as `ARCH-001` §3.1 requires of anything on the bus.
+*v1.3.0, 2026-10-28: Invariant 9 and this section revised. Decided by the
+Principal Engineer under authority delegated by the owner (Vedant) on
+2026-10-28.*
 
 ## 6. Data Ownership
 

@@ -20,6 +20,8 @@ related_decisions:
   - ADR-0002
   - ADR-0007
   - ADR-0008
+related_domains: []
+related_features: []
 tags:
   - architecture
   - deployment

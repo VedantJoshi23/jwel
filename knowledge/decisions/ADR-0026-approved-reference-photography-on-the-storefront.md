@@ -18,6 +18,8 @@ related_documents:
   - FEAT-CLAIMS-GATE
 related_decisions:
   - ADR-0027
+related_domains: []
+related_features: []
 tags:
   - decision
   - frontend

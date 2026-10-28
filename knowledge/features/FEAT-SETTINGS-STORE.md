@@ -23,6 +23,8 @@ related_documents:
   - STD-SECURITY
 related_decisions:
   - ADR-0014
+related_domains: []
+related_features: []
 tags:
   - feature
   - infrastructure

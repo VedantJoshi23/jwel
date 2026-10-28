@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0011
   - ADR-0014
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - applicability

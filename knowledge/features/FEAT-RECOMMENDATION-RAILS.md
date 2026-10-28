@@ -21,6 +21,7 @@ related_documents:
 related_domains:
   - DOM-RECOMMENDATION
 related_decisions: []
+related_features: []
 tags:
   - feature
   - recommendations

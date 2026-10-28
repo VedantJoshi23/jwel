@@ -23,6 +23,9 @@ related_decisions:
   - ADR-0001
   - ADR-0005
   - ADR-0024
+  - ADR-0032
+related_domains: []
+related_features: []
 tags:
   - decision
   - shipping
@@ -98,6 +101,14 @@ open.
    authoritative record of the Order↔Shipping dependency. Authoring the full
    Order domain is not required to build this feature, and would block it on
    unrelated work.
+
+   > **Superseded 2026-10-28 by `ADR-0032`.** The premise was false:
+   > `DOM-ORDERING` has existed, Frozen, since 2026-08-07. Its §7 (v1.3.0) is
+   > the authoritative record of Ordering → Shipping (`cancelShipment` only),
+   > and shipment creation is an admin command Shipping serves itself.
+   > Decision 7's "no new cross-domain dependency is introduced" is withdrawn
+   > with it. Decided by the Principal Engineer under authority delegated by
+   > the owner (Vedant) on 2026-10-28.
 
 ## Consequences
 

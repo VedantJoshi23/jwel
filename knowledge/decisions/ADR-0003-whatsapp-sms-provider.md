@@ -16,6 +16,9 @@ required_by:
 related_decisions:
   - ADR-0022
   - ADR-0023
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - notification
   - whatsapp

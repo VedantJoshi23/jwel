@@ -1,6 +1,6 @@
 ---
 id: DOM-SHOPPING
-title: Jwel / ELYSIAN — Domain: Shopping
+title: 'Jwel / ELYSIAN — Domain: Shopping'
 version: 1.4.0
 status: Frozen
 owner: Architecture
@@ -20,6 +20,8 @@ related_documents:
   - DISC-005
 related_decisions:
   - ADR-0009
+related_domains: []
+related_features: []
 tags:
   - domain
   - shopping

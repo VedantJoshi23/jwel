@@ -21,6 +21,8 @@ related_documents:
 related_decisions:
   - ADR-0008
   - ADR-0016
+related_domains: []
+related_features: []
 tags:
   - domain
   - catalog

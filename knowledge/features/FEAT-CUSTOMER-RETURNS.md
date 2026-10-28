@@ -22,6 +22,7 @@ related_documents:
 related_domains:
   - DOM-RETURNS
 related_decisions: []
+related_features: []
 tags:
   - feature
   - returns

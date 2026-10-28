@@ -22,6 +22,7 @@ related_domains:
   - DOM-REPORTING
 related_decisions:
   - ADR-0017
+related_features: []
 tags:
   - feature
   - reporting

@@ -39,7 +39,8 @@ They use this project's own `DOM-` / `FEAT-` / `STD-` / `ADR-` naming; the
 | [knowledge/standards/](knowledge/standards/) | `STD-*` |
 | [knowledge/domains/](knowledge/domains/) | `DOM-*` |
 | [knowledge/features/](knowledge/features/) | `FEAT-*` |
-| [knowledge/decisions/](knowledge/decisions/) | `ADR-*` |
+| [knowledge/decisions/](knowledge/decisions/) | `ADR-*`, and the divergence log ([DIVERGENCE-LOG.md](knowledge/decisions/DIVERGENCE-LOG.md)) |
+| [knowledge/manifest.yaml](knowledge/manifest.yaml) | Every spec's id/status/version — edit it with the spec ([ADR-0033](knowledge/decisions/ADR-0033-adopt-oriveda-0-1-engine-and-progressive-rigor.md)) |
 
 Each directory fills as its milestone produces the artifact. Empty is a
 correct state for anything not yet reached.

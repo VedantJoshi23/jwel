@@ -19,6 +19,7 @@ related_domains:
   - DOM-REVIEWS
 related_decisions:
   - ADR-0008
+related_features: []
 tags:
   - architecture
   - bounded-contexts

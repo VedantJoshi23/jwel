@@ -1,13 +1,13 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.4.0
+version: 1.5.1
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-12
+updated: 2026-10-28
 milestone: M3
 category: Architecture
 priority: Critical
@@ -25,6 +25,11 @@ related_decisions:
   - ADR-0008
   - ADR-0010
   - ADR-0021
+  - ADR-0030
+  - ADR-0031
+  - ADR-0032
+related_domains: []
+related_features: []
 tags:
   - architecture
   - bounded-contexts
@@ -92,6 +97,7 @@ in, event out.** No context writes another's tables or emits another's events.
 | **Product Q&A** | Question, Answer, upvotes on each, visibility state (reactive moderation) | Product identity (reads Catalog); user identity (reads Identity); review content (Reviews) — `ADR-0021` |
 | **Recommendation** | ProductView, ProductCoOccurrence, ranking logic | Product truth; order truth — reads both |
 | **Content** | Banner, homepage content scheduling | Product data; storefront copy in `brand.ts` |
+| **Shipping** | Shipment, ShipmentStatusHistory, PincodeServiceabilityOverride, carrier integration, serviceability | Order status (emits; Ordering moves itself); payment and refund; stock (commands Inventory on RTO) — `ADR-0032` |
 | **Notification** | Message dispatch and channel adapters | Any business state — pure consumer, owns no tables |
 | **Reporting** | Aggregated read models and dashboards | Any write. Reads across all contexts by design |
 
@@ -101,6 +107,14 @@ in, event out.** No context writes another's tables or emits another's events.
 domains (KC-156; `settings` added by Amendment A2). They own no business
 concept and are imported by many contexts. `health` is an operational probe.
 Treating them as contexts would imply ownership they do not have.
+
+**Every context may use these services without listing them** in its `DOM-*`
+§7, which states context-to-context dependencies only. The allowance holds
+because they depend on no context: neither they nor `common/` may import a
+context module (`ADR-0031`, Amendment A5). Entrypoints belong to no context:
+the composition root (`app.module.ts`, `main.ts`) and the operational scripts
+(`src/prisma/seed*.ts`, `src/prisma/normalise-*.ts`, `apps/api/scripts/**`),
+which reuse a context's code so that no second copy exists.
 
 `settings` is the clearest case of the distinction. It holds
 `returns.window_days`, but **`DOM-RETURNS` owns what that value means and what
@@ -119,9 +133,11 @@ table in §1.1 describes the system rather than a target, and **there is no know
 boundary violation outstanding.**
 
 That claim is kept honest structurally rather than by inspection:
-`common/architecture.spec.ts` reads the source tree and fails the build if any
-module outside Catalog writes the product row, emits `product.upserted` /
-`product.deleted`, or grows a second copy of the rating derivation.
+`common/architecture.spec.ts` reads the source tree and holds a table-, event-
+and module-ownership map for every context. It fails the build on a write,
+emission or import that crosses one, on a second copy of the rating
+derivation, and on any new table, event or module that has not been given an
+owner (`ADR-0031`, Amendment A5).
 
 ### 1.4 What lies outside every boundary
 
@@ -210,6 +226,8 @@ traffic (KC-066, KC-100).
 | `return.refunded` | Returns | Notification |
 | `product.upserted` | Catalog *(and Reviews — see §1.3)* | Search |
 | `product.deleted` | Catalog | Search |
+| `user.registered` | Identity | Recommendation (`ADR-0030`) |
+| `shipment.picked_up`, `.in_transit`, `.out_for_delivery`, `.delivered`, `.ndr_raised`, `.rto_initiated` | Shipping | *none yet* — Ordering from `FEAT-SHIPPING` Phase 2 (`ADR-0032`) |
 
 **The central chain:**
 
@@ -455,6 +473,38 @@ command, so this amendment opens no `ADR-0008` question.
 
 **Confidence unchanged at 91%.** A new context was declared; no existing
 observation about the other fourteen changed.
+
+### A5 — 2026-10-28, Shipping declared; shared services and boundary evidence
+
+**Trigger.** The first `oriveda check boundaries` review (Oriveda engine
+v0.1.0) and the Principal Engineer's response to it.
+
+**Authority.** Decided by the Principal Engineer under authority delegated by
+the owner (Vedant) on 2026-10-28, including the 1.5.1 follow-up.
+
+**What changes.**
+
+- **§1.1** gains Shipping, a sixteenth context (`ADR-0032`). It had been live
+  on `main` — tables, webhook, six events — under no declared boundary since
+  `eae42cc`. `DISC-006` predicted its arrival; it never got the amendment
+  Product Q&A got in A4.
+- **§1.2** states the shared-service allowance and its condition, and the
+  entrypoints that belong to no context (`ADR-0031`). *v1.5.1, same day:* the
+  operational scripts were added to the composition root after the
+  policy-faithful boundary run flagged them.
+- **§1.3**'s structural test now covers every context, not only Catalog
+  (`ADR-0031`).
+- **§3** gains `user.registered` (`ADR-0030`) and the six live `shipment.*`
+  events.
+
+**What it means.** The import graph cannot see Law 5's two vectors — a table
+write through `PrismaService`, an event through `EventBusService` — so a clean
+import-graph check is evidence for dependency *direction* only. The ownership
+maps in `common/architecture.spec.ts` are the Law 5 evidence.
+
+**Confidence unchanged at 91%.** A context that existed in code was declared,
+and a policy the corpus applied inconsistently was written down; no
+observation about the other fifteen changed.
 
 ## Technology decisions
 

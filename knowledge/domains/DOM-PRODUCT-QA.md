@@ -1,13 +1,13 @@
 ---
 id: DOM-PRODUCT-QA
 title: 'Jwel / ELYSIAN — Domain: Product Q&A'
-version: 0.1.0
+version: 1.0.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-12
-updated: 2026-08-12
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -20,6 +20,8 @@ related_documents:
   - DOM-REVIEWS
 related_decisions:
   - ADR-0021
+related_domains: []
+related_features: []
 tags:
   - domain
   - qa

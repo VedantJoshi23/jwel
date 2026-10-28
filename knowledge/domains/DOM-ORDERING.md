@@ -1,13 +1,13 @@
 ---
 id: DOM-ORDERING
 title: 'Jwel / ELYSIAN — Domain: Ordering'
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Critical
@@ -21,6 +21,9 @@ related_documents:
 related_decisions:
   - ADR-0005
   - ADR-0008
+  - ADR-0032
+related_domains: []
+related_features: []
 tags:
   - domain
   - ordering
@@ -114,7 +117,10 @@ ignore the channel. The expiry rate stays visible as
 ## 5. Events
 
 **Publishes** — `order.confirmed`, consumed by Notification and Recommendation.
-**Consumes** — `payment.succeeded`, from Payments.
+**Consumes** — `payment.succeeded`, from Payments. *From `FEAT-SHIPPING` Phase 2,
+not yet wired:* `shipment.created` and the carrier-driven `shipment.*` events,
+from Shipping, which move the order through its own fulfilment states
+(`DOM-SHIPPING` Invariant 1 — Shipping never writes `orders`).
 
 This is the system's central chain and the reference implementation of Law 5's
 command-in/event-out pattern (KC-151).
@@ -135,10 +141,19 @@ checkout.
 ## 7. Dependencies
 
 **Allowed** — Inventory (command), Pricing & Promotion (command/read), Payments
-(command), Identity (read), Catalog (read), Audit log.
+(command), Identity (read), Catalog (read), **Shipping (command —
+`cancelShipment` only, `ADR-0032`)**, Audit log.
+
+Cancelling an order whose shipment already has an AWB must cancel the AWB
+synchronously: it is money-relevant, so it stays off the at-most-once bus
+(`ARCH-001` §3.1). Shipment *creation* is not Ordering's: it is an admin
+command to Shipping, which then emits an event Ordering applies (`ADR-0032`
+decision 3). *v1.3.0, 2026-10-28; not yet wired — `FEAT-SHIPPING` Phase 2.
+Decided by the Principal Engineer under authority delegated by the owner
+(Vedant) on 2026-10-28.*
 
 **Forbidden** — writing `inventory_items`, `coupons`, `payments`,
-`return_requests` or any Catalog table; emitting another context's events; any
+`return_requests`, `shipments` or any Catalog table; emitting another context's events; any
 dependency on Reviews, Search, Recommendation or Content.
 
 ## 8. Edge Cases & Validations

@@ -1,6 +1,6 @@
 ---
 id: STD-OBSERVABILITY
-title: Jwel — Standard: Observability
+title: 'Jwel — Standard: Observability'
 version: 1.0.0
 status: Frozen
 owner: Architecture

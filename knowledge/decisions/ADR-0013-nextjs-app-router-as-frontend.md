@@ -18,6 +18,8 @@ related_documents:
 related_decisions:
   - ADR-0011
   - ADR-0006
+related_domains: []
+related_features: []
 tags:
   - technology
   - frontend

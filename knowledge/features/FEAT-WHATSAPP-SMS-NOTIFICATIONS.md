@@ -1,6 +1,6 @@
 ---
 id: FEAT-WHATSAPP-SMS-NOTIFICATIONS
-title: Jwel — Feature: WhatsApp & SMS Transactional Notifications
+title: 'Jwel — Feature: WhatsApp & SMS Transactional Notifications'
 version: 0.1.0
 status: Proposal
 owner: Architecture

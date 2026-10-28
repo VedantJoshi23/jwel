@@ -13,6 +13,10 @@ priority: Critical
 depends_on: []
 required_by:
   - STD-OBSERVABILITY
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - observability
   - decision

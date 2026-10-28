@@ -19,6 +19,8 @@ related_documents: []
 related_decisions:
   - ADR-0003
   - ADR-0022
+related_domains: []
+related_features: []
 tags:
   - decision
   - whatsapp

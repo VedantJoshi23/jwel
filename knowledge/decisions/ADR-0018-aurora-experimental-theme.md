@@ -26,6 +26,8 @@ related_decisions:
   - ADR-0013
   - ADR-0019
   - ADR-0020
+related_domains: []
+related_features: []
 tags:
   - frontend
   - design

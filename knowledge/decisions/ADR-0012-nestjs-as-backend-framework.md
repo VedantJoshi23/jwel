@@ -15,8 +15,10 @@ depends_on: []
 required_by: []
 related_documents:
   - ARCH-001
-related_decisions: [
-  - ADR-0011]
+related_decisions:
+  - ADR-0011
+related_domains: []
+related_features: []
 tags:
   - technology
   - backend
