@@ -1,7 +1,7 @@
 ---
 id: ADR-0031
 title: Shared Services Are Implicitly Allowed; What Counts as Boundary Evidence
-version: 0.1.0
+version: 0.2.0
 status: Accepted
 owner: Architecture
 reviewers:
@@ -67,8 +67,17 @@ cross-context table write or event emission, because both go through
    Shared services and `common/` may import shared services, never a context
    module. `ARCH-001` §1.2's ownership split still binds inside the allowance:
    a context reads only the `settings` keys whose meaning its own `DOM-*` owns.
-3. **The composition root is outside every context.** `app.module.ts` and
-   `main.ts` wire every module by design; boundary checks exclude them.
+3. **Entrypoints are outside every context.** They wire or invoke context
+   code by design, and boundary checks exclude them:
+   - the composition root: `app.module.ts` and `main.ts`;
+   - operational scripts: `src/prisma/seed*.ts`, `src/prisma/normalise-*.ts`
+     and `apps/api/scripts/**`. They reuse a context's own code, e.g. Catalog's
+     `deriveRating`, precisely so that no second copy exists (`ARCH-001` A3).
+
+   *v0.2.0, 2026-10-28:* operational scripts were added after the
+   policy-faithful boundary run flagged `seed-demo.ts` and
+   `normalise-variant-sizes.ts` importing Catalog. v0.1.0 named only the
+   composition root.
 4. **`*.spec.ts` files are excluded from boundary checks**, as
    `common/architecture.spec.ts` already does. A test may legitimately
    construct across contexts — `common/validation/address.spec.ts` checks three
@@ -100,8 +109,8 @@ cross-context table write or event emission, because both go through
   > Every context may use these services without listing them in its `DOM-*`
   > §7, which states context-to-context dependencies only. The allowance holds
   > because they depend on no context; neither they nor `common/` may import a
-  > context module (`ADR-0031`). `app.module.ts` and `main.ts` are the
-  > composition root and belong to no context.
+  > context module (`ADR-0031`). Entrypoints — `app.module.ts`, `main.ts` and
+  > the operational scripts — belong to no context.
 
   §1.3's last paragraph: replace "fails the build if any module outside Catalog
   writes the product row…" with "holds a table-, event- and module-ownership

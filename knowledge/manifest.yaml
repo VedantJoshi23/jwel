@@ -12,7 +12,7 @@ documents:
   title: Jwel / ELYSIAN — System Architecture
   path: knowledge/architecture/ARCH-001-system-architecture.md
   status: Frozen
-  version: 1.5.0
+  version: 1.5.1
   milestone: M3
 - id: CONSTITUTION
   title: Jwel / ELYSIAN — Engineering Constitution
@@ -613,7 +613,7 @@ decisions:
   title: Shared Services Are Implicitly Allowed; What Counts as Boundary Evidence
   path: knowledge/decisions/ADR-0031-shared-services-and-boundary-evidence.md
   status: Accepted
-  version: 0.1.0
+  version: 0.2.0
   milestone: M8
 - id: ADR-0032
   title: Shipping Declared as a Bounded Context; Ordering's Dependency on It Made Explicit

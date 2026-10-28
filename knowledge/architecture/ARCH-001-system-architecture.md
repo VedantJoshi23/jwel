@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.5.0
+version: 1.5.1
 status: Frozen
 owner: Architecture
 reviewers:
@@ -111,8 +111,10 @@ Treating them as contexts would imply ownership they do not have.
 **Every context may use these services without listing them** in its `DOM-*`
 §7, which states context-to-context dependencies only. The allowance holds
 because they depend on no context: neither they nor `common/` may import a
-context module (`ADR-0031`, Amendment A5). `app.module.ts` and `main.ts` are
-the composition root and belong to no context.
+context module (`ADR-0031`, Amendment A5). Entrypoints belong to no context:
+the composition root (`app.module.ts`, `main.ts`) and the operational scripts
+(`src/prisma/seed*.ts`, `src/prisma/normalise-*.ts`, `apps/api/scripts/**`),
+which reuse a context's code so that no second copy exists.
 
 `settings` is the clearest case of the distinction. It holds
 `returns.window_days`, but **`DOM-RETURNS` owns what that value means and what
@@ -484,7 +486,9 @@ v0.1.0) and the Principal Engineer's response to it.
   `eae42cc`. `DISC-006` predicted its arrival; it never got the amendment
   Product Q&A got in A4.
 - **§1.2** states the shared-service allowance and its condition, and the
-  composition root (`ADR-0031`).
+  entrypoints that belong to no context (`ADR-0031`). *v1.5.1, same day:* the
+  operational scripts were added to the composition root after the
+  policy-faithful boundary run flagged them.
 - **§1.3**'s structural test now covers every context, not only Catalog
   (`ADR-0031`).
 - **§3** gains `user.registered` (`ADR-0030`) and the six live `shipment.*`
