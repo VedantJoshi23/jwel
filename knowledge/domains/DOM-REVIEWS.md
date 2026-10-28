@@ -1,13 +1,13 @@
 ---
 id: DOM-REVIEWS
 title: 'Jwel / ELYSIAN — Domain: Reviews'
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-11
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -22,6 +22,7 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0008
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -120,6 +121,26 @@ verified-purchase); audit log.
 
 **Forbidden** — writing `products` (Invariant 7); emitting Catalog's events;
 reading Payments, Shopping or Returns.
+
+```yaml oriveda-boundary
+domain: DOM-REVIEWS
+paths:
+  - "apps/api/src/modules/reviews/**"
+allowed_dependencies:
+  - DOM-CATALOG
+  - DOM-ORDERING
+forbidden_dependencies:
+  - DOM-PAYMENTS
+  - DOM-SHOPPING
+  - DOM-RETURNS
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.3.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

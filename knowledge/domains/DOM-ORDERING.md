@@ -1,7 +1,7 @@
 ---
 id: DOM-ORDERING
 title: 'Jwel / ELYSIAN — Domain: Ordering'
-version: 1.3.0
+version: 1.4.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -22,6 +22,7 @@ related_decisions:
   - ADR-0005
   - ADR-0008
   - ADR-0032
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -155,6 +156,32 @@ Decided by the Principal Engineer under authority delegated by the owner
 **Forbidden** — writing `inventory_items`, `coupons`, `payments`,
 `return_requests`, `shipments` or any Catalog table; emitting another context's events; any
 dependency on Reviews, Search, Recommendation or Content.
+
+```yaml oriveda-boundary
+domain: DOM-ORDERING
+paths:
+  - "apps/api/src/modules/orders/**"
+allowed_dependencies:
+  - DOM-INVENTORY
+  - DOM-PRICING
+  - DOM-PAYMENTS
+  - DOM-IDENTITY
+  - DOM-CATALOG
+  - DOM-SHIPPING
+forbidden_dependencies:
+  - DOM-RETURNS
+  - DOM-REVIEWS
+  - DOM-SEARCH
+  - DOM-RECOMMENDATION
+  - DOM-CONTENT
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.4.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

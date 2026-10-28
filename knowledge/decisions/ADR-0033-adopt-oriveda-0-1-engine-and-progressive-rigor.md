@@ -18,7 +18,8 @@ related_documents:
   - ARCH-001
 related_domains: []
 related_features: []
-related_decisions: []
+related_decisions:
+  - ADR-0034
 tags:
   - decision
   - oriveda
@@ -64,6 +65,9 @@ which follow this one.
 5. **`oriveda check boundaries` is evidence for dependency direction only.**
    Law 5's write and emit vectors go through shared infrastructure, which an
    import graph cannot attribute.
+   *Addendum 2026-10-28:* at adoption no `DOM-*` spec carried an
+   `oriveda-boundary` block, so the engine ran only in a sandbox. Blocks are
+   now in every context's §7 and the engine runs in CI (`ADR-0034`).
 
 ### Frontmatter normalisation, applied with this ADR
 

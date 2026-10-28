@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.5.1
+version: 1.6.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -28,6 +28,7 @@ related_decisions:
   - ADR-0030
   - ADR-0031
   - ADR-0032
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -148,6 +149,39 @@ state its exclusions invites them being "fixed":
 multi-vendor fulfilment are outside every context**, by decision (KC-087–089).
 The software models `client + contracted shops = one client`. There is no
 Seller context and there should not be one.
+
+### 1.5 Module map — the single source of truth
+
+Which `apps/api/src/modules/` directory belongs to which context
+(Amendment A6). Three things must agree with this table exactly:
+`common/architecture.spec.ts`'s module map, and the `paths` of each `DOM-*`
+§7 `oriveda-boundary` block (`ADR-0034`). The structural test reads all three
+and fails the build when they drift.
+
+| Modules | Belongs to |
+| --- | --- |
+| `auth`, `users` | DOM-IDENTITY |
+| `products`, `collections`, `sizes` | DOM-CATALOG |
+| `search` | DOM-SEARCH |
+| `cart`, `wishlist` | DOM-SHOPPING |
+| `coupons` | DOM-PRICING |
+| `orders` | DOM-ORDERING |
+| `payments` | DOM-PAYMENTS |
+| `inventory` | DOM-INVENTORY |
+| `returns` | DOM-RETURNS |
+| `reviews` | DOM-REVIEWS |
+| `qna` | DOM-PRODUCT-QA |
+| `recommendations` | DOM-RECOMMENDATION |
+| `cms` | DOM-CONTENT |
+| `notifications` | DOM-NOTIFICATION |
+| `analytics` | DOM-REPORTING |
+| `shipping` | DOM-SHIPPING |
+| `audit-log`, `metrics`, `storage`, `uploads`, `settings`, `health` | shared (§1.2) |
+
+`uploads` is shared, not Catalog as `DISC-006` first grouped it. It is
+storage's HTTP face: it uploads banner artwork (Content) and collection heroes
+(Catalog), and owns no table (`ADR-0031`). `sizes` is Catalog's
+(`FEAT-SIZE-TAXONOMY` §2).
 
 ---
 
@@ -505,6 +539,24 @@ maps in `common/architecture.spec.ts` are the Law 5 evidence.
 **Confidence unchanged at 91%.** A context that existed in code was declared,
 and a policy the corpus applied inconsistently was written down; no
 observation about the other fifteen changed.
+
+### A6 — 2026-10-28, the module map made explicit
+
+**Trigger.** Adding `oriveda-boundary` blocks to every `DOM-*` §7 (`ADR-0034`),
+whose `paths` must name each context's modules.
+
+**Authority.** Decided by the Principal Engineer under authority delegated by
+the owner (Vedant) on 2026-10-28.
+
+**What changes.** §1.5 is new. Until now, the only module → context mapping
+lived in `DISC-006` (evidence, and stale: no `sizes`, `settings`, `qna` or
+`shipping`, and `uploads` under Catalog) and in the code of
+`common/architecture.spec.ts`. A Frozen architecture whose context map could
+not say which code each context is made of was leaving that to the test file.
+The table records the mapping the test already enforced; no module moves.
+
+**Confidence unchanged at 91%.** An existing mapping was written down; no
+observation changed.
 
 ## Technology decisions
 

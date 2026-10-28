@@ -1,13 +1,13 @@
 ---
 id: DOM-SHOPPING
 title: 'Jwel / ELYSIAN — Domain: Shopping'
-version: 1.4.0
+version: 1.5.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -20,6 +20,7 @@ related_documents:
   - DISC-005
 related_decisions:
   - ADR-0009
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -218,6 +219,30 @@ publish, and it would be a new decision, not an implied one.
 - Reserving stock. That is Ordering's, at checkout (Invariant 10).
 - Creating orders.
 - Any dependency on Payments, Returns, Reviews or Recommendation.
+
+```yaml oriveda-boundary
+domain: DOM-SHOPPING
+paths:
+  - "apps/api/src/modules/cart/**"
+  - "apps/api/src/modules/wishlist/**"
+allowed_dependencies:
+  - DOM-CATALOG
+  - DOM-INVENTORY
+  - DOM-IDENTITY
+forbidden_dependencies:
+  - DOM-ORDERING
+  - DOM-PAYMENTS
+  - DOM-RETURNS
+  - DOM-REVIEWS
+  - DOM-RECOMMENDATION
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.5.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

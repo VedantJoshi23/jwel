@@ -1,13 +1,13 @@
 ---
 id: DOM-CONTENT
 title: 'Jwel / ELYSIAN — Domain: Content'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Medium
@@ -20,6 +20,7 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0013
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -102,6 +103,21 @@ shared infrastructure.
 **Allowed** — Storage (shared infrastructure); audit log.
 
 **Forbidden** — writing or reading any other domain's tables.
+
+```yaml oriveda-boundary
+domain: DOM-CONTENT
+paths:
+  - "apps/api/src/modules/cms/**"
+allowed_dependencies: []
+forbidden_dependencies: []
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.1.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

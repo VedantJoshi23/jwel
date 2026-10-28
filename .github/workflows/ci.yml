@@ -148,6 +148,41 @@ jobs:
         working-directory: apps/web
         run: npx tsc --noEmit
 
+  boundaries:
+    # ADR-0034. Fails on any import between bounded contexts that a DOM-* §7
+    # `oriveda-boundary` block does not allow. This checks dependency
+    # direction only. Law 5's table-write and event-emit evidence is
+    # common/architecture.spec.ts, which runs in backend-test (ADR-0031).
+    name: Architecture — domain boundaries (oriveda)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The engine ships inside the Oriveda submodule (.oriveda-framework).
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install the Oriveda engine and Graphify
+        # Graphify is pinned, per Oriveda ADR-0006 rule 3. The engine is
+        # whatever version the submodule commit carries.
+        run: pip install ./.oriveda-framework/engine "graphifyy==0.9.89"
+
+      - name: Build the code graph (code-only, no LLM calls)
+        # --no-cluster writes no `built_at_commit`, so the engine prints
+        # "graph built at: unknown" and its staleness check is off. That is
+        # acceptable here: the graph is always built fresh from this very
+        # checkout, one step earlier, in this job. graphify-out/ is
+        # gitignored and never committed.
+        run: graphify update . --no-cluster
+
+      - name: Check domain boundaries
+        # --strict also fails on divergences against non-Frozen specs
+        # (DOM-SHIPPING is Draft); an unlogged divergence is a defect.
+        run: oriveda check boundaries --strict
+
   lint:
     name: Lint (backend + frontend)
     runs-on: ubuntu-latest

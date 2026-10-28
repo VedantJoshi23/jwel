@@ -1,13 +1,13 @@
 ---
 id: DOM-PRICING
 title: 'Jwel / ELYSIAN — Domain: Pricing & Promotion'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-28
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -20,6 +20,7 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0014
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -98,6 +99,26 @@ was judged worse coupling in a different direction.
 
 **Forbidden** — writing `orders` or any Ordering table; reading Catalog,
 Payments, Returns or Shopping; emitting events.
+
+```yaml oriveda-boundary
+domain: DOM-PRICING
+paths:
+  - "apps/api/src/modules/coupons/**"
+allowed_dependencies:
+  - DOM-ORDERING
+forbidden_dependencies:
+  - DOM-CATALOG
+  - DOM-PAYMENTS
+  - DOM-RETURNS
+  - DOM-SHOPPING
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.2.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

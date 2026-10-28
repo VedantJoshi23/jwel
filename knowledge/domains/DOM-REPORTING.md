@@ -1,13 +1,13 @@
 ---
 id: DOM-REPORTING
 title: 'Jwel / ELYSIAN — Domain: Reporting'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Medium
@@ -19,6 +19,7 @@ related_documents:
   - DISC-006
 related_decisions:
   - ADR-0002
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -126,6 +127,36 @@ architecturally.
 **Allowed** — read access to all contexts, by design.
 
 **Forbidden** — any write, anywhere. Emitting events.
+
+```yaml oriveda-boundary
+domain: DOM-REPORTING
+paths:
+  - "apps/api/src/modules/analytics/**"
+allowed_dependencies:
+  - DOM-IDENTITY
+  - DOM-CATALOG
+  - DOM-SEARCH
+  - DOM-SHOPPING
+  - DOM-PRICING
+  - DOM-ORDERING
+  - DOM-PAYMENTS
+  - DOM-INVENTORY
+  - DOM-RETURNS
+  - DOM-REVIEWS
+  - DOM-PRODUCT-QA
+  - DOM-RECOMMENDATION
+  - DOM-CONTENT
+  - DOM-NOTIFICATION
+  - DOM-SHIPPING
+forbidden_dependencies: []
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.2.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 
