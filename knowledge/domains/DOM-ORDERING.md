@@ -148,7 +148,9 @@ Cancelling an order whose shipment already has an AWB must cancel the AWB
 synchronously: it is money-relevant, so it stays off the at-most-once bus
 (`ARCH-001` §3.1). Shipment *creation* is not Ordering's: it is an admin
 command to Shipping, which then emits an event Ordering applies (`ADR-0032`
-decision 3). *v1.3.0, 2026-10-28; not yet wired — `FEAT-SHIPPING` Phase 2.*
+decision 3). *v1.3.0, 2026-10-28; not yet wired — `FEAT-SHIPPING` Phase 2.
+Decided by the Principal Engineer under authority delegated by the owner
+(Vedant) on 2026-10-28.*
 
 **Forbidden** — writing `inventory_items`, `coupons`, `payments`,
 `return_requests`, `shipments` or any Catalog table; emitting another context's events; any

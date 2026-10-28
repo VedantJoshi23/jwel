@@ -96,6 +96,9 @@ for it. Surfacing them is agreed (KC-123).
 **Consumes** — `order.confirmed`, from Ordering; `user.registered`, from
 Identity (Invariant 9, `ADR-0030`). Both handlers are best-effort and
 re-derivable or absorbable, as `ARCH-001` §3.1 requires of anything on the bus.
+*v1.3.0, 2026-10-28: Invariant 9 and this section revised. Decided by the
+Principal Engineer under authority delegated by the owner (Vedant) on
+2026-10-28.*
 
 ## 6. Data Ownership
 

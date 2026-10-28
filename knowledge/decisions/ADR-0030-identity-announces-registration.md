@@ -34,6 +34,8 @@ complexity: Low
 
 # ADR-0030 — Identity Announces Registration; Recommendation Reacts
 
+*Decided by the Principal Engineer under authority delegated by the owner (Vedant) on 2026-10-28. Vedant is listed as reviewer on that basis; he did not review this text himself.*
+
 ## Context
 
 `FEAT-GUEST-VIEW-CLAIM` (2026-08-09, status Review) built

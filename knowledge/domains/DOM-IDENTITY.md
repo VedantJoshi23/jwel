@@ -85,7 +85,9 @@ The event exists so other contexts can react to a new account without Identity
 depending on them (§7). Its first consumer is Recommendation, which claims a
 guest's view history (`DOM-RECOMMENDATION` Invariant 9). A welcome message, if
 ever wanted, subscribes here too. *v1.2.0, 2026-10-28: was "Publishes — none";
-this is the "new event and new decision" v1.1.0 anticipated.*
+this is the "new event and new decision" v1.1.0 anticipated. Decided by the
+Principal Engineer under authority delegated by the owner (Vedant) on
+2026-10-28.*
 
 ## 6. Data Ownership
 

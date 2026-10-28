@@ -479,6 +479,9 @@ observation about the other fourteen changed.
 **Trigger.** The first `oriveda check boundaries` review (Oriveda engine
 v0.1.0) and the Principal Engineer's response to it.
 
+**Authority.** Decided by the Principal Engineer under authority delegated by
+the owner (Vedant) on 2026-10-28, including the 1.5.1 follow-up.
+
 **What changes.**
 
 - **§1.1** gains Shipping, a sixteenth context (`ADR-0032`). It had been live

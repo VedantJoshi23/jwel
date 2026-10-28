@@ -37,6 +37,8 @@ complexity: Medium
 
 # ADR-0032 — Shipping Declared as a Context; Ordering → Shipping Made Explicit
 
+*Decided by the Principal Engineer under authority delegated by the owner (Vedant) on 2026-10-28. Vedant is listed as reviewer on that basis; he did not review this text himself.*
+
 ## Context
 
 Shipping Phases 0–1 are live on `main`: the `shipments`,

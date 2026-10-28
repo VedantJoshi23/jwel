@@ -37,6 +37,8 @@ complexity: Low
 
 # ADR-0031 — Shared Services Are Implicitly Allowed; What Counts as Boundary Evidence
 
+*Decided by the Principal Engineer under authority delegated by the owner (Vedant) on 2026-10-28. Vedant is listed as reviewer on that basis; he did not review this text himself.*
+
 ## Context
 
 The first `oriveda check boundaries` run against jwel (2026-10-28) reported

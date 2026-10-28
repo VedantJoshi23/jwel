@@ -4,8 +4,7 @@ title: 'Jwel — Domain: Notification'
 version: 1.0.0
 status: Frozen
 owner: Architecture
-reviewers:
-  - Vedant
+reviewers: []
 created: 2026-07-09
 updated: 2026-07-09
 milestone: M5

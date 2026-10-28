@@ -29,8 +29,7 @@ complexity: Medium
 
 # ADR-0033 — Adopt Oriveda 073100c
 
-*Decided by the Principal Engineer under authority the owner delegated for the
-2026-10-28 review round.*
+*Decided by the Principal Engineer under authority delegated by the owner (Vedant) on 2026-10-28. Vedant is listed as reviewer on that basis; he did not review this text himself.*
 
 ## Context
 
@@ -80,9 +79,10 @@ Metadata only. No body changes and no version bumps, except as noted.
   - `FEAT-PRODUCT-QA`: Medium / Medium.
   - `FEAT-ADMIN-REVIEW-MODERATION`: Medium / Low.
   - `FEAT-PENDING-REVIEW-VISIBILITY`: Low / Low.
-- `reviewers: [Vedant]` was set on `DOM-NOTIFICATION` and `STD-OBSERVABILITY`.
-  The owner froze them in `58879b3` and `2f5dc4b`, alongside siblings that
-  already name him.
+- `reviewers` on `DOM-NOTIFICATION` and `STD-OBSERVABILITY` is **left empty**.
+  Both were Frozen with `reviewers: []`, and nothing records a review. The
+  normalisation commit had back-filled `Vedant`; that was reverted on
+  2026-10-28 because it rewrote who approved a Frozen spec (Law 3).
 - `DOM-PRODUCT-QA` and `FEAT-PRODUCT-QA` went from 0.1.0 to 1.0.0. They were
   frozen at 0.1.0 in `298a8ef`, against the 1.0.0-at-freeze convention every
   other Frozen spec follows. There is no content change.
@@ -101,6 +101,7 @@ below. Before normalisation there were 356.
 | `CONSTITUTION` referenced but "does not exist" | 32 | The validator discovers files by filename prefix. `CONSTITUTION.md` matches no prefix, so the file is never scanned. |
 | id pattern mismatch (`ARCH-001`, `DISC-001`…`010`, `STD-000`, `FEAT-PAYMENT-E2E`) | 13 | The taxonomy patterns `[A-Z-]+` reject digits. A project's taxonomy cannot override a framework entry. |
 | `related_documents` naming advisory root docs (`PRODUCT.md`, `DESIGN`, …) | 9 | These are deliberate pointers to `ADR-0007`'s advisory layer, which has no ids. |
+| Frozen with empty `reviewers` (`DOM-NOTIFICATION`, `STD-OBSERVABILITY`) | 2 | Frozen before reviewers were recorded; not back-filled. Inventing a reviewer would rewrite a decision record. *Class added 2026-10-28.* |
 
 ## Consequences
 

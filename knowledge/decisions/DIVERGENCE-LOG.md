@@ -4,8 +4,7 @@ title: "Jwel / ELYSIAN — Divergence Log"
 version: 0.1.0
 status: Draft
 owner: Architecture
-reviewers:
-  - Vedant
+reviewers: []
 created: 2026-10-28
 updated: 2026-10-28
 milestone: M8
