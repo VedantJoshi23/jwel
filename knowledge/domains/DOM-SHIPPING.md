@@ -1,7 +1,7 @@
 ---
 id: DOM-SHIPPING
 title: 'Jwel — Domain: Shipping'
-version: 0.3.0
+version: 0.4.0
 status: Draft
 owner: Architecture
 reviewers: []
@@ -26,6 +26,7 @@ related_decisions:
   - ADR-0029
   - ADR-0031
   - ADR-0032
+  - ADR-0034
 tags:
   - domain
   - shipping
@@ -273,6 +274,25 @@ event source in its own (Notification's, Payment's) domain spec instead.
 - Reading or writing `users.passwordHash` or any Identity-owned field —
   Shipping only ever needs a shipping address snapshot (already captured
   on `Order.shippingAddress`), never raw user/account data.
+
+```yaml oriveda-boundary
+domain: DOM-SHIPPING
+paths:
+  - "apps/api/src/modules/shipping/**"
+allowed_dependencies:
+  - DOM-ORDERING
+  - DOM-INVENTORY
+forbidden_dependencies:
+  - DOM-PAYMENTS
+  - DOM-IDENTITY
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v0.4.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

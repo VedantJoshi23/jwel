@@ -1,13 +1,13 @@
 ---
 id: DOM-PAYMENTS
 title: 'Jwel / ELYSIAN — Domain: Payments'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-07
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Critical
@@ -21,6 +21,7 @@ related_documents:
 related_decisions:
   - ADR-0005
   - ADR-0010
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -93,6 +94,28 @@ emitting another context's events.
 
 Payments is one of the most isolated contexts in the system, and should stay
 that way.
+
+```yaml oriveda-boundary
+domain: DOM-PAYMENTS
+paths:
+  - "apps/api/src/modules/payments/**"
+allowed_dependencies: []
+forbidden_dependencies:
+  - DOM-ORDERING
+  - DOM-RETURNS
+  - DOM-INVENTORY
+  - DOM-CATALOG
+  - DOM-SHOPPING
+  - DOM-REVIEWS
+  - DOM-RECOMMENDATION
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.1.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

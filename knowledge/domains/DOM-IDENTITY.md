@@ -1,7 +1,7 @@
 ---
 id: DOM-IDENTITY
 title: 'Jwel / ELYSIAN — Domain: Identity & Access'
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -21,6 +21,7 @@ related_documents:
 related_decisions:
   - ADR-0006
   - ADR-0030
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -99,6 +100,22 @@ Principal Engineer under authority delegated by the owner (Vedant) on
 
 **Forbidden** — reading or writing any other context's tables. Identity is the
 system's most depended-upon context and must remain its least dependent.
+
+```yaml oriveda-boundary
+domain: DOM-IDENTITY
+paths:
+  - "apps/api/src/modules/auth/**"
+  - "apps/api/src/modules/users/**"
+allowed_dependencies: []
+forbidden_dependencies: []
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.3.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

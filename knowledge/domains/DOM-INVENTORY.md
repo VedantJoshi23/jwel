@@ -1,13 +1,13 @@
 ---
 id: DOM-INVENTORY
 title: 'Jwel / ELYSIAN — Domain: Inventory'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-14
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Critical
@@ -20,6 +20,7 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0014
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -100,6 +101,28 @@ disagree — a documentation fix, not a behavioural one.
 
 **Forbidden** — writing any Catalog, Ordering, Returns or Payments table;
 emitting events; reading Shopping, Reviews or Recommendation.
+
+```yaml oriveda-boundary
+domain: DOM-INVENTORY
+paths:
+  - "apps/api/src/modules/inventory/**"
+allowed_dependencies:
+  - DOM-CATALOG
+forbidden_dependencies:
+  - DOM-ORDERING
+  - DOM-RETURNS
+  - DOM-PAYMENTS
+  - DOM-SHOPPING
+  - DOM-REVIEWS
+  - DOM-RECOMMENDATION
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.2.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

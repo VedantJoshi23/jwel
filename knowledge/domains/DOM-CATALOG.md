@@ -1,13 +1,13 @@
 ---
 id: DOM-CATALOG
 title: 'Jwel / ELYSIAN — Domain: Catalog'
-version: 1.2.0
+version: 1.3.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-15
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Critical
@@ -21,6 +21,7 @@ related_documents:
 related_decisions:
   - ADR-0008
   - ADR-0016
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -135,6 +136,29 @@ sku), `product_media`, `categories`, `collections`, `collection_products`.
 **Forbidden** — writing `reviews`, `inventory_items`, `orders`, `carts` or any
 other context's tables; reading Payments or Returns; emitting another context's
 events.
+
+```yaml oriveda-boundary
+domain: DOM-CATALOG
+paths:
+  - "apps/api/src/modules/products/**"
+  - "apps/api/src/modules/collections/**"
+  - "apps/api/src/modules/sizes/**"
+allowed_dependencies: []
+forbidden_dependencies:
+  - DOM-REVIEWS
+  - DOM-INVENTORY
+  - DOM-ORDERING
+  - DOM-SHOPPING
+  - DOM-PAYMENTS
+  - DOM-RETURNS
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.3.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

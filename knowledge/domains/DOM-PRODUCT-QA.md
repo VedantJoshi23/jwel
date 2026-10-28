@@ -1,7 +1,7 @@
 ---
 id: DOM-PRODUCT-QA
 title: 'Jwel / ELYSIAN — Domain: Product Q&A'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers:
@@ -20,6 +20,7 @@ related_documents:
   - DOM-REVIEWS
 related_decisions:
   - ADR-0021
+  - ADR-0034
 related_domains: []
 related_features: []
 tags:
@@ -129,6 +130,30 @@ and role).
 **Forbidden** — writing `products` or `users`; any interaction with Reviews
 (the two domains do not touch); reading Payments, Shopping, Ordering,
 Inventory, Pricing, Returns — no business reason connects Q&A to any of them.
+
+```yaml oriveda-boundary
+domain: DOM-PRODUCT-QA
+paths:
+  - "apps/api/src/modules/qna/**"
+allowed_dependencies:
+  - DOM-CATALOG
+  - DOM-IDENTITY
+forbidden_dependencies:
+  - DOM-REVIEWS
+  - DOM-PAYMENTS
+  - DOM-SHOPPING
+  - DOM-ORDERING
+  - DOM-INVENTORY
+  - DOM-PRICING
+  - DOM-RETURNS
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.1.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 

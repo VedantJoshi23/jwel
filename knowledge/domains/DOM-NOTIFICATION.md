@@ -1,12 +1,12 @@
 ---
 id: DOM-NOTIFICATION
 title: 'Jwel — Domain: Notification'
-version: 1.0.0
+version: 1.1.0
 status: Frozen
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -20,6 +20,7 @@ related_features: []
 related_decisions:
   - ADR-0003
   - ADR-0023
+  - ADR-0034
 tags:
   - domain
   - notification
@@ -220,6 +221,21 @@ Both are new, cross-context read-reference to `users.id` only (no write)
   feature seems to need Notification to *decide* when to notify someone
   (rather than react to an event), that decision belongs in whichever
   domain owns the triggering business fact, not here.
+
+```yaml oriveda-boundary
+domain: DOM-NOTIFICATION
+paths:
+  - "apps/api/src/modules/notifications/**"
+allowed_dependencies: []
+forbidden_dependencies: []
+```
+
+The block above is the machine-checkable subset of this section (`ADR-0034`).
+The prose stays authoritative for what the block cannot say: read versus
+command, and which tables may not be written. Shared services (`ARCH-001`
+§1.2) are deliberately absent, not forbidden.
+*v1.1.0, 2026-10-28: block added. Decided by the Principal Engineer under
+authority delegated by the owner (Vedant) on 2026-10-28.*
 
 ## 8. Edge Cases & Validations
 
