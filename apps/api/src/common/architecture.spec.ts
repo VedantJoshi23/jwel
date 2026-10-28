@@ -90,7 +90,11 @@ describe('bounded-context boundaries (ADR-0008)', () => {
  * attributed. Raw SQL is confined below instead.
  */
 
-/** Module directory → owning context. `shared` is ARCH-001 §1.2. */
+/**
+ * Module directory → owning context. `shared` is ARCH-001 §1.2. Must equal
+ * ARCH-001 §1.5 and every DOM-* §7 block's `paths` — the last describe block
+ * below checks all three agree (ADR-0034).
+ */
 const MODULE_CONTEXT: Record<string, string> = {
   auth: 'identity',
   users: 'identity',
@@ -286,5 +290,57 @@ describe('bounded-context boundaries — every context (Law 5)', () => {
       .map(moduleOf)
       .filter((mod) => !RAW_WRITE_ALLOWED[mod]);
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * ADR-0034: ARCH-001 §1.5's module map, this file's MODULE_CONTEXT and the
+ * `paths` of every DOM-* §7 `oriveda-boundary` block are three statements of
+ * one fact. `oriveda check boundaries` only sees modules that some block
+ * owns — a module missing from every block is invisible to it — so the sync
+ * is checked here, where a missing module already fails the build.
+ */
+const KNOWLEDGE = join(SRC, '..', '..', '..', 'knowledge');
+const toDomain = (ctx: string): string => (ctx === 'shared' ? 'shared' : `DOM-${ctx.toUpperCase()}`);
+
+function archModuleMap(): Record<string, string> {
+  const arch = readFileSync(join(KNOWLEDGE, 'architecture', 'ARCH-001-system-architecture.md'), 'utf8');
+  const section = arch.split('### 1.5 Module map')[1].split(/^#{2,3} /m)[0];
+  const map: Record<string, string> = {};
+  for (const row of section.matchAll(/^\|\s*(`[^|]+`)\s*\|\s*([^|]+?)\s*\|$/gm)) {
+    const owner = row[2].startsWith('shared') ? 'shared' : row[2];
+    for (const mod of row[1].matchAll(/`([a-z-]+)`/g)) map[mod[1]] = owner;
+  }
+  return map;
+}
+
+function boundaryBlocks(): Record<string, string[]> {
+  const blocks: Record<string, string[]> = {};
+  const dir = join(KNOWLEDGE, 'domains');
+  for (const file of readdirSync(dir).filter((f) => /^DOM-.*\.md$/.test(f))) {
+    const block = readFileSync(join(dir, file), 'utf8').match(/^```yaml oriveda-boundary\n([\s\S]*?)^```/m);
+    if (!block) continue;
+    const domain = block[1].match(/^domain:\s*(\S+)/m)![1];
+    blocks[domain] = [...block[1].matchAll(/apps\/api\/src\/modules\/([a-z-]+)\/\*\*/g)].map((m) => m[1]).sort();
+  }
+  return blocks;
+}
+
+describe('module map agrees across ARCH-001 §1.5, this file and the DOM-* boundary blocks (ADR-0034)', () => {
+  const expected: Record<string, string> = Object.fromEntries(
+    Object.entries(MODULE_CONTEXT).map(([mod, ctx]) => [mod, toDomain(ctx)]),
+  );
+
+  it('ARCH-001 §1.5 maps every module exactly as MODULE_CONTEXT does', () => {
+    expect(archModuleMap()).toEqual(expected);
+  });
+
+  it('every context has a boundary block whose paths are exactly its modules', () => {
+    const byDomain: Record<string, string[]> = {};
+    for (const [mod, dom] of Object.entries(expected)) {
+      if (dom !== 'shared') (byDomain[dom] ??= []).push(mod);
+    }
+    for (const mods of Object.values(byDomain)) mods.sort();
+    expect(boundaryBlocks()).toEqual(byDomain);
   });
 });
