@@ -53,7 +53,19 @@ export interface ShipmentStatusEvent {
   occurredAt: Date;
 }
 
+// DOM-IDENTITY §5 (ADR-0030, Proposal). Identity's one event: a user row now
+// exists. `anonymousId` is present only when a password registration carried
+// the client's guest id — it exists so Recommendation can claim that guest's
+// views (DOM-RECOMMENDATION Invariant 9) without Identity depending on it.
+// Never log this payload: it is the one place a guest id and a user id meet
+// before Recommendation consumes the pair (DOM-RECOMMENDATION Invariant 3).
+export interface UserRegisteredEvent {
+  userId: string;
+  anonymousId?: string;
+}
+
 export interface DomainEvents {
+  'user.registered': UserRegisteredEvent;
   'order.confirmed': OrderConfirmedEvent;
   'payment.succeeded': PaymentSucceededEvent;
   'return.requested': ReturnRequestedEvent;

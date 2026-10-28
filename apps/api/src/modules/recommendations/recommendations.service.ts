@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../settings/settings.service';
 import { STORAGE_PROVIDER, StorageProviderPort } from '../storage/ports/storage-provider.port';
 import { EventBusService } from '../../common/event-bus/event-bus.service';
+import type { UserRegisteredEvent } from '../../common/event-bus/events';
 import { RecommendationItem, ScoredRecommendationItem } from './recommendations.types';
 
 export interface ViewIdentity {
@@ -85,6 +86,21 @@ export class RecommendationsService implements OnModuleInit {
     // live — re-fetches the order's items from Postgres by id rather than
     // trusting the event payload, consistent with SearchService's listener.
     this.eventBus.on('order.confirmed', (payload) => this.recomputeCoOccurrence(payload.orderId));
+
+    // Invariant 9 — reacts to Identity's event rather than being commanded by
+    // it, so Identity depends on no other context (DOM-IDENTITY §7, ADR-0030).
+    // Best-effort by design: the bus is at-most-once (ARCH-001 §3.1), and a
+    // lost claim costs only personalisation (FEAT-GUEST-VIEW-CLAIM §4).
+    this.eventBus.on('user.registered', (payload) => this.onUserRegistered(payload));
+  }
+
+  /** Exposed for tests; the bus is the only production caller. */
+  async onUserRegistered({ userId, anonymousId }: UserRegisteredEvent): Promise<void> {
+    if (!anonymousId) return;
+    const claimed = await this.claimGuestViews(userId, anonymousId);
+    if (claimed > 0) {
+      this.logger.log(`Claimed ${claimed} guest view(s) for new account ${userId}`);
+    }
   }
 
   // ── Recording ────────────────────────────────────────────────────────────

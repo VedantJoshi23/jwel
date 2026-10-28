@@ -3,31 +3,28 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
-import { RecommendationsService } from '../recommendations/recommendations.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Role } from '../../common/enums/role.enum';
 import { OAuthValidatedProfile } from './oauth/oauth-profile';
 import { MetricsService } from '../metrics/metrics.service';
+import { EventBusService } from '../../common/event-bus/event-bus.service';
 
 const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly metrics: MetricsService,
-    private readonly recommendations: RecommendationsService,
+    private readonly eventBus: EventBusService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -47,27 +44,13 @@ export class AuthService {
       },
     });
 
-    // DOM-RECOMMENDATION Invariant 9 — the views this person made while
-    // browsing as a guest become theirs, so first-session personalisation
-    // survives sign-up.
-    //
-    // Identity **commands** Recommendation rather than writing `product_views`
-    // itself (Law 5), and the call is deliberately outside the account
-    // creation: a failure here must not cost someone their registration. They
-    // would lose a little personalisation; they would otherwise lose the
-    // account they just made.
-    if (dto.anonymousId) {
-      try {
-        const claimed = await this.recommendations.claimGuestViews(user.id, dto.anonymousId);
-        if (claimed > 0) {
-          this.logger.log(`Claimed ${claimed} guest view(s) for new account ${user.id}`);
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Could not claim guest views for ${user.id}: ${(error as Error).message}`,
-        );
-      }
-    }
+    // Identity announces the fact and depends on nobody (DOM-IDENTITY §7).
+    // Recommendation reacts by claiming this browser's guest views
+    // (DOM-RECOMMENDATION Invariant 9) — ADR-0030. Emitted after the account
+    // exists and outside its creation, and the bus never propagates a
+    // handler's failure back here: a failed claim costs a little
+    // personalisation, never the registration (FEAT-GUEST-VIEW-CLAIM §4).
+    this.eventBus.emit('user.registered', { userId: user.id, anonymousId: dto.anonymousId });
 
     return this.buildAuthResponse(user.id, user.email, user.name, user.role as Role);
   }
@@ -142,11 +125,18 @@ export class AuthService {
       );
     }
 
+    const existingUser = await this.prisma.user.findUnique({ where: { email: profile.email } });
     const user =
-      (await this.prisma.user.findUnique({ where: { email: profile.email } })) ??
+      existingUser ??
       (await this.prisma.user.create({
         data: { email: profile.email, name: profile.name, role: Role.CUSTOMER },
       }));
+    if (!existingUser) {
+      // A user row was created, so the event's name is true here too. No
+      // guest id travels on this path — OAuth sign-up does not claim views
+      // (FEAT-GUEST-VIEW-CLAIM §8 scopes the claim to password registration).
+      this.eventBus.emit('user.registered', { userId: user.id });
+    }
 
     if (user.deletedAt) {
       throw new UnauthorizedException('Account no longer active');
