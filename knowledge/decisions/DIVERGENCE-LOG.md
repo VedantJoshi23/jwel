@@ -20,6 +20,8 @@ related_domains:
 related_features:
   - FEAT-SHIPPING
 related_decisions:
+  - ADR-0031
+  - ADR-0032
   - ADR-0033
 tags:
   - divergence
@@ -34,20 +36,22 @@ Shape and rules: Oriveda `templates/divergence-log-template.md` and Oriveda
 `073100c` (`ADR-0033`).
 
 A disagreement with a **Frozen** spec does not belong here. Those are fixed or
-the spec is revised through its lifecycle.
+the spec is revised: see `ADR-0030`, `ADR-0032`.
 
 ## Entries
 
 | ID | Spec § | Spec says | Code does | Found in | Status | Resolved |
 | --- | --- | --- | --- | --- | --- | --- |
-| DIV-001 | `DOM-SHIPPING` §7 | Allowed: Order, Inventory | `shipping.module.ts` imports `AuditLogModule` | `e96ef84`; Oriveda review 2026-10-28 | open | |
-| DIV-002 | `DOM-SHIPPING` §7 | Allowed: Order, Inventory | `static-zone-shipping.provider.ts` reads `SettingsService` | `e96ef84`; Oriveda review 2026-10-28 | open | |
-| DIV-003 | `DOM-SHIPPING` §5 | Publishes `ShipmentPickedUp`, `ShipmentInTransit`, … (`ARCHITECTURE.md` naming) | `events.ts` names them `shipment.picked_up`, `shipment.in_transit`, … (the bus's `context.verb` convention) | `eae42cc`; PE review 2026-10-28 | open | |
+| DIV-001 | `DOM-SHIPPING` §7 | Allowed: Order, Inventory | `shipping.module.ts` imports `AuditLogModule` | `e96ef84`; Oriveda review 2026-10-28 | spec-updated | 2026-10-28 |
+| DIV-002 | `DOM-SHIPPING` §7 | Allowed: Order, Inventory | `static-zone-shipping.provider.ts` reads `SettingsService` | `e96ef84`; Oriveda review 2026-10-28 | spec-updated | 2026-10-28 |
+| DIV-003 | `DOM-SHIPPING` §5 | Publishes `ShipmentPickedUp`, `ShipmentInTransit`, … (`ARCHITECTURE.md` naming) | `events.ts` names them `shipment.picked_up`, `shipment.in_transit`, … (the bus's `context.verb` convention) | `eae42cc`; PE review 2026-10-28 | spec-updated | 2026-10-28 |
 
 ### Notes
 
-**DIV-001, DIV-002.** Both are shared services (`ARCH-001` §1.2). The Frozen
-corpus is inconsistent on whether §7 lists them; a policy decision follows.
+**DIV-001, DIV-002.** Both are shared services (`ARCH-001` §1.2). Resolved
+`spec-updated` by `ADR-0031` and `ARCH-001` A5, not by editing `DOM-SHIPPING`:
+a §7 lists context-to-context dependencies only, and every context may use a
+shared service.
 
-**DIV-003.** The code is right: every other event on the bus uses
-`context.verb`.
+**DIV-003.** The code was right: every other event on the bus uses
+`context.verb`. Resolved by `DOM-SHIPPING` v0.3.0 §5.

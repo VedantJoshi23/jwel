@@ -1,13 +1,13 @@
 ---
 id: FEAT-GUEST-VIEW-CLAIM
 title: 'Jwel / ELYSIAN — Feature: Guest View History Claimed at Sign-Up'
-version: 0.1.0
+version: 0.2.0
 status: Review
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-10-28
 milestone: M6
 category: Features
 priority: Medium
@@ -21,7 +21,8 @@ related_documents:
 related_domains:
   - DOM-RECOMMENDATION
   - DOM-IDENTITY
-related_decisions: []
+related_decisions:
+  - ADR-0030
 related_features: []
 tags:
   - feature
@@ -48,11 +49,16 @@ relationship to.
 
 **Owning domain: `DOM-RECOMMENDATION`**, which owns `ProductView`.
 
-**New dependency: Identity → Recommendation, by command.** `AuthService` calls
-`RecommendationsService.claimGuestViews` rather than writing `product_views`
-itself — Law 5, and the same shape as Reviews commanding Catalog
-(`ADR-0008`). Recommendation reads four other contexts and writes none of them;
-this keeps that true in the other direction too.
+**No new dependency — Recommendation reacts to Identity's event** *(revised
+v0.2.0, `ADR-0030`, Proposal)*. Identity publishes `user.registered`
+(`{ userId, anonymousId? }`) once the account exists; Recommendation's own
+listener claims the views. Identity depends on no other context, as the Frozen
+`DOM-IDENTITY` §7 requires, and Recommendation writes only its own table.
+
+*Superseded, retained per `ADR-0007`:* v0.1.0 had `AuthService` command
+`RecommendationsService.claimGuestViews` directly — Law 5-compliant, but a
+Frozen-spec violation of `DOM-IDENTITY` §7 that this spec declared without
+amending that spec. Found by the Oriveda boundary review, 2026-10-28.
 
 ## 3. "Same session", when the server has no session
 
@@ -109,8 +115,11 @@ easy one to get wrong by putting the call one line earlier.
 | **`STD-API`** | An additive optional field on `RegisterDto` — no existing client breaks. |
 | **`STD-TESTING`** | Every §5 case has a test, including that a failed claim still returns the account. |
 
-**Law 5 check.** Identity commands Recommendation and writes none of its
-tables.
+**Law 5 check.** Identity emits only its own event and writes none of
+Recommendation's tables; Recommendation writes only `product_views`. The claim
+is best-effort, so the at-most-once bus (`ARCH-001` §3.1) is an acceptable
+carrier: a lost event costs exactly what §4 already accepts a failed claim
+costing.
 
 ## 7. Definition of Done
 
@@ -124,7 +133,7 @@ Verified against the live API:
 | Register with no id at all | `201` |
 
 - [x] `claimGuestViews` on Recommendation, bounded and XOR-safe.
-- [x] Identity commands it; failure cannot cost the registration.
+- [x] ~~Identity commands it~~ → Identity emits `user.registered`, Recommendation reacts (`ADR-0030`); failure cannot cost the registration. *Unit-verified 2026-10-28; live re-verification of the §7 table pending.*
 - [x] `RegisterDto.anonymousId`, optional and length-capped.
 - [x] The web client sends it from `register()` rather than from each form.
 - [x] 11 tests added; API and web suites green.

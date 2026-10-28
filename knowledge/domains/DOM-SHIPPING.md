@@ -1,12 +1,12 @@
 ---
 id: DOM-SHIPPING
 title: 'Jwel — Domain: Shipping'
-version: 0.2.0
-status: Proposal
+version: 0.3.0
+status: Draft
 owner: Architecture
 reviewers: []
 created: 2026-07-09
-updated: 2026-09-21
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: High
@@ -14,13 +14,18 @@ depends_on:
   - ADR-0001
 required_by:
   - FEAT-SHIPPING
-related_documents: []
-related_domains: []
+related_documents:
+  - ARCH-001
+related_domains:
+  - DOM-ORDERING
+  - DOM-INVENTORY
 related_features: []
 related_decisions:
   - ADR-0001
   - ADR-0024
   - ADR-0029
+  - ADR-0031
+  - ADR-0032
 tags:
   - domain
   - shipping
@@ -39,9 +44,17 @@ complexity: High
 >
 > **Built so far:** `ShiprocketShippingProvider.checkServiceability` — a live
 > carrier lookup behind `ShippingProviderPort`, degrading to `ADR-0024`'s
-> static estimator on any failure. **Not yet built:** shipment tables,
-> shipment creation and cancellation, the webhook, tracking, NDR/RTO handling.
-> `FEAT-SHIPPING` tracks which acceptance criteria have landed.
+> static estimator on any failure; the `shipments` and
+> `shipment_status_history` tables; the token-authenticated webhook, which
+> records carrier status and publishes the `shipment.*` events (`eae42cc`).
+> **Not yet built:** shipment creation and cancellation, the reconciliation
+> poll, customer tracking, NDR/RTO handling. `FEAT-SHIPPING` tracks which
+> acceptance criteria have landed.
+>
+> **Declared a bounded context 2026-10-28** (`ARCH-001` Amendment A5,
+> `ADR-0032`). **Freeze gate** (Oriveda `ADR-0005` rule 2, `risk: High`): this
+> spec is Frozen before any Phase 2 code starts and before any production
+> release that ships Shipping behaviour.
 >
 > History: annotated as not implemented 2026-08-06 (`ADR-0009`, KC-162);
 > interim estimator added 2026-08-28 (`ADR-0024`).
@@ -185,16 +198,20 @@ which doesn't exist yet.
 
 ### Publishes
 
-`ShipmentCreated`, `ShipmentPickedUp`, `ShipmentInTransit`,
-`ShipmentOutForDelivery`, `ShipmentDelivered`, `ShipmentNdrRaised`,
-`ShipmentRtoInitiated` — per `ARCHITECTURE.md` §5.4's Domain Events
-Catalog. (`CodRemittanceReceived` — **withdrawn**, `ADR-0029`.)
+`shipment.picked_up`, `shipment.in_transit`, `shipment.out_for_delivery`,
+`shipment.delivered`, `shipment.ndr_raised`, `shipment.rto_initiated` —
+published today by the webhook. `shipment.created` arrives with Phase 2.
+Named in the bus's `context.verb` convention (`common/event-bus/events.ts`),
+as every other event is; v0.2.0's `ShipmentPickedUp`-style names came from the
+pre-Oriveda `ARCHITECTURE.md` catalogue (`DIV-003`, resolved by this revision).
+(`CodRemittanceReceived` — **withdrawn**, `ADR-0029`.)
 
 ### Consumes
 
-None inbound — Shipping is triggered by direct calls (Order calling
-`createShipment` and, on cancellation, `cancelShipment`), not by
-listening for an Order event. (This asymmetry —
+None inbound — Shipping is triggered by direct calls, not by listening for
+an Order event: the admin's create-shipment command, which Shipping serves
+itself (`ADR-0032` decision 3), and Ordering's `cancelShipment` on
+cancellation (`DOM-ORDERING` §7). (This asymmetry —
 Shipping is called by Order but talks back only via events, never a
 direct call into Order — is deliberate: it's the same one-way event
 discipline Payments now follows after the M8 audit fix, applied here from
@@ -227,16 +244,14 @@ which Invariant 1 already covers.
 
 ### Allowed
 
-- **Order** — Shipping is called *by* Order (`createShipment`,
-  `cancelShipment`); Shipping
-  never calls back into Order directly, only via events the event bus
-  delivers to Order's own listener (`ShipmentDelivered`, etc. — see §5).
-  This requires Order's own dependency list to include Shipping — jwel
-  does not yet have a formal `DOM-ORDER.md` to amend, so this is recorded
-  here as the authoritative statement of that dependency until one
-  exists; formalizing `DOM-ORDER.md` is flagged in §9 as a real gap this
-  feature surfaces, per `OV-006`'s own rule that a missing dependency
-  belongs at the architecture/domain layer, not silently assumed.
+- **Ordering (read)** — the order id, shipping-address snapshot and totals
+  needed to create a shipment (`ADR-0032` decision 4). Shipping never calls
+  back into Ordering; it reports only through events Ordering's own
+  listener applies (§5). The reverse edge — Ordering commanding
+  `cancelShipment` — is declared where it belongs, in `DOM-ORDERING` §7
+  (v1.3.0). *v0.2.0 claimed `DOM-ORDER.md` did not exist and made this
+  section authoritative for it; `DOM-ORDERING` has been Frozen since
+  2026-08-07 (`ADR-0032`).*
 - **Inventory** — the one domain Shipping actually *calls*: a direct
   `restock()` request on a confirmed RTO (mirrors how Returns already
   calls Inventory on a confirmed return).
@@ -294,15 +309,9 @@ event source in its own (Notification's, Payment's) domain spec instead.
 
 ## 9. Open Questions
 
-- **`DOM-ORDER.md` does not yet exist in jwel's own `knowledge/`.** This
-  spec's §7 records Order's dependency on Shipping as if it were already
-  declared there; formalizing a real `DOM-ORDER.md` (ideally seeded from
-  the M8-audit-corrected Order domain content already validated in
-  Oriveda's `examples/m5-domains-jwel-walkthrough.md`) should happen
-  before or alongside `FEAT-SHIPPING`'s implementation, not indefinitely
-  deferred. **Resolved 2026-09-21 as an explicit deferral (`ADR-0029`
-  decision 9):** §7 stays authoritative for this dependency; `DOM-ORDER.md`
-  is not a prerequisite for building this feature.
+- ~~**`DOM-ORDER.md` does not yet exist.**~~ — **Withdrawn 2026-10-28**
+  (`ADR-0032`): the premise was false. `DOM-ORDERING` exists, Frozen since
+  2026-08-07, and its §7 now declares the Ordering → Shipping command.
 - **The 48h NDR SLA window (Invariant 5) and the ₹50,000 threshold
   (Invariant 3) are starting heuristics**, not derived from jwel's own
   operational data (none exists pre-launch) — revisit once real

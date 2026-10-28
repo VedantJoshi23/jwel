@@ -213,7 +213,8 @@ the M8 audit) — jwel does not yet have these formalized in its own
 - [x] `DOM-ORDER.md` gap (§9 of `DOM-SHIPPING`) either formalized
       alongside this feature or explicitly deferred with the reason
       recorded, not silently ignored. *Deferred with reason: `ADR-0029`
-      decision 9.*
+      decision 9 — superseded 2026-10-28: `DOM-ORDERING` already existed;
+      its §7 now declares the dependency (`ADR-0032`).*
 - [ ] `README.md`'s stack/status table and `BACKEND.md` updated to
       reflect Shipping as implemented, the same way Search/Recommendation
       were documented once built.

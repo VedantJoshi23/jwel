@@ -1,13 +1,13 @@
 ---
 id: DOM-IDENTITY
 title: 'Jwel / ELYSIAN — Domain: Identity & Access'
-version: 1.1.0
+version: 1.2.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-07
-updated: 2026-08-14
+updated: 2026-10-28
 milestone: M5
 category: Domains
 priority: Critical
@@ -20,6 +20,7 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0006
+  - ADR-0030
 related_domains: []
 related_features: []
 tags:
@@ -76,11 +77,15 @@ default `all`), `PATCH /admin/users/:userId/suspend` (optional `reason`),
 
 ## 5. Events
 
-**Publishes** — none. **Consumes** — none.
+**Publishes** — `user.registered` (`{ userId, anonymousId? }`), once a `users`
+row is created, by password registration or first-time OAuth sign-up
+(`ADR-0030`). **Consumes** — none.
 
-Identity is outside the event graph. Nothing in the system reacts to a user
-being created; if a welcome message is ever wanted, that would be a new event
-and a new decision.
+The event exists so other contexts can react to a new account without Identity
+depending on them (§7). Its first consumer is Recommendation, which claims a
+guest's view history (`DOM-RECOMMENDATION` Invariant 9). A welcome message, if
+ever wanted, subscribes here too. *v1.2.0, 2026-10-28: was "Publishes — none";
+this is the "new event and new decision" v1.1.0 anticipated.*
 
 ## 6. Data Ownership
 
@@ -152,7 +157,7 @@ system's most depended-upon context and must remain its least dependent.
 
 Law 1 — Invariant 2 states guest checkout does not exist rather than leaving
 FR-1's claim standing. Law 2 — sourced. Law 4 — Invariants 6 and 8 fail at boot
-or at the database. Law 5 — no cross-context access at all.
+or at the database. Law 5 — no cross-context access; publishes one event of its own (`ADR-0030`).
 
 ## Open items
 
