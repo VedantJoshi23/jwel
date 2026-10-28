@@ -1,7 +1,7 @@
 ---
 id: ARCH-001
 title: Jwel / ELYSIAN — System Architecture
-version: 1.6.0
+version: 1.6.1
 status: Frozen
 owner: Architecture
 reviewers:
@@ -29,6 +29,7 @@ related_decisions:
   - ADR-0031
   - ADR-0032
   - ADR-0034
+  - ADR-0035
 related_domains: []
 related_features: []
 tags:
@@ -116,6 +117,27 @@ context module (`ADR-0031`, Amendment A5). Entrypoints belong to no context:
 the composition root (`app.module.ts`, `main.ts`) and the operational scripts
 (`src/prisma/seed*.ts`, `src/prisma/normalise-*.ts`, `apps/api/scripts/**`),
 which reuse a context's code so that no second copy exists.
+
+The same rule as a checkable block (Oriveda engine `kind: shared`, `ADR-0035`).
+`SHARED` is a unit, not a domain: any context may depend on it, and it may
+depend on no context. Its `paths` are the `shared` rows of §1.5 plus `common/`.
+
+```yaml oriveda-boundary
+domain: SHARED
+kind: shared
+paths:
+  - "apps/api/src/modules/audit-log/**"
+  - "apps/api/src/modules/metrics/**"
+  - "apps/api/src/modules/storage/**"
+  - "apps/api/src/modules/uploads/**"
+  - "apps/api/src/modules/settings/**"
+  - "apps/api/src/modules/health/**"
+  - "apps/api/src/common/**"
+```
+
+*v1.6.1, 2026-10-28, non-semantic (Oriveda `ADR-0007` rule 3): this block
+restates the paragraph above and adds no decision. Decided by the Principal
+Engineer under authority delegated by the owner (Vedant) on 2026-10-28.*
 
 `settings` is the clearest case of the distinction. It holds
 `returns.window_days`, but **`DOM-RETURNS` owns what that value means and what

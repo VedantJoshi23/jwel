@@ -12,7 +12,7 @@ documents:
   title: Jwel / ELYSIAN — System Architecture
   path: knowledge/architecture/ARCH-001-system-architecture.md
   status: Frozen
-  version: 1.6.0
+  version: 1.6.1
   milestone: M3
 - id: CONSTITUTION
   title: Jwel / ELYSIAN — Engineering Constitution
@@ -24,7 +24,7 @@ documents:
   title: Jwel / ELYSIAN — Divergence Log
   path: knowledge/decisions/DIVERGENCE-LOG.md
   status: Draft
-  version: 0.1.0
+  version: 0.2.0
   milestone: M8
 - id: DISC-001
   title: Discovery — Repository Structure
@@ -114,7 +114,7 @@ documents:
   title: 'Jwel — Domain: Notification'
   path: knowledge/domains/DOM-NOTIFICATION.md
   status: Frozen
-  version: 1.1.0
+  version: 1.1.1
   milestone: M5
 - id: DOM-ORDERING
   title: 'Jwel / ELYSIAN — Domain: Ordering'
@@ -402,7 +402,7 @@ documents:
   title: 'Jwel — Standard: Observability'
   path: knowledge/standards/STD-OBSERVABILITY.md
   status: Frozen
-  version: 1.0.0
+  version: 1.0.1
   milestone: M4
 - id: STD-PERFORMANCE
   title: 'Jwel / ELYSIAN — Standard: Performance'
@@ -630,6 +630,12 @@ decisions:
 - id: ADR-0034
   title: Boundary Blocks Are the Checkable Subset of §7; the Engine Runs in CI
   path: knowledge/decisions/ADR-0034-boundary-blocks-are-the-checkable-subset-of-section-7.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M8
+- id: ADR-0035
+  title: Adopt Oriveda v0.2.0 (8ed8df1) — Engine Flags, the Shared Unit, Adoption Entries
+  path: knowledge/decisions/ADR-0035-adopt-oriveda-0-2-engine-flags-and-shared-unit.md
   status: Accepted
   version: 0.1.0
   milestone: M8

@@ -149,8 +149,9 @@ jobs:
         run: npx tsc --noEmit
 
   boundaries:
-    # ADR-0034. Fails on any import between bounded contexts that a DOM-* §7
-    # `oriveda-boundary` block does not allow. This checks dependency
+    # ADR-0034, ADR-0035. Fails on any import between bounded contexts that a
+    # DOM-* §7 `oriveda-boundary` block does not allow, and on any import from
+    # the shared unit (ARCH-001 §1.2) into a context. This checks dependency
     # direction only. Law 5's table-write and event-emit evidence is
     # common/architecture.spec.ts, which runs in backend-test (ADR-0031).
     name: Architecture — domain boundaries (oriveda)
@@ -171,17 +172,45 @@ jobs:
         run: pip install ./.oriveda-framework/engine "graphifyy==0.9.89"
 
       - name: Build the code graph (code-only, no LLM calls)
-        # --no-cluster writes no `built_at_commit`, so the engine prints
-        # "graph built at: unknown" and its staleness check is off. That is
-        # acceptable here: the graph is always built fresh from this very
-        # checkout, one step earlier, in this job. graphify-out/ is
-        # gitignored and never committed.
-        run: graphify update . --no-cluster
+        # Clustering stays on, and it is local: no LLM calls. With it, Graphify
+        # records `built_at_commit`, so the engine's staleness check is live.
+        # Engine 0.2.0 warns about a graph with no build commit, and under
+        # --strict that warning fails the job; --no-cluster would trigger it
+        # (ADR-0035 decision 1). graphify-out/ is gitignored and never
+        # committed.
+        run: graphify update .
 
       - name: Check domain boundaries
         # --strict also fails on divergences against non-Frozen specs
-        # (DOM-SHIPPING is Draft); an unlogged divergence is a defect.
-        run: oriveda check boundaries --strict
+        # (DOM-SHIPPING is Draft) and on warnings: a stale graph, or a Frozen
+        # spec without a block.
+        #
+        # --specs knowledge: the shared unit's block lives in ARCH-001 §1.2,
+        # not in a DOM- file, because shared services are not domains.
+        #
+        # --units: names any module directory that no block owns.
+        #
+        # --exclude: exactly what ADR-0031 keeps out of boundary checks
+        # (entrypoints, rule 3; tests, rule 4), plus upstream's own code and
+        # the storefront, which ARCH-001 gives no context model
+        # (ADR-0035 decision 6).
+        #
+        # --type-only count: a type-only import still couples one context to
+        # another's model (ADR-0035 decision 7).
+        run: >-
+          oriveda check boundaries --strict
+          --specs knowledge
+          --units 'apps/api/src/modules/*'
+          --type-only count
+          --exclude '.oriveda-framework/**'
+          --exclude 'apps/web/**'
+          --exclude '**/*.spec.ts'
+          --exclude 'apps/api/test/**'
+          --exclude 'apps/api/src/app.module.ts'
+          --exclude 'apps/api/src/main.ts'
+          --exclude 'apps/api/src/prisma/seed*.ts'
+          --exclude 'apps/api/src/prisma/normalise-*.ts'
+          --exclude 'apps/api/scripts/**'
 
   lint:
     name: Lint (backend + frontend)
