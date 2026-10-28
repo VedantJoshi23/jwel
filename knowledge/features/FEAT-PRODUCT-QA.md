@@ -1,13 +1,13 @@
 ---
 id: FEAT-PRODUCT-QA
 title: 'Jwel / ELYSIAN — Feature: Product Q&A'
-version: 0.1.0
+version: 1.0.0
 status: Frozen
 owner: Architecture
 reviewers:
   - Vedant
 created: 2026-08-12
-updated: 2026-08-12
+updated: 2026-10-28
 milestone: M10
 category: Features
 priority: High
@@ -24,9 +24,12 @@ related_domains:
   - DOM-PRODUCT-QA
 related_decisions:
   - ADR-0021
+related_features: []
 tags:
   - feature
   - qa
+risk: Medium
+complexity: Medium
 ---
 
 # FEAT-PRODUCT-QA

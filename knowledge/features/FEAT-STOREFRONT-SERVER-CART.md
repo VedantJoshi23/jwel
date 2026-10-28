@@ -22,6 +22,7 @@ related_documents:
 related_domains:
   - DOM-SHOPPING
 related_decisions: []
+related_features: []
 tags:
   - feature
   - shopping

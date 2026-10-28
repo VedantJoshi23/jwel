@@ -19,6 +19,8 @@ related_documents:
   - PRODUCT.md
 related_decisions:
   - ADR-0007
+related_domains: []
+related_features: []
 tags:
   - discovery
   - investigation

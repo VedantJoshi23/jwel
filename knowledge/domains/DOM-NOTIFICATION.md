@@ -1,10 +1,11 @@
 ---
 id: DOM-NOTIFICATION
-title: Jwel — Domain: Notification
+title: 'Jwel — Domain: Notification'
 version: 1.0.0
 status: Frozen
 owner: Architecture
-reviewers: []
+reviewers:
+  - Vedant
 created: 2026-07-09
 updated: 2026-07-09
 milestone: M5

@@ -23,6 +23,7 @@ related_documents:
 related_domains:
   - DOM-CONTENT
 related_decisions: []
+related_features: []
 tags:
   - feature
   - content

@@ -20,6 +20,7 @@ related_documents:
 related_domains:
   - DOM-CATALOG
 related_decisions: []
+related_features: []
 tags:
   - feature
   - catalog

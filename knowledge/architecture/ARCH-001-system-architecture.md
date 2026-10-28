@@ -25,6 +25,8 @@ related_decisions:
   - ADR-0008
   - ADR-0010
   - ADR-0021
+related_domains: []
+related_features: []
 tags:
   - architecture
   - bounded-contexts

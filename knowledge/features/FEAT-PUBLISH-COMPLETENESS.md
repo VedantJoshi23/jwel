@@ -24,6 +24,7 @@ related_domains:
   - DOM-CATALOG
 related_decisions:
   - ADR-0015
+related_features: []
 tags:
   - feature
   - catalog

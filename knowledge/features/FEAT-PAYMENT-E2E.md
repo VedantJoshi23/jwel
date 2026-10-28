@@ -24,6 +24,7 @@ related_domains:
   - DOM-PAYMENTS
 related_decisions:
   - ADR-0005
+related_features: []
 tags:
   - feature
   - testing

@@ -16,6 +16,8 @@ required_by: []
 related_documents: []
 related_decisions:
   - ADR-0026
+related_domains: []
+related_features: []
 tags:
   - decision
   - frontend

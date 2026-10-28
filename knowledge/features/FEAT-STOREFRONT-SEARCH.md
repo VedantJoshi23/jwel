@@ -21,6 +21,7 @@ related_domains:
   - DOM-SEARCH
 related_decisions:
   - ADR-0016
+related_features: []
 tags:
   - feature
   - search

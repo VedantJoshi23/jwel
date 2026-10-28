@@ -13,6 +13,10 @@ priority: Medium
 depends_on: []
 required_by:
   - DOM-RISK
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - risk
   - fraud

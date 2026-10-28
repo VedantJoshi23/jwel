@@ -12,6 +12,10 @@ category: Decision
 priority: Critical
 depends_on: []
 required_by: []
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - payments
   - decision

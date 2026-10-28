@@ -1,6 +1,6 @@
 ---
 id: DOM-SHIPPING
-title: Jwel — Domain: Shipping
+title: 'Jwel — Domain: Shipping'
 version: 0.2.0
 status: Proposal
 owner: Architecture

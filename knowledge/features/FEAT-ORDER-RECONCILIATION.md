@@ -25,6 +25,7 @@ related_domains:
 related_decisions:
   - ADR-0005
   - ADR-0010
+related_features: []
 tags:
   - feature
   - ordering

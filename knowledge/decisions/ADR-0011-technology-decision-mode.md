@@ -16,6 +16,8 @@ required_by: []
 related_documents:
   - ARCH-001
 related_decisions: []
+related_domains: []
+related_features: []
 tags:
   - governance
   - technology

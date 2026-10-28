@@ -28,6 +28,7 @@ related_domains:
 related_decisions:
   - ADR-0008
   - ADR-0010
+related_features: []
 tags:
   - feature
   - catalog

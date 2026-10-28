@@ -19,6 +19,9 @@ required_by:
 related_decisions:
   - ADR-0007
   - ADR-0009
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - discovery
   - investigation

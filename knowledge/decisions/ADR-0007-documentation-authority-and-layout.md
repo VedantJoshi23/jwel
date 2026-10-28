@@ -17,6 +17,8 @@ related_documents:
   - DISC-001
 related_decisions:
   - ADR-0006
+related_domains: []
+related_features: []
 tags:
   - documentation
   - governance

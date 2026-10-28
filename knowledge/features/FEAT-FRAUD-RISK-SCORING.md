@@ -1,6 +1,6 @@
 ---
 id: FEAT-FRAUD-RISK-SCORING
-title: Jwel — Feature: Order Fraud/Risk Scoring & Review Queue
+title: 'Jwel — Feature: Order Fraud/Risk Scoring & Review Queue'
 version: 0.1.0
 status: Proposal
 owner: Architecture

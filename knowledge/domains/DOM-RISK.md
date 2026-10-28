@@ -1,6 +1,6 @@
 ---
 id: DOM-RISK
-title: Jwel — Domain: Risk
+title: 'Jwel — Domain: Risk'
 version: 0.1.0
 status: Proposal
 owner: Architecture

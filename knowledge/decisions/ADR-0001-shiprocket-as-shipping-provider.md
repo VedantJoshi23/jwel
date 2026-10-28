@@ -13,6 +13,10 @@ priority: High
 depends_on: []
 required_by:
   - DOM-SHIPPING
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - shipping
   - logistics

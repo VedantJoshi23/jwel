@@ -1,6 +1,6 @@
 ---
 id: STD-PERFORMANCE
-title: Jwel / ELYSIAN — Standard: Performance
+title: 'Jwel / ELYSIAN — Standard: Performance'
 version: 1.0.0
 status: Frozen
 owner: Architecture
@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0010
   - ADR-0016
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - performance

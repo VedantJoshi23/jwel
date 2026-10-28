@@ -1,6 +1,6 @@
 ---
 id: DOM-RETURNS
-title: Jwel / ELYSIAN — Domain: Returns
+title: 'Jwel / ELYSIAN — Domain: Returns'
 version: 1.3.0
 status: Frozen
 owner: Architecture
@@ -21,6 +21,8 @@ related_documents:
 related_decisions:
   - ADR-0008
   - ADR-0009
+related_domains: []
+related_features: []
 tags:
   - domain
   - returns

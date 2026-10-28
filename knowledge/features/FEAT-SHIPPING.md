@@ -1,6 +1,6 @@
 ---
 id: FEAT-SHIPPING
-title: Jwel — Feature: Shiprocket Order Fulfillment & Tracking
+title: 'Jwel — Feature: Shiprocket Order Fulfillment & Tracking'
 version: 0.2.0
 status: Proposal
 owner: Architecture

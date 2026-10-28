@@ -22,6 +22,7 @@ related_domains:
   - DOM-RECOMMENDATION
   - DOM-IDENTITY
 related_decisions: []
+related_features: []
 tags:
   - feature
   - recommendations

@@ -1,0 +1,612 @@
+# jwel knowledge manifest — required by Oriveda scripts/validate.py --root (Oriveda ADR-0004).
+# Every spec under knowledge/ is listed with its id/status/version/milestone; the validator
+# checks both directions. Update the entry in the same change that edits a spec's frontmatter.
+project: jwel
+framework:
+  name: Oriveda
+  submodule: .oriveda-framework
+  version: 0.1.0
+  commit: 073100c
+documents:
+- id: ARCH-001
+  title: Jwel / ELYSIAN — System Architecture
+  path: knowledge/architecture/ARCH-001-system-architecture.md
+  status: Frozen
+  version: 1.4.0
+  milestone: M3
+- id: CONSTITUTION
+  title: Jwel / ELYSIAN — Engineering Constitution
+  path: knowledge/constitution/CONSTITUTION.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M2
+- id: DIVERGENCE-LOG
+  title: Jwel / ELYSIAN — Divergence Log
+  path: knowledge/decisions/DIVERGENCE-LOG.md
+  status: Draft
+  version: 0.1.0
+  milestone: M8
+- id: DISC-001
+  title: Discovery — Repository Structure
+  path: knowledge/discovery/DISC-001-repo-structure.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-002
+  title: Discovery — Business Vision
+  path: knowledge/discovery/DISC-002-business-vision.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-003
+  title: Discovery — Feature Inventory
+  path: knowledge/discovery/DISC-003-feature-inventory.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M1
+- id: DISC-004
+  title: Discovery — User Journeys
+  path: knowledge/discovery/DISC-004-user-journeys.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-005
+  title: Discovery — Data Model
+  path: knowledge/discovery/DISC-005-data-model.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-006
+  title: Discovery — Domain Discovery
+  path: knowledge/discovery/DISC-006-domain-discovery.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-007
+  title: Discovery — Technical Architecture
+  path: knowledge/discovery/DISC-007-technical-architecture.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M1
+- id: DISC-008
+  title: Discovery — Hidden Business Rules
+  path: knowledge/discovery/DISC-008-hidden-business-rules.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M1
+- id: DISC-009
+  title: Discovery — Technical Debt
+  path: knowledge/discovery/DISC-009-technical-debt.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M1
+- id: DISC-010
+  title: Discovery — Recommendations
+  path: knowledge/discovery/DISC-010-recommendations.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M1
+- id: DOM-CATALOG
+  title: 'Jwel / ELYSIAN — Domain: Catalog'
+  path: knowledge/domains/DOM-CATALOG.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M5
+- id: DOM-CONTENT
+  title: 'Jwel / ELYSIAN — Domain: Content'
+  path: knowledge/domains/DOM-CONTENT.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M5
+- id: DOM-IDENTITY
+  title: 'Jwel / ELYSIAN — Domain: Identity & Access'
+  path: knowledge/domains/DOM-IDENTITY.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M5
+- id: DOM-INVENTORY
+  title: 'Jwel / ELYSIAN — Domain: Inventory'
+  path: knowledge/domains/DOM-INVENTORY.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M5
+- id: DOM-NOTIFICATION
+  title: 'Jwel — Domain: Notification'
+  path: knowledge/domains/DOM-NOTIFICATION.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M5
+- id: DOM-ORDERING
+  title: 'Jwel / ELYSIAN — Domain: Ordering'
+  path: knowledge/domains/DOM-ORDERING.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M5
+- id: DOM-PAYMENTS
+  title: 'Jwel / ELYSIAN — Domain: Payments'
+  path: knowledge/domains/DOM-PAYMENTS.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M5
+- id: DOM-PRICING
+  title: 'Jwel / ELYSIAN — Domain: Pricing & Promotion'
+  path: knowledge/domains/DOM-PRICING.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M5
+- id: DOM-PRODUCT-QA
+  title: 'Jwel / ELYSIAN — Domain: Product Q&A'
+  path: knowledge/domains/DOM-PRODUCT-QA.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M5
+- id: DOM-RECOMMENDATION
+  title: 'Jwel / ELYSIAN — Domain: Recommendation'
+  path: knowledge/domains/DOM-RECOMMENDATION.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M5
+- id: DOM-REPORTING
+  title: 'Jwel / ELYSIAN — Domain: Reporting'
+  path: knowledge/domains/DOM-REPORTING.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M5
+- id: DOM-RETURNS
+  title: 'Jwel / ELYSIAN — Domain: Returns'
+  path: knowledge/domains/DOM-RETURNS.md
+  status: Frozen
+  version: 1.3.0
+  milestone: M5
+- id: DOM-REVIEWS
+  title: 'Jwel / ELYSIAN — Domain: Reviews'
+  path: knowledge/domains/DOM-REVIEWS.md
+  status: Frozen
+  version: 1.2.0
+  milestone: M5
+- id: DOM-RISK
+  title: 'Jwel — Domain: Risk'
+  path: knowledge/domains/DOM-RISK.md
+  status: Proposal
+  version: 0.1.0
+  milestone: M5
+- id: DOM-SEARCH
+  title: 'Jwel / ELYSIAN — Domain: Search'
+  path: knowledge/domains/DOM-SEARCH.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M5
+- id: DOM-SHIPPING
+  title: 'Jwel — Domain: Shipping'
+  path: knowledge/domains/DOM-SHIPPING.md
+  status: Proposal
+  version: 0.2.0
+  milestone: M5
+- id: DOM-SHOPPING
+  title: 'Jwel / ELYSIAN — Domain: Shopping'
+  path: knowledge/domains/DOM-SHOPPING.md
+  status: Frozen
+  version: 1.4.0
+  milestone: M5
+- id: FEAT-ACCESSIBILITY-AXE
+  title: 'Jwel / ELYSIAN — Feature: Automated Accessibility Checks'
+  path: knowledge/features/FEAT-ACCESSIBILITY-AXE.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-ADMIN-REVIEW-MODERATION
+  title: 'Jwel / ELYSIAN — Feature: Admin Review Moderation UI'
+  path: knowledge/features/FEAT-ADMIN-REVIEW-MODERATION.md
+  status: Review
+  version: 0.1.0
+  milestone: M10
+- id: FEAT-BULK-IMPORT
+  title: 'Jwel / ELYSIAN — Feature: CSV Bulk Product Import'
+  path: knowledge/features/FEAT-BULK-IMPORT.md
+  status: Review
+  version: 1.0.0
+  milestone: M6
+- id: FEAT-CATALOGUE-EXPORT
+  title: 'Jwel / ELYSIAN — Feature: Catalogue PDF Export'
+  path: knowledge/features/FEAT-CATALOGUE-EXPORT.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-CLAIMS-GATE
+  title: 'Jwel / ELYSIAN — Feature: The Storefront Claims Gate'
+  path: knowledge/features/FEAT-CLAIMS-GATE.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-CUSTOMER-RETURNS
+  title: 'Jwel / ELYSIAN — Feature: Customer-Initiated Returns'
+  path: knowledge/features/FEAT-CUSTOMER-RETURNS.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-DELIVERY-ESTIMATE
+  title: 'Jwel — Feature: Interim Pincode Deliverability Estimate'
+  path: knowledge/features/FEAT-DELIVERY-ESTIMATE.md
+  status: Frozen
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-FRAUD-RISK-SCORING
+  title: 'Jwel — Feature: Order Fraud/Risk Scoring & Review Queue'
+  path: knowledge/features/FEAT-FRAUD-RISK-SCORING.md
+  status: Proposal
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-GUEST-VIEW-CLAIM
+  title: 'Jwel / ELYSIAN — Feature: Guest View History Claimed at Sign-Up'
+  path: knowledge/features/FEAT-GUEST-VIEW-CLAIM.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-ORDER-RECONCILIATION
+  title: 'Jwel / ELYSIAN — Feature: Order Reconciliation Sweep'
+  path: knowledge/features/FEAT-ORDER-RECONCILIATION.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-ORDER-REFUND-STATE
+  title: 'Jwel / ELYSIAN — Feature: Reachable REFUNDED and the Partial-Return Differentiator'
+  path: knowledge/features/FEAT-ORDER-REFUND-STATE.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-PAYMENT-E2E
+  title: 'Jwel / ELYSIAN — Feature: End-to-End Coverage of the Payment Path'
+  path: knowledge/features/FEAT-PAYMENT-E2E.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-PENDING-REVIEW-VISIBILITY
+  title: 'Jwel / ELYSIAN — Feature: A Reviewer Sees Their Own Pending Review'
+  path: knowledge/features/FEAT-PENDING-REVIEW-VISIBILITY.md
+  status: Review
+  version: 0.1.0
+  milestone: M8
+- id: FEAT-PRODUCT-QA
+  title: 'Jwel / ELYSIAN — Feature: Product Q&A'
+  path: knowledge/features/FEAT-PRODUCT-QA.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M10
+- id: FEAT-PRODUCT-VIDEO-MEDIA
+  title: 'Jwel / ELYSIAN — Feature: Product Video Media'
+  path: knowledge/features/FEAT-PRODUCT-VIDEO-MEDIA.md
+  status: Review
+  version: 1.0.0
+  milestone: M6
+- id: FEAT-PRODUCT-ZOOM-VIEWER
+  title: 'Jwel / ELYSIAN — Feature: Product Zoom Viewer'
+  path: knowledge/features/FEAT-PRODUCT-ZOOM-VIEWER.md
+  status: Review
+  version: 1.0.0
+  milestone: M6
+- id: FEAT-PUBLISH-COMPLETENESS
+  title: 'Jwel / ELYSIAN — Feature: Publish-Time Completeness Checks'
+  path: knowledge/features/FEAT-PUBLISH-COMPLETENESS.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-RATING-OWNERSHIP
+  title: 'Jwel / ELYSIAN — Feature: Rating Aggregate Ownership and Reconciliation'
+  path: knowledge/features/FEAT-RATING-OWNERSHIP.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-RECOMMENDATION-RAILS
+  title: 'Jwel / ELYSIAN — Feature: Recommendation Rails'
+  path: knowledge/features/FEAT-RECOMMENDATION-RAILS.md
+  status: Review
+  version: 0.2.0
+  milestone: M6
+- id: FEAT-REVENUE-FORMULA
+  title: 'Jwel / ELYSIAN — Feature: Gross, Refunds and Net'
+  path: knowledge/features/FEAT-REVENUE-FORMULA.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-SERVER-CART-API
+  title: 'Jwel / ELYSIAN — Feature: Server-Side Cart (API)'
+  path: knowledge/features/FEAT-SERVER-CART-API.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-SETTINGS-STORE
+  title: 'Jwel / ELYSIAN — Feature: Admin-Editable Settings Store'
+  path: knowledge/features/FEAT-SETTINGS-STORE.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-SHAREABLE-CART
+  title: 'Jwel / ELYSIAN — Feature: Shareable Cart'
+  path: knowledge/features/FEAT-SHAREABLE-CART.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-SHIPPING
+  title: 'Jwel — Feature: Shiprocket Order Fulfillment & Tracking'
+  path: knowledge/features/FEAT-SHIPPING.md
+  status: Proposal
+  version: 0.2.0
+  milestone: M6
+- id: FEAT-SIZE-TAXONOMY
+  title: 'Jwel / ELYSIAN — Feature: Category-Aware Size Taxonomy & Filter'
+  path: knowledge/features/FEAT-SIZE-TAXONOMY.md
+  status: Review
+  version: 0.2.0
+  milestone: M6
+- id: FEAT-STOREFRONT-SEARCH
+  title: 'Jwel / ELYSIAN — Feature: Storefront Search Moves to Elasticsearch'
+  path: knowledge/features/FEAT-STOREFRONT-SEARCH.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-STOREFRONT-SERVER-CART
+  title: 'Jwel / ELYSIAN — Feature: The Storefront Moves to the Server Cart'
+  path: knowledge/features/FEAT-STOREFRONT-SERVER-CART.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-WHATSAPP-SMS-NOTIFICATIONS
+  title: 'Jwel — Feature: WhatsApp & SMS Transactional Notifications'
+  path: knowledge/features/FEAT-WHATSAPP-SMS-NOTIFICATIONS.md
+  status: Proposal
+  version: 0.1.0
+  milestone: M6
+- id: FEAT-WISHLIST-UI
+  title: 'Jwel / ELYSIAN — Feature: Wishlist and Wishlist Sharing'
+  path: knowledge/features/FEAT-WISHLIST-UI.md
+  status: Review
+  version: 0.1.0
+  milestone: M6
+- id: STD-000
+  title: Jwel / ELYSIAN — Standards Applicability
+  path: knowledge/standards/STD-000-applicability.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-ACCESSIBILITY
+  title: 'Jwel / ELYSIAN — Standard: Accessibility'
+  path: knowledge/standards/STD-ACCESSIBILITY.md
+  status: Frozen
+  version: 1.3.1
+  milestone: M4
+- id: STD-API
+  title: 'Jwel / ELYSIAN — Standard: API'
+  path: knowledge/standards/STD-API.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-CICD
+  title: 'Jwel / ELYSIAN — Standard: CI/CD'
+  path: knowledge/standards/STD-CICD.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M4
+- id: STD-CODE
+  title: 'Jwel / ELYSIAN — Standard: Code'
+  path: knowledge/standards/STD-CODE.md
+  status: Frozen
+  version: 1.1.0
+  milestone: M4
+- id: STD-DATABASE
+  title: 'Jwel / ELYSIAN — Standard: Database'
+  path: knowledge/standards/STD-DATABASE.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-OBSERVABILITY
+  title: 'Jwel — Standard: Observability'
+  path: knowledge/standards/STD-OBSERVABILITY.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-PERFORMANCE
+  title: 'Jwel / ELYSIAN — Standard: Performance'
+  path: knowledge/standards/STD-PERFORMANCE.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-SECURITY
+  title: 'Jwel / ELYSIAN — Standard: Security'
+  path: knowledge/standards/STD-SECURITY.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-SEO
+  title: 'Jwel / ELYSIAN — Standard: SEO'
+  path: knowledge/standards/STD-SEO.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+- id: STD-TESTING
+  title: 'Jwel / ELYSIAN — Standard: Testing'
+  path: knowledge/standards/STD-TESTING.md
+  status: Frozen
+  version: 1.0.0
+  milestone: M4
+decisions:
+- id: ADR-0001
+  title: Shiprocket as the Shipping Provider, Behind a Swappable Port
+  path: knowledge/decisions/ADR-0001-shiprocket-as-shipping-provider.md
+  status: Proposal
+  version: 1.0.0
+  milestone: M3
+- id: ADR-0002
+  title: Sentry + Prometheus/Grafana as the Observability Stack
+  path: knowledge/decisions/ADR-0002-observability-stack.md
+  status: Accepted
+  version: 1.0.0
+  milestone: M13
+- id: ADR-0003
+  title: WhatsApp (Meta Cloud API, direct) + MSG91 (SMS fallback) as Notification Channels
+  path: knowledge/decisions/ADR-0003-whatsapp-sms-provider.md
+  status: Proposal
+  version: 1.0.0
+  milestone: M3
+- id: ADR-0004
+  title: Rule-Based In-House Risk Scoring, Not a Fraud SaaS
+  path: knowledge/decisions/ADR-0004-fraud-risk-scoring-approach.md
+  status: Proposal
+  version: 1.0.0
+  milestone: M3
+- id: ADR-0005
+  title: Razorpay as the Sole Payment Provider, Stripe Dropped
+  path: knowledge/decisions/ADR-0005-razorpay-as-sole-payment-provider.md
+  status: Accepted
+  version: 1.0.0
+  milestone: M12
+- id: ADR-0006
+  title: Hybrid Admin — Custom for Workflows, Third-Party for CRUD, BI and CMS
+  path: knowledge/decisions/ADR-0006-hybrid-admin-strategy.md
+  status: Accepted
+  version: 1.0.0
+  milestone: M14
+- id: ADR-0007
+  title: Documentation authority and repository layout
+  path: knowledge/decisions/ADR-0007-documentation-authority-and-layout.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M1
+- id: ADR-0008
+  title: Cross-context interaction is command in, event out
+  path: knowledge/decisions/ADR-0008-cross-context-writes-command-in-event-out.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M1
+- id: ADR-0009
+  title: Domain specifications follow work, not discovery
+  path: knowledge/decisions/ADR-0009-domain-specifications-follow-work.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M1
+- id: ADR-0010
+  title: Single-node deployment posture and revised reliability targets
+  path: knowledge/decisions/ADR-0010-single-node-posture-and-reliability-targets.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M1
+- id: ADR-0011
+  title: Technology decisions are made in Hybrid mode
+  path: knowledge/decisions/ADR-0011-technology-decision-mode.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0012
+  title: NestJS as the backend framework
+  path: knowledge/decisions/ADR-0012-nestjs-as-backend-framework.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0013
+  title: Next.js App Router as the frontend framework
+  path: knowledge/decisions/ADR-0013-nextjs-app-router-as-frontend.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0014
+  title: PostgreSQL as the primary datastore
+  path: knowledge/decisions/ADR-0014-postgresql-as-primary-datastore.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0015
+  title: Prisma as the data access layer
+  path: knowledge/decisions/ADR-0015-prisma-as-data-access-layer.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0016
+  title: Elasticsearch for search, with a Postgres fallback
+  path: knowledge/decisions/ADR-0016-elasticsearch-for-search-with-postgres-fallback.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0017
+  title: Self-hosted Docker Compose on a single VM
+  path: knowledge/decisions/ADR-0017-self-hosted-docker-compose-on-single-vm.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M3
+- id: ADR-0018
+  title: Aurora — a second, opt-in visual theme carried alongside the shipped design
+  path: knowledge/decisions/ADR-0018-aurora-experimental-theme.md
+  status: Superseded
+  version: 0.3.0
+  milestone: M12
+- id: ADR-0019
+  title: Glass materials, motion, and pill controls promoted from Aurora-only to the storefront and admin baseline
+  path: knowledge/decisions/ADR-0019-glass-and-motion-become-baseline-design-language.md
+  status: Accepted
+  version: 0.2.0
+  milestone: M12
+- id: ADR-0020
+  title: Aurora dark theme removed after live evaluation — one palette going forward
+  path: knowledge/decisions/ADR-0020-aurora-theme-removed.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M12
+- id: ADR-0021
+  title: Product Q&A is a new bounded context, not a Reviews extension
+  path: knowledge/decisions/ADR-0021-product-qa-bounded-context.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0022
+  title: Wati as the WhatsApp Commerce (Ordering) Platform
+  path: knowledge/decisions/ADR-0022-wati-as-whatsapp-commerce-platform.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0023
+  title: Wati Consolidates the WhatsApp Channel — Notifications and Ordering, One Integration
+  path: knowledge/decisions/ADR-0023-wati-consolidates-whatsapp-channel.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0024
+  title: Interim Pincode Deliverability Estimate — Behind the Shipping Port, Ahead of Shiprocket
+  path: knowledge/decisions/ADR-0024-interim-pincode-deliverability-estimate.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0025
+  title: zod and react-hook-form for Storefront Forms
+  path: knowledge/decisions/ADR-0025-zod-and-react-hook-form-for-storefront-forms.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0026
+  title: Client-Approved AI-Generated Reference Photography, Used as Atmosphere and Navigation Only
+  path: knowledge/decisions/ADR-0026-approved-reference-photography-on-the-storefront.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0027
+  title: The Mandala Motif Ships as Extracted Reference Line Art, Not Hand-Traced Vector
+  path: knowledge/decisions/ADR-0027-mandala-motif-from-extracted-reference-line-art.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0028
+  title: Radix Dialog Carries the Bag Drawer, Rather Than a Hand-Rolled Overlay
+  path: knowledge/decisions/ADR-0028-radix-dialog-for-the-bag-drawer.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0029
+  title: Shiprocket Integration As Built — Prepaid-Only, Admin-Triggered, Token-Authenticated Webhook
+  path: knowledge/decisions/ADR-0029-shiprocket-integration-as-built.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M6
+- id: ADR-0033
+  title: Adopt Oriveda 073100c — Progressive Rigor, the Divergence Log, the Manifest and the Engine
+  path: knowledge/decisions/ADR-0033-adopt-oriveda-0-1-engine-and-progressive-rigor.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M8
+

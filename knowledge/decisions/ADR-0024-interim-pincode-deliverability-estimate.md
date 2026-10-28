@@ -20,6 +20,8 @@ related_documents:
   - FEAT-SHIPPING
 related_decisions:
   - ADR-0001
+related_domains: []
+related_features: []
 tags:
   - decision
   - shipping

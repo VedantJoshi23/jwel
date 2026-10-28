@@ -21,6 +21,7 @@ related_domains:
   - DOM-SHIPPING
 related_decisions:
   - ADR-0007
+related_features: []
 tags:
   - governance
   - domains

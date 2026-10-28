@@ -1,6 +1,6 @@
 ---
 id: STD-SECURITY
-title: Jwel / ELYSIAN — Standard: Security
+title: 'Jwel / ELYSIAN — Standard: Security'
 version: 1.0.0
 status: Frozen
 owner: Architecture
@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0005
   - ADR-0017
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - security

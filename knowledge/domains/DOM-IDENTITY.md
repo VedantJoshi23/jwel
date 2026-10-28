@@ -20,6 +20,8 @@ related_documents:
   - DISC-008
 related_decisions:
   - ADR-0006
+related_domains: []
+related_features: []
 tags:
   - domain
   - identity

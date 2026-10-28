@@ -1,6 +1,6 @@
 ---
 id: STD-API
-title: Jwel / ELYSIAN — Standard: API
+title: 'Jwel / ELYSIAN — Standard: API'
 version: 1.0.0
 status: Frozen
 owner: Architecture
@@ -18,6 +18,9 @@ required_by: []
 related_decisions:
   - ADR-0008
   - ADR-0012
+related_documents: []
+related_domains: []
+related_features: []
 tags:
   - standards
   - api

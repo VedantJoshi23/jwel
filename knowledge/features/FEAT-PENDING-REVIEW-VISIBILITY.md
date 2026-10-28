@@ -22,10 +22,13 @@ related_documents:
 related_domains:
   - DOM-REVIEWS
 related_decisions: []
+related_features: []
 tags:
   - feature
   - reviews
   - ux
+risk: Low
+complexity: Low
 ---
 
 # FEAT-PENDING-REVIEW-VISIBILITY

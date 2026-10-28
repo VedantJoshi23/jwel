@@ -23,6 +23,8 @@ related_decisions:
   - ADR-0001
   - ADR-0005
   - ADR-0024
+related_domains: []
+related_features: []
 tags:
   - decision
   - shipping

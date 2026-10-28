@@ -21,6 +21,7 @@ related_documents:
   - FEAT-PAYMENT-E2E
 related_domains: []
 related_decisions: []
+related_features: []
 tags:
   - feature
   - accessibility

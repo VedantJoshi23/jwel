@@ -14,6 +14,10 @@ priority: High
 depends_on: []
 required_by:
   - DISC-002
+related_documents: []
+related_domains: []
+related_features: []
+related_decisions: []
 tags:
   - discovery
   - investigation

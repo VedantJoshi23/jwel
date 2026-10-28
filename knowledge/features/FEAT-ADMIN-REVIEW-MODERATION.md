@@ -22,10 +22,13 @@ related_documents:
 related_domains:
   - DOM-REVIEWS
 related_decisions: []
+related_features: []
 tags:
   - feature
   - reviews
   - admin
+risk: Medium
+complexity: Low
 ---
 
 # FEAT-ADMIN-REVIEW-MODERATION
