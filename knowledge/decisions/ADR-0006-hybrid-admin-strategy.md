@@ -1,12 +1,13 @@
 ---
 id: ADR-0006
 title: Hybrid Admin — Custom for Workflows, Third-Party for CRUD, BI and CMS
-version: 1.0.0
+version: 1.0.1
 status: Accepted
 owner: Architecture
 reviewers: []
+reviewers_unrecorded: true
 created: 2026-07-27
-updated: 2026-07-29
+updated: 2026-10-29
 milestone: M14
 category: Decision
 priority: High
@@ -26,6 +27,12 @@ complexity: Medium
 ---
 
 # ADR-0006 — Hybrid Admin: Custom for Workflows, Third-Party for CRUD, BI and CMS
+
+*v1.0.1, 2026-10-29, non-semantic (Oriveda `ADR-0007` rules 3 and 4): frontmatter
+gains `reviewers_unrecorded: true`. This decision was Accepted before reviewers were
+recorded; `reviewers` stays empty and is never back-filled. Surfaced when jwel's
+manifest mapped `Accepted` onto Oriveda's `Frozen` (Oriveda 0.3.0); made by Claude at
+the owner's (Vedant) request on 2026-10-29.*
 
 ## Context
 

@@ -1,12 +1,13 @@
 ---
 id: ADR-0002
 title: Sentry + Prometheus/Grafana as the Observability Stack
-version: 1.0.0
+version: 1.0.1
 status: Accepted
 owner: Architecture
 reviewers: []
+reviewers_unrecorded: true
 created: 2026-07-09
-updated: 2026-07-28
+updated: 2026-10-29
 milestone: M13
 category: Decision
 priority: Critical
@@ -25,6 +26,12 @@ complexity: Medium
 ---
 
 # ADR-0002 — Sentry + Prometheus/Grafana as the Observability Stack
+
+*v1.0.1, 2026-10-29, non-semantic (Oriveda `ADR-0007` rules 3 and 4): frontmatter
+gains `reviewers_unrecorded: true`. This decision was Accepted before reviewers were
+recorded; `reviewers` stays empty and is never back-filled. Surfaced when jwel's
+manifest mapped `Accepted` onto Oriveda's `Frozen` (Oriveda 0.3.0); made by Claude at
+the owner's (Vedant) request on 2026-10-29.*
 
 ## Context
 

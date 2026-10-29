@@ -343,4 +343,15 @@ describe('module map agrees across ARCH-001 §1.5, this file and the DOM-* bound
     for (const mods of Object.values(byDomain)) mods.sort();
     expect(boundaryBlocks()).toEqual(byDomain);
   });
+
+  it("ARCH-001 §1.2's kind: shared block covers exactly the shared modules plus common/ (ADR-0035)", () => {
+    const arch = readFileSync(join(KNOWLEDGE, 'architecture', 'ARCH-001-system-architecture.md'), 'utf8');
+    const block = arch.match(/^```yaml oriveda-boundary\n([\s\S]*?)^```/m)![1];
+    expect(block).toMatch(/^kind:\s*shared$/m);
+    const paths = [...block.matchAll(/^\s*-\s*"([^"]+)"/gm)].map((m) => m[1]).sort();
+    const shared = Object.entries(MODULE_CONTEXT)
+      .filter(([, ctx]) => ctx === 'shared')
+      .map(([mod]) => `apps/api/src/modules/${mod}/**`);
+    expect(paths).toEqual([...shared, 'apps/api/src/common/**'].sort());
+  });
 });

@@ -1,10 +1,11 @@
 ---
 id: DOM-NOTIFICATION
 title: 'Jwel — Domain: Notification'
-version: 1.1.0
+version: 1.1.1
 status: Frozen
 owner: Architecture
 reviewers: []
+reviewers_unrecorded: true
 created: 2026-07-09
 updated: 2026-10-28
 milestone: M5
@@ -29,6 +30,12 @@ complexity: Medium
 ---
 
 # Domain: Notification
+
+*v1.1.1, 2026-10-28, non-semantic (Oriveda `ADR-0007` rules 3 and 4): frontmatter
+gains `reviewers_unrecorded: true`. This spec was Frozen before reviewers were
+recorded; `reviewers` stays empty and is never back-filled. Decided by the
+Principal Engineer under authority delegated by the owner (Vedant) on
+2026-10-28.*
 
 **Depth tier: Full** — this domain carries independent business rules
 (channel fallback ordering, opt-in policy) and specifies its own tables. It is

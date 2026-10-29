@@ -5,14 +5,24 @@ project: jwel
 framework:
   name: Oriveda
   submodule: .oriveda-framework
-  version: 0.1.0
-  commit: 073100c
+  version: 0.3.0
+  commit: fb521e4
+# jwel's own facts, stated for the validator (Oriveda ADR-0004 v0.2.0, release 0.3.0).
+# The aliases follow CONSTITUTION §6 (Proposal → Draft → Review → Approved → Frozen) and
+# ADR-0007: an Accepted ADR binds and changes only by addendum or supersession.
+validator:
+  lifecycle_aliases:
+    Review: Architecture Review
+    Accepted: Frozen
+  constitution: knowledge/constitution/CONSTITUTION.md
+  # ADR-0007: root-level *.md files and docs/ are advisory, never binding.
+  advisory_paths: ["*.md", "docs/**"]
 documents:
 - id: ARCH-001
   title: Jwel / ELYSIAN — System Architecture
   path: knowledge/architecture/ARCH-001-system-architecture.md
   status: Frozen
-  version: 1.6.0
+  version: 1.6.1
   milestone: M3
 - id: CONSTITUTION
   title: Jwel / ELYSIAN — Engineering Constitution
@@ -24,7 +34,7 @@ documents:
   title: Jwel / ELYSIAN — Divergence Log
   path: knowledge/decisions/DIVERGENCE-LOG.md
   status: Draft
-  version: 0.1.0
+  version: 0.2.0
   milestone: M8
 - id: DISC-001
   title: Discovery — Repository Structure
@@ -114,7 +124,7 @@ documents:
   title: 'Jwel — Domain: Notification'
   path: knowledge/domains/DOM-NOTIFICATION.md
   status: Frozen
-  version: 1.1.0
+  version: 1.1.1
   milestone: M5
 - id: DOM-ORDERING
   title: 'Jwel / ELYSIAN — Domain: Ordering'
@@ -402,7 +412,7 @@ documents:
   title: 'Jwel — Standard: Observability'
   path: knowledge/standards/STD-OBSERVABILITY.md
   status: Frozen
-  version: 1.0.0
+  version: 1.0.1
   milestone: M4
 - id: STD-PERFORMANCE
   title: 'Jwel / ELYSIAN — Standard: Performance'
@@ -439,7 +449,7 @@ decisions:
   title: Sentry + Prometheus/Grafana as the Observability Stack
   path: knowledge/decisions/ADR-0002-observability-stack.md
   status: Accepted
-  version: 1.0.0
+  version: 1.0.1
   milestone: M13
 - id: ADR-0003
   title: WhatsApp (Meta Cloud API, direct) + MSG91 (SMS fallback) as Notification Channels
@@ -457,13 +467,13 @@ decisions:
   title: Razorpay as the Sole Payment Provider, Stripe Dropped
   path: knowledge/decisions/ADR-0005-razorpay-as-sole-payment-provider.md
   status: Accepted
-  version: 1.0.0
+  version: 1.0.1
   milestone: M12
 - id: ADR-0006
   title: Hybrid Admin — Custom for Workflows, Third-Party for CRUD, BI and CMS
   path: knowledge/decisions/ADR-0006-hybrid-admin-strategy.md
   status: Accepted
-  version: 1.0.0
+  version: 1.0.1
   milestone: M14
 - id: ADR-0007
   title: Documentation authority and repository layout
@@ -633,4 +643,15 @@ decisions:
   status: Accepted
   version: 0.1.0
   milestone: M8
-
+- id: ADR-0035
+  title: Adopt Oriveda v0.2.0 (8ed8df1) — Engine Flags, the Shared Unit, Adoption Entries
+  path: knowledge/decisions/ADR-0035-adopt-oriveda-0-2-engine-flags-and-shared-unit.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M8
+- id: ADR-0036
+  title: Adopt Oriveda v0.3.0 (fb521e4) — jwel's Validator Settings
+  path: knowledge/decisions/ADR-0036-adopt-oriveda-0-3-validator-settings.md
+  status: Accepted
+  version: 0.1.0
+  milestone: M8

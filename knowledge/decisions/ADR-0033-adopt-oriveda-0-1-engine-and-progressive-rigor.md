@@ -20,6 +20,7 @@ related_domains: []
 related_features: []
 related_decisions:
   - ADR-0034
+  - ADR-0035
 tags:
   - decision
   - oriveda
@@ -94,6 +95,11 @@ Metadata only. No body changes and no version bumps, except as noted.
   statement (Constitution §6), and missing empty list fields don't justify that.
 
 ### Residual validator errors (accepted, reported upstream)
+
+*Addendum 2026-10-28 (`ADR-0035` decision 8):* Oriveda v0.2.0 removed the
+id-pattern class. `reviewers_unrecorded: true` removed the empty-reviewers
+class. The three remaining classes are tracked as upstream-pending:
+lifecycle names, `CONSTITUTION` discovery and advisory references.
 
 Run 2026-10-28: 98 specs checked, **104 errors, 0 warnings**, every one in a class
 below. Before normalisation there were 356.

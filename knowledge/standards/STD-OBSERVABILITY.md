@@ -1,12 +1,13 @@
 ---
 id: STD-OBSERVABILITY
 title: 'Jwel — Standard: Observability'
-version: 1.0.0
+version: 1.0.1
 status: Frozen
 owner: Architecture
 reviewers: []
+reviewers_unrecorded: true
 created: 2026-07-09
-updated: 2026-07-09
+updated: 2026-10-28
 milestone: M4
 category: Standards
 priority: Critical
@@ -26,6 +27,12 @@ complexity: Medium
 ---
 
 # STD-OBSERVABILITY
+
+*v1.0.1, 2026-10-28, non-semantic (Oriveda `ADR-0007` rules 3 and 4): frontmatter
+gains `reviewers_unrecorded: true`. This spec was Frozen before reviewers were
+recorded; `reviewers` stays empty and is never back-filled. Decided by the
+Principal Engineer under authority delegated by the owner (Vedant) on
+2026-10-28.*
 
 > **Adopted into the M4 Standards series 2026-08-07**, under `PRM-STANDARDS` /
 > `OV-005`. Authored pre-Oriveda (2026-07-09) and **not rewritten** — per

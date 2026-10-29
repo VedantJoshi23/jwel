@@ -42,6 +42,7 @@ related_decisions:
   - ADR-0031
   - ADR-0032
   - ADR-0033
+  - ADR-0035
 tags:
   - decision
   - architecture
@@ -96,7 +97,11 @@ The jwel field report sent upstream raises exactly this as #13, and its option
    (*Consumes*), and it creates no import edge: payload types live in
    `common/event-bus`. A consumer's block therefore does not list the
    producer. Example: Recommendation consumes Identity's `user.registered`.
-4. **Shared services and entrypoints are deliberately unowned.** No block, and
+4. *Revised 2026-10-28 by `ADR-0035` decision 4:* shared services are now one
+   `kind: shared` block in `ARCH-001` §1.2, and entrypoints are `--exclude`d.
+   The text below records the engine-0.1.0 choice.
+
+   **Shared services and entrypoints are deliberately unowned.** No block, and
    no pseudo-domain, covers:
    - `audit-log`, `metrics`, `storage`, `uploads`, `settings`, `health`;
    - `common/`, `prisma/`, `app.module.ts`, `main.ts`;
